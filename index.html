@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <title>GAME LIBRARY EXPERIMENTS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <body style="margin: auto; max-width: 500px;">
+    <h1>GAME LIBRARY EXPERIMENTS</h1>
+    <p id="loading">Loading data from Google Sheet...</p>
+    <script src="papaparse.min.js"></script>
+    <script>
+      async function load() {
+        // settings
+        const publishURL =
+          "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeLNBT6yfF9t8WvrC9xKB1MKIYQXw49ffNkANMOP4w89RlF90Vb5jVzB3HgvXRJz48zw3LfsJKQnsN/pub?output=csv";
+
+        // (1) query raw published google sheet url
+        // assuming 1st is always redirect (could generalize if it's not)
+        console.log("querying google sheets");
+        const resp1 = await fetch(publishURL);
+        if (!resp1.redirected) {
+          console.error("assumed first response would be redirect. response:");
+          console.error(resp1);
+          return;
+        }
+
+        // (2) query raw redirected google sheet data url
+        const redirectedURL = resp1.url;
+        const resp2 = await fetch(redirectedURL);
+        if (!resp2.ok) {
+          console.error("assumed second response would be OK. response:");
+          console.error(resp2);
+          return;
+        }
+        const csv = await resp2.text();
+
+        // (3) parse the CSV using Papa Parse library
+        // library reference: https://www.papaparse.com/docs
+        const parsed = Papa.parse(csv, {
+          delimiter: ",",
+          dynamicTyping: true,
+          header: true,
+        });
+        if (parsed.errors.length > 0) {
+          console.error("got errors parsing csv:");
+          console.log(parsed.errors);
+          return;
+        }
+
+        // (4) render the data somehow. this is a boring HTML table
+        const cols = parsed.meta.fields;
+
+        // create table
+        let table = document.createElement("table");
+
+        // create header
+        let thead = document.createElement("thead");
+        let headerRow = document.createElement("tr");
+        cols.forEach((col) => {
+          let th = document.createElement("th");
+          th.textContent = col;
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Create table body
+        let tbody = document.createElement("tbody");
+        for (let row of parsed.data) {
+          let tr = document.createElement("tr");
+          for (let col of cols) {
+            let td = document.createElement("td");
+            td.textContent = row[col];
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        table.appendChild(tbody);
+
+        // Append table to body
+        document.getElementById("loading").remove();
+        document.body.appendChild(table);
+      }
+
+      load();
+    </script>
+  </body>
+</html>
