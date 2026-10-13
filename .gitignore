@@ -12,9 +12,9 @@ dist/
 .env*
 .dev.vars
 
-# generated art: rebuild with `bun run art`. The decisions (which image belongs to which game)
-# are committed in art/resolved.json + art/overrides.json, so rebuilds are reproducible.
-public/art/
+# generated art (public/art) IS committed: ~350 MB of content-hashed webp, so it's never lost and
+# never needs re-downloading. Rebuild with `bun run art`; the decisions (which image belongs to
+# which game) are in art/resolved.json + art/overrides.json. Contact sheets are scratch.
 art/review/
 
 # test output
