@@ -28,6 +28,7 @@ import { poster } from "../../world/kit/decor";
 import { GRADE_COLORS } from "../../media/spines";
 import type { Level, LevelCtx, Station } from "../types";
 import { DenEggs } from "./eggs";
+import { decorateDen } from "./decor";
 import { dust } from "../../world/kit/medieval";
 import { LOOPS } from "../../audio/sfx";
 
@@ -437,6 +438,9 @@ export default function den(): Level {
         scene.add(p);
         c.pickable(p, () => c.inspect(g));
       });
+
+      // ---------------- the lived-in layer: props, furniture, clutter (one merged mesh) ----------------
+      await decorateDen(c, { X0, X1, Z0, Z1, CEIL, nookX, consoleX0: consoleCenterX - consoleSpan / 2, pcZ0: pcCenterZ - pcSpan / 2, pcZ1: pcCenterZ + pcSpan / 2, deskZ, cartZ0: cartCenterZ - cartW / 2, cartZ1: cartCenterZ + cartW / 2, cartBase, arcadeXs: arcadePicks.map((_, i) => -3.45 + i * 0.74), vendingX: 2.75, couchZ: 1.75, tableZ: 0.2 }, () => progress("Making a mess…"));
 
       // ---------------- camera rail + stations ----------------
       rail = wallRail(
