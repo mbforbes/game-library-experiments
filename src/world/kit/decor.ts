@@ -1,7 +1,7 @@
 // Decor: framed posters of favourite games (hi-res cover art), lit by a small picture light.
 
 import * as THREE from "three/webgpu";
-import { texture, vec3, uniform } from "three/tsl";
+import { texture, vec3, vec2, uv, uniform } from "three/tsl";
 import type { Game } from "../../../shared/types";
 import type { ArtStore } from "../../library/art";
 import { boxes, neonMaterial } from "./common";
@@ -11,7 +11,8 @@ export function poster(art: ArtStore, game: Game, height: number, frameColor = 0
   const g = new THREE.Group();
   const aspectU = uniform(0.7);
   const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.35 });
-  const t = texture(new THREE.Texture());
+  // art textures are uploaded unflipped (flipY = false): flip v here
+  const t = texture(new THREE.Texture(), vec2(uv().x, uv().y.oneMinus()));
   mat.colorNode = t.rgb;
   mat.emissiveNode = t.rgb.mul(0.08);
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);

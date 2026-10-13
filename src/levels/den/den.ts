@@ -62,8 +62,8 @@ export default function den(): Level {
       ctx = c;
       const { scene, art, store, kit, engine } = c;
       await progress("Wiring the neon…");
-      engine.post.bloomStrength.value = 1.15;
-      engine.post.bloomRadius.value = 0.6;
+      engine.post.bloomStrength.value = 0.55;
+      engine.post.bloomRadius.value = 0.4;
       engine.post.vignette.value = 0.45;
       engine.post.exposure.value = 1.05;
       scene.background = new THREE.Color(0x030208);

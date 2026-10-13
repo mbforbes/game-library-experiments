@@ -262,6 +262,7 @@ export class MediaField {
     if (!s || !this.stickers) return;
     this.stickers.setMatrixAt(s.i, m ? m.clone().multiply(s.local) : ZERO);
     this.stickers.instanceMatrix.needsUpdate = true;
+    this.stickers.boundingSphere = null;
   }
 
   get games(): Game[] {
@@ -296,6 +297,9 @@ export class MediaField {
     w.b.inv[w.i].copy(m).invert();
     w.b.mesh.setMatrixAt(w.i, m);
     w.b.mesh.instanceMatrix.needsUpdate = true;
+    // the culling sphere was computed for the old layout (e.g. everything at the origin before an
+    // animated field — tubes, flocks — first moves): recompute it lazily
+    w.b.mesh.boundingSphere = null;
     this.syncSticker(id, m);
   }
 

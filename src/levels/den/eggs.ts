@@ -90,9 +90,10 @@ export class DenEggs {
     if (this.lightningT >= 0) {
       this.lightningT += dt;
       const k = this.lightningT;
-      const f = k < 0.08 ? 1 : k < 0.16 ? 0.2 : k < 0.24 ? 0.8 : Math.max(0, 1 - (k - 0.24) * 3);
+      // a soft double flicker out the window, barely touching the room
+      const f = k < 0.08 ? 0.8 : k < 0.18 ? 0.15 : k < 0.26 ? 0.55 : Math.max(0, 0.55 - (k - 0.26) * 1.6);
       outsideFx.lightning.value = f;
-      this.o.flashTarget.flash.value = f * 0.06;
+      this.o.flashTarget.flash.value = f * 0.008;
       if (k > 0.7) {
         this.lightningT = -1;
         outsideFx.lightning.value = 0;

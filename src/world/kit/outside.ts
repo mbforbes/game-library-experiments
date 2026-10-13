@@ -28,7 +28,7 @@ function skyMaterial() {
   const moonC = vec2(0.78, 0.78);
   const md = length(p.sub(moonC).mul(vec2(2, 1)));
   city = city.add(vec3(1.0, 0.85, 0.95).mul(smoothstep(0.052, 0.048, md).mul(1.6))).add(vec3(0.6, 0.25, 0.6).mul(smoothstep(0.25, 0.04, md).mul(0.35)));
-  city = city.add(vec3(0.8, 0.85, 1.0).mul(outsideFx.lightning.mul(1.4)));
+  city = city.add(vec3(0.55, 0.6, 0.75).mul(outsideFx.lightning.mul(0.45)));
 
   // --- outrun: banded sunset, striped sun, perspective grid below the horizon
   const hz = float(0.38);
@@ -153,8 +153,8 @@ export function buildOutside(center: THREE.Vector3, normal: THREE.Vector3, width
 /** Billboard on the skyline showing a texture (e.g. a currently-playing game's cover). */
 export function billboard(width: number, height: number) {
   const m = new THREE.MeshBasicNodeMaterial();
-  const t = texture(new THREE.Texture());
   const p = uv();
+  const t = texture(new THREE.Texture(), vec2(p.x, p.y.oneMinus())); // art is uploaded unflipped
   const scan = sin(p.y.mul(300).add(time.mul(3))).mul(0.08).add(0.92);
   m.colorNode = vec3(0);
   m.emissiveNode = t.rgb.mul(scan).mul(1.4).mul(isMode(0));

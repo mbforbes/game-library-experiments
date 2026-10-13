@@ -23,7 +23,7 @@ import type { Level, LevelCtx, Station } from "../types";
 import { texture, vec3 } from "three/tsl";
 import { LOOPS } from "../../audio/sfx";
 
-const R = 2.1; // radius of the shelf fronts
+const R = 3.0; // radius of the shelf fronts (roomy: zooming out keeps you clear of the light shafts)
 const DEPTH = 0.32;
 const ROWS = [0.25, 0.25, 0.25];
 const BOARD = 0.025;
@@ -59,8 +59,8 @@ export default function stacks(): Level {
     async build(c, progress) {
       ctx = c;
       const { scene, art, store, engine } = c;
-      engine.post.bloomStrength.value = 0.85;
-      engine.post.bloomRadius.value = 0.7;
+      engine.post.bloomStrength.value = 0.5;
+      engine.post.bloomRadius.value = 0.45;
       engine.post.vignette.value = 0.6;
       engine.post.exposure.value = 1.0;
       scene.background = new THREE.Color(0x07080d);
@@ -168,8 +168,8 @@ export default function stacks(): Level {
       const cs = candles(candlePos);
       scene.add(cs.group);
       tickers.push((_, t) => bobCandles(cs, t));
-      scene.add(lightShaft(new THREE.Vector3(0.6, yTop + 4, 0.2), new THREE.Vector3(-0.3, yBot, 0.1), 0.9, "#a8c4ff", 0.12));
-      scene.add(lightShaft(new THREE.Vector3(-0.8, yTop + 4, -0.4), new THREE.Vector3(0.4, yBot + 2, -0.2), 0.6, "#c8b4ff", 0.08));
+      scene.add(lightShaft(new THREE.Vector3(0.4, yTop + 4, 0.15), new THREE.Vector3(-0.2, yBot, 0.1), 0.6, "#a8c4ff", 0.1));
+      scene.add(lightShaft(new THREE.Vector3(-0.5, yTop + 4, -0.3), new THREE.Vector3(0.3, yBot + 2, -0.15), 0.42, "#c8b4ff", 0.07));
       scene.add(dust(engine.quality.mobile ? 250 : 600, R - 0.3, yBot, yTop));
 
       // ---- the Codex at the centre ----
@@ -182,15 +182,11 @@ export default function stacks(): Level {
       const codexTarget = new THREE.Vector3();
       tickers.push((dt, t) => {
         codex.update(t, dt);
-        // floats at the axis, at the viewer's height, turning to face them
+        // floats on the tower's axis at the viewer's height, turning to face them (the camera
+        // never crosses the axis, so it's behind you while you browse the shelves)
         const cam = c.camera.position;
-        // hovers at the axis at the viewer's height, but never closer than ~1.2 m to them
-        const toAxis = new THREE.Vector2(-cam.x, -cam.z);
-        const dist = toAxis.length();
-        const dir = dist > 1e-3 ? toAxis.normalize() : new THREE.Vector2(1, 0);
-        const reach = Math.max(dist, 1.2);
-        codexTarget.set(cam.x + dir.x * reach, cam.y - 0.15 + Math.sin(t * 0.7) * 0.05, cam.z + dir.y * reach);
-        codex.group.position.lerp(codexTarget, Math.min(1, dt * 1.5));
+        codexTarget.set(0, cam.y - 0.15 + Math.sin(t * 0.7) * 0.05, 0);
+        codex.group.position.lerp(codexTarget, Math.min(1, dt * 2));
         const want = Math.atan2(cam.x - codex.group.position.x, cam.z - codex.group.position.z);
         let d = want - codex.group.rotation.y;
         d = Math.atan2(Math.sin(d), Math.cos(d));
@@ -220,7 +216,7 @@ export default function stacks(): Level {
         pts.push(onWall(a, thetaY(a)));
         nrm.push(inward(a));
       }
-      rail = new Rail(pts, nrm, { h: [-0.4, BAND + 1.6], d: [0.4, 2 * R - 0.6], h0: BAND * 0.55, d0: 1.5, lift: 0.1 });
+      rail = new Rail(pts, nrm, { h: [-0.4, BAND + 1.6], d: [0.4, R - 0.8], h0: BAND * 0.55, d0: 1.5, lift: 0.1 });
       const sOf = (th: number) => (th - tStart) * R; // arc length ≈ theta * R (helix rise is small)
       const lastYear = years.filter((y) => y < 9999).pop() ?? 2026;
       c.rig.setRail(rail, { s: sOf(yearAt.get(lastYear) ?? thetaEnd), h: BAND * 0.5, d: 1.6 });
@@ -237,7 +233,19 @@ export default function stacks(): Level {
       era("2020s", 2020);
       stations.push(
         { id: "now", label: "Today", go: () => c.rig.goTo({ s: sOf(yearAt.get(lastYear) ?? thetaEnd) + 0.5, h: BAND * 0.5, d: 1.4 }, 1.8) },
-        { id: "codex", label: "The Codex", go: () => c.rig.goTo({ d: 0.9 + 1.25, h: BAND * 0.6 }, 1.2) },
+        {
+          id: "codex",
+          label: "The Codex",
+          go: () => {
+            // turn around from wherever you are on the stair and face the book on the axis
+            const cam = c.camera.position;
+            const dir = new THREE.Vector3(cam.x, 0, cam.z);
+            if (dir.lengthSq() < 1e-4) dir.set(1, 0, 0);
+            dir.normalize();
+            const at = new THREE.Vector3(0, cam.y - 0.1, 0);
+            c.rig.goFree(at.clone().addScaledVector(dir, 1.35).add(new THREE.Vector3(0, 0.25, 0)), at);
+          },
+        },
         {
           id: "wishes",
           label: "The Wishes",

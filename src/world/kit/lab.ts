@@ -140,6 +140,79 @@ export function chamberSign(opts: { number: string; caption: string; progress: n
   return new THREE.Mesh(new THREE.PlaneGeometry(w, (w * H) / W), m);
 }
 
+/**
+ * A dark label strip: a bold title, colour swatches with labels, and a small note (e.g. the sort
+ * order), auto-fitted and sized to read from across the chamber. Origin at its centre, facing +Z.
+ */
+export function legendStrip(opts: { title?: string; items?: { color: string; label: string }[]; note?: string; width: number; height?: number }) {
+  const CW = 4096;
+  const CH = Math.round((CW * (opts.height ?? 0.4)) / opts.width);
+  const [c, ctx] = canvas(CW, CH);
+  ctx.fillStyle = "#17191e";
+  ctx.beginPath();
+  ctx.roundRect(0, 0, CW, CH, Math.min(40, CH * 0.2));
+  ctx.fill();
+  ctx.textBaseline = "middle";
+  const items = opts.items ?? [];
+  const pad = CH * 0.32;
+  // measure at full size, then shrink everything to fit
+  let k = 1;
+  const big = (s: number) => `600 ${Math.round(CH * 0.48 * s)}px "Oswald", sans-serif`;
+  const mid = (s: number) => `500 ${Math.round(CH * 0.41 * s)}px "Oswald", sans-serif`;
+  const small = (s: number) => `500 ${Math.round(CH * 0.3 * s)}px "Barlow Condensed", sans-serif`;
+  const total = (s: number) => {
+    let w = pad;
+    if (opts.title) {
+      ctx.font = big(s);
+      w += ctx.measureText(opts.title).width + pad * 1.4;
+    }
+    ctx.font = mid(s);
+    for (const it of items) w += CH * 0.47 * s + CH * 0.14 * s + ctx.measureText(it.label).width + pad;
+    if (opts.note) {
+      ctx.font = small(s);
+      w += ctx.measureText(opts.note).width + pad;
+    }
+    return w;
+  };
+  k = Math.min(1, (CW - pad) / total(1));
+  let x = pad;
+  const cy = CH / 2 + CH * 0.02;
+  if (opts.title) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = big(k);
+    ctx.fillText(opts.title, x, cy);
+    x += ctx.measureText(opts.title).width + pad * 1.4;
+  }
+  for (const it of items) {
+    const sw = CH * 0.47 * k;
+    ctx.fillStyle = it.color;
+    ctx.shadowColor = it.color;
+    ctx.shadowBlur = CH * 0.12;
+    ctx.beginPath();
+    ctx.roundRect(x, CH / 2 - sw / 2, sw, sw, sw * 0.18);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    x += sw + CH * 0.14 * k;
+    ctx.fillStyle = "#f2f4f7";
+    ctx.font = mid(k);
+    ctx.fillText(it.label, x, cy);
+    x += ctx.measureText(it.label).width + pad;
+  }
+  if (opts.note) {
+    ctx.fillStyle = "#9aa3b2";
+    ctx.font = small(k);
+    ctx.textAlign = "right";
+    ctx.fillText(opts.note, CW - pad, cy);
+  }
+  const tex = canvasTexture(c);
+  tex.anisotropy = 8;
+  const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.5, transparent: true });
+  m.colorNode = texture(tex).rgb;
+  m.opacityNode = texture(tex).a;
+  m.emissiveNode = texture(tex).rgb.mul(0.45);
+  return new THREE.Mesh(new THREE.PlaneGeometry(opts.width, (opts.width * CH) / CW), m);
+}
+
 /** The Archivist: a hanging spherical AI core with a single eye. */
 export class Archivist {
   readonly group = new THREE.Group();

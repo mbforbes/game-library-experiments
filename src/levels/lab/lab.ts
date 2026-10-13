@@ -15,7 +15,7 @@ import { platformOf } from "../../../shared/platforms";
 import { wallRail, type Rail } from "../../engine/rail";
 import { MediaField, templateOf, type Placement } from "../../media/field";
 import { faceOut } from "../../world/shelving";
-import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx } from "../../world/kit/lab";
+import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx, legendStrip } from "../../world/kit/lab";
 import { boxes, neonMaterial, neonSign } from "../../world/kit/common";
 import { neonEnvironment } from "../../world/kit/env";
 import { DotMatrix } from "../../world/kit/displays";
@@ -54,8 +54,8 @@ export default function lab(): Level {
     async build(c, progress) {
       ctx = c;
       const { scene, art, store, engine } = c;
-      engine.post.bloomStrength.value = 0.7;
-      engine.post.bloomRadius.value = 0.4;
+      engine.post.bloomStrength.value = 0.35;
+      engine.post.bloomRadius.value = 0.3;
       engine.post.vignette.value = 0.3;
       engine.post.exposure.value = 0.95;
       scene.background = new THREE.Color(0x9aa0a8);
@@ -104,19 +104,27 @@ export default function lab(): Level {
       scene.add(fieldA.group, fieldB.group, gridA.frames.frame, gridA.frames.light, gridB.frames.frame, gridB.frames.light);
       fields.push(fieldA, fieldB);
 
-      // wall headers
-      const hdrA = neonSign("TEST QUEUE", { font: `"Oswald", sans-serif`, height: 0.32, color: "#4fb2ff", intensity: 2.2 });
-      hdrA.position.set(0, gridA.top + 0.35, -D / 2 + 0.02);
-      const hdrB = neonSign("TEST RESULTS", { font: `"Oswald", sans-serif`, height: 0.32, color: "#ff9a2a", intensity: 2.2 });
-      hdrB.position.copy(B_OFFSET).add(new THREE.Vector3(0, gridB.top + 0.35, -D / 2 + 0.02));
-      scene.add(hdrA, hdrB);
-      // grade legend under the results wall
-      GRADE_ORDER.forEach((g, i) => {
-        const n = store.stats.grades[g as keyof typeof store.stats.grades];
-        const sign = neonSign(`${g} ×${n}`, { font: `"Oswald", sans-serif`, height: 0.13, color: GRADE_COLORS[g], intensity: 2 });
-        sign.position.copy(B_OFFSET).add(new THREE.Vector3(-2.5 + i * 1.0, 0.32, -D / 2 + 0.03));
-        scene.add(sign);
+      // title + colour key strips along the foot of each wall (neon on white walls washed out)
+      const nPlaying = queue.filter((g) => g.status === "playing").length;
+      const keyA = legendStrip({
+        title: "TEST QUEUE",
+        items: [
+          { color: "#ffb000", label: `IN PROGRESS · ${nPlaying}` },
+          { color: "#e8f4ff", label: `UNTESTED · ${queue.length - nPlaying}` },
+        ],
+        note: "IN PROGRESS FIRST, THEN PRIORITY P1 → P5, THEN A → Z",
+        width: gridA.width,
       });
+      keyA.position.set(0, 0.27, -D / 2 + 0.02);
+      const GRADE_WORDS: Record<string, string> = { "A+": "EXCEPTIONAL", A: "GREAT", B: "GOOD", C: "MIXED", D: "POOR", F: "FAILED" };
+      const keyB = legendStrip({
+        title: "TEST RESULTS",
+        items: GRADE_ORDER.filter((g) => store.stats.grades[g as keyof typeof store.stats.grades]).map((g) => ({ color: GRADE_COLORS[g], label: `${g} ${GRADE_WORDS[g]} ${store.stats.grades[g as keyof typeof store.stats.grades]}` })),
+        note: "BY GRADE, NEWEST FIRST",
+        width: gridB.width,
+      });
+      keyB.position.copy(B_OFFSET).add(new THREE.Vector3(0, 0.27, -D / 2 + 0.02));
+      scene.add(keyA, keyB);
 
       // chamber signs
       const s = store.stats;
@@ -174,13 +182,8 @@ export default function lab(): Level {
         near.resize(size.x * scale, size.y * scale);
         near.updateCamera(c.camera);
         portalA.group.visible = portalB.group.visible = false;
-        // same MRT + target layout as the main pass: no extra shader variants to compile
-        const prevMrt = r.getMRT(), prevRt = r.getRenderTarget();
-        r.setRenderTarget(near.rt);
-        r.setMRT(engine.mrt);
-        r.render(scene, near.cam);
-        r.setMRT(prevMrt);
-        r.setRenderTarget(prevRt);
+        // same MRT, target layout and render context as the main pass: nothing new to compile
+        engine.renderTo(scene, near.cam, near.rt);
         portalA.group.visible = portalB.group.visible = true;
       });
 
@@ -190,10 +193,10 @@ export default function lab(): Level {
       scene.add(archivist.group);
       c.pickable(archivist.group, () => say(nextQuip()));
       caption = new DotMatrix({ width: 4.2, height: 0.18, rows: 14, color: "#ffb84a", off: "#2a2010", speed: 22 });
-      caption.mesh.position.set(0, H - 0.45, -D / 2 + 0.03);
+      caption.mesh.position.set(0, H - 0.3, -D / 2 + 0.03);
       scene.add(caption.mesh);
       const captionB = new DotMatrix({ width: 4.2, height: 0.18, rows: 14, color: "#ffb84a", off: "#2a2010", speed: 22 });
-      captionB.mesh.position.copy(B_OFFSET).add(new THREE.Vector3(0, H - 0.45, -D / 2 + 0.03));
+      captionB.mesh.position.copy(B_OFFSET).add(new THREE.Vector3(0, H - 0.3, -D / 2 + 0.03));
       scene.add(captionB.mesh);
       tickers.push((dt, t) => {
         caption.update(dt);
@@ -231,14 +234,10 @@ export default function lab(): Level {
       scene.add(tf.group);
       fields.push(tf);
       tubeField = { field: tf, items };
-      const tubeSign = neonSign("PENDING ACQUISITION", { font: `"Oswald", sans-serif`, height: 0.14, color: "#4fd8ff", intensity: 2 });
-      tubeSign.position.set(-2.6, 2.6, D / 2 - 0.03);
+      const tubeSign = legendStrip({ title: "PENDING ACQUISITION", note: `${wish.length} SUBJECTS · $${store.stats.wishlistLoose.toLocaleString()}`, width: 1.9, height: 0.2 });
+      tubeSign.position.set(tubeX[1], 2.75, D / 2 - 0.03);
       tubeSign.rotation.y = Math.PI;
       scene.add(tubeSign);
-      const tubeCount = neonSign(`${wish.length} SUBJECTS · $${store.stats.wishlistLoose.toLocaleString()}`, { font: `"Oswald", sans-serif`, height: 0.1, color: "#4fd8ff", intensity: 1.5 });
-      tubeCount.position.set(-2.6, 2.42, D / 2 - 0.03);
-      tubeCount.rotation.y = Math.PI;
-      scene.add(tubeCount);
 
       // a companion cube on a pedestal
       const ped = new THREE.Mesh(boxes([[0, 0.25, 0, 0.6, 0.5, 0.6]]), new THREE.MeshStandardNodeMaterial({ color: 0x3a3c42, roughness: 0.4, metalness: 0.5 }));
@@ -280,15 +279,49 @@ export default function lab(): Level {
       };
       const sA = backS(railA, new THREE.Vector3());
       const sB = backS(railB, B_OFFSET);
+      // Frame a set of cells: fit them on screen if possible, otherwise start at their top-left
+      // corner (the order reads left to right, top to bottom) at the widest view the room allows
+      const frameCells = (r: Rail, grid: typeof gridA, list: Game[], offset: THREE.Vector3) => {
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+        for (const g of list) {
+          const p = grid.centers.get(g.id);
+          if (!p) continue;
+          x0 = Math.min(x0, p.x - CELL / 2);
+          x1 = Math.max(x1, p.x + CELL / 2);
+          y0 = Math.min(y0, p.y - CELL / 2);
+          y1 = Math.max(y1, p.y + CELL / 2);
+        }
+        if (!isFinite(x0)) return { s: r.project(offset), h: 2, d: 4 };
+        const cam = c.camera;
+        const tv = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * 0.84; // leave room for the HUD bars
+        const th = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * cam.aspect * 0.94;
+        const pad = 0.1;
+        const bw = x1 - x0 + 2 * pad, bh = y1 - y0 + 2 * pad;
+        const off = 0.27; // the rail runs this far in front of the cells
+        const dist = Math.min(r.opts.d[1] + off, Math.max(0.9, bh / 2 / tv, bw / 2 / th));
+        let cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        const hw = dist * th, hh = dist * tv;
+        if (bw / 2 > hw) cx = x0 - pad + hw;
+        if (bh / 2 > hh) cy = y1 + pad - hh;
+        return { s: r.project(new THREE.Vector3(cx, 0, offset.z - D / 2)), h: cy, d: dist - off };
+      };
+      const fr = (b: boolean, grid: typeof gridA, list: () => Game[]) => () => {
+        if (b !== inB) switchTo(b);
+        const o = b ? B_OFFSET : new THREE.Vector3();
+        c.rig.goTo(frameCells(b ? railB : railA, grid, list(), o), 1.4);
+      };
       stations.push(
-        { id: "queue", label: "Test Queue", go: goA(sA, 2.1, 4.6) },
-        { id: "playing", label: "In Progress", go: goA(sA - (gridA.width / 2 - 0.6), gridA.top - 0.4, 1.3) },
-        { id: "results", label: "Results", go: goB(sB, 2.1, 4.6) },
-        { id: "aplus", label: "A+ Wall", go: goB(sB - (gridB.width / 2 - 0.6), gridB.top - 0.4, 1.3) },
+        { id: "queue", label: "Test Queue", go: fr(false, gridA, () => queue) },
+        { id: "playing", label: "In Progress", go: fr(false, gridA, () => queue.filter((g) => g.status === "playing")) },
+        { id: "results", label: "Results", go: fr(true, gridB, () => results) },
+        { id: "aplus", label: "A+ Wall", go: fr(true, gridB, () => results.filter((g) => g.grade === "A+")) },
         { id: "portal", label: "Portal", go: goA(railA.project(portalA.group.position), 1.3, 2.4) },
         { id: "tubes", label: "Pending", go: goA(railA.project(new THREE.Vector3(-2.6, 0, D / 2)), 1.6, 2.2) },
         { id: "stats", label: "Chamber Sign", go: goA(railA.project(signA.position), 2.0, 2.0) },
       );
+      void sA;
+      void sB;
+      void goB;
     },
 
     update(dt, t) {
@@ -466,6 +499,7 @@ export default function lab(): Level {
     const q = faceOut(n);
     const placements: Placement[] = [];
     const cells: Parameters<typeof cellFrames>[0] = [];
+    const centers = new Map<string, THREE.Vector3>();
     games.forEach((g, i) => {
       const cx = i % cols, cy = Math.floor(i / cols);
       const center = wallCenter.clone().add(new THREE.Vector3(-width / 2 + (cx + 0.5) * CELL, top - (cy + 0.5) * CELL, 0.13));
@@ -473,8 +507,9 @@ export default function lab(): Level {
       const sc = Math.min((CELL * 0.72) / w, (CELL * 0.7) / h, 1.7);
       placements.push({ game: g, position: center.clone().add(new THREE.Vector3(0, (-h * sc) / 2 + 0.008, -0.02)), quaternion: q, scale: sc });
       cells.push({ pos: center, quat: new THREE.Quaternion(), color: new THREE.Color(colorOf(g)).convertSRGBToLinear(), size: CELL });
+      centers.set(g.id, center);
     });
-    return { placements, frames: cellFrames(cells), top, width };
+    return { placements, frames: cellFrames(cells), top, width, centers };
   }
 
   return level;

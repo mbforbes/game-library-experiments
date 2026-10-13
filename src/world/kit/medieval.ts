@@ -3,7 +3,7 @@
 
 import * as THREE from "three/webgpu";
 import {
-  positionWorld, positionLocal, vec2, vec3, float, floor, fract, hash, mix, smoothstep, sin, cos, time, instanceIndex, uv, texture,
+  positionWorld, positionLocal, cameraPosition, vec2, vec3, float, floor, fract, hash, mix, smoothstep, sin, cos, time, instanceIndex, uv, texture,
   normalView, positionViewDirection, abs, uniform, max,
 } from "three/tsl";
 import { canvas, canvasTexture, lin } from "./common";
@@ -48,30 +48,41 @@ export function candles(positions: THREE.Vector3[]) {
   const flameMat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   const i = float(instanceIndex);
   const flick = sin(time.mul(hash(i).mul(6).add(9)).add(i)).mul(0.15).add(sin(time.mul(23).add(i.mul(3.1))).mul(0.08)).add(1);
-  const fy = positionLocal.y.add(0.5).clamp(0, 1);
-  const col = mix(vec3(1.0, 0.45, 0.08), vec3(1.0, 0.92, 0.6), fy.oneMinus());
+  // (the flame's stretch + sway live in the instance matrices, see bobCandles: on an InstancedMesh
+  // positionLocal already includes the instance transform, so scaling it here flung the flames
+  // metres up and down the tower)
+  const fy = uv().y; // 0 at the base of the flame, 1 at the tip
+  const col = mix(vec3(1.0, 0.45, 0.08), vec3(1.0, 0.92, 0.6), fy);
   flameMat.colorNode = vec3(0);
-  flameMat.emissiveNode = col.mul(3.2).mul(flick);
-  flameMat.positionNode = positionLocal.mul(vec3(1, flick, 1)).add(vec3(sin(time.mul(7).add(i)).mul(0.002).mul(fy), 0, 0));
-  const flame = new THREE.InstancedMesh(new THREE.SphereGeometry(0.012, 8, 6).scale(1, 2.2, 1).translate(0, 0.165, 0), flameMat, n);
+  flameMat.emissiveNode = col.mul(2.4).mul(flick);
+  const flame = new THREE.InstancedMesh(new THREE.SphereGeometry(0.012, 8, 6).scale(1, 2.2, 1), flameMat, n);
   const m = new THREE.Matrix4();
   positions.forEach((p, k) => {
     m.makeTranslation(p.x, p.y, p.z);
     wax.setMatrixAt(k, m);
-    flame.setMatrixAt(k, m);
+    flame.setMatrixAt(k, m.makeTranslation(p.x, p.y + FLAME_Y, p.z));
   });
   g.add(wax, flame);
   return { group: g, wax, flame, positions };
 }
 
-/** Bobbing animation helper for floating candles. */
+const FLAME_Y = 0.165;
+const _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _e = new THREE.Euler();
+
+/** Bobbing animation helper for floating candles (also flickers + sways each flame). */
 export function bobCandles(c: ReturnType<typeof candles>, t: number) {
   const m = new THREE.Matrix4();
   c.positions.forEach((p, k) => {
     const y = p.y + Math.sin(t * 0.8 + k * 1.7) * 0.03;
     m.makeTranslation(p.x, y, p.z);
     c.wax.setMatrixAt(k, m);
-    c.flame.setMatrixAt(k, m);
+    const flick = 1 + Math.sin(t * (9 + ((k * 0.37) % 1) * 6) + k) * 0.15 + Math.sin(t * 23 + k * 3.1) * 0.08;
+    _e.set(0, 0, Math.sin(t * 7 + k) * 0.08);
+    _q.setFromEuler(_e);
+    _s.set(1, flick, 1);
+    // stretch from the wick: the flame's centre rises with its height
+    _p.set(p.x, y + FLAME_Y + (flick - 1) * 0.026, p.z);
+    c.flame.setMatrixAt(k, m.compose(_p, _q, _s));
   });
   c.wax.instanceMatrix.needsUpdate = true;
   c.flame.instanceMatrix.needsUpdate = true;
@@ -105,8 +116,10 @@ export function lightShaft(from: THREE.Vector3, to: THREE.Vector3, radius: numbe
   const edge = float(1).sub(abs(normalView.dot(positionViewDirection))).oneMinus().pow(1.5);
   const c = lin(color);
   const shimmer = sin(time.mul(0.6).add(uv().x.mul(18))).mul(0.15).add(0.85);
+  // fade out as the camera gets close, so zooming out never parks you inside a wall of light
+  const near = smoothstep(0.8, 3.0, positionWorld.distance(cameraPosition));
   m.colorNode = vec3(0);
-  m.emissiveNode = vec3(c.r, c.g, c.b).mul(edge.mul(along.pow(0.7)).mul(strength).mul(shimmer));
+  m.emissiveNode = vec3(c.r, c.g, c.b).mul(edge.mul(along.pow(0.7)).mul(strength).mul(shimmer).mul(near));
   m.fog = false;
   const mesh = new THREE.Mesh(geo, m);
   mesh.position.copy(from).lerp(to, 0.5);
@@ -128,7 +141,7 @@ export function tomes(placements: { pos: THREE.Vector3; quat: THREE.Quaternion; 
     (mat as THREE.MeshBasicNodeMaterial).emissiveNode = vec3(0.35, 0.55, 1.0).mul(rim.mul(0.35).add(0.02)).mul(pulse);
   } else {
     // gilt bands across the spine
-    const band = smoothstep(0.02, 0.0, abs(fract(positionLocal.y.mul(5)).sub(0.5)).sub(0.42)).mul(0.6);
+    const band = smoothstep(0.02, 0.0, abs(fract(uv().y.mul(5)).sub(0.5)).sub(0.42)).mul(0.6);
     (mat as THREE.MeshStandardNodeMaterial).colorNode = mix(vec3(1, 1, 1).mul(0.4), vec3(0.6, 0.45, 0.15), band);
     (mat as THREE.MeshStandardNodeMaterial).metalnessNode = band.mul(0.8);
   }

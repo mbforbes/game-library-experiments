@@ -51,6 +51,11 @@ export interface Engine {
   precompile(scene: THREE.Scene, onProgress?: (k: number) => void): Promise<void>;
   /** A render target that matches the main pass (formats, MRT, samples) so it reuses its pipelines. */
   matchingTarget(w: number, h: number): THREE.RenderTarget;
+  /**
+   * Render `scene` from `cam` into a matchingTarget() exactly the way the main pass renders
+   * (same MRT, same render context): reuses the main pass's node builds and GPU pipelines.
+   */
+  renderTo(scene: THREE.Scene, cam: THREE.Camera, rt: THREE.RenderTarget): void;
   /** called every frame with the frame's dt (s) to adapt pixel ratio */
   adapt(dt: number): void;
 }
@@ -99,7 +104,7 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
     bloomRadius: uniform(0.55),
     bloomThreshold: uniform(0.0),
     vignette: uniform(0.35),
-    grain: uniform(0.035),
+    grain: uniform(0.018),
     flash: uniform(0),
     fade: uniform(0),
     crt: uniform(0), // 0 = picture on, 1 = CRT switched off (squashed to a line, then a dot)
@@ -223,8 +228,27 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
       }
     },
     matchingTarget(w, h) {
-      // same as PassNode.setup(): renderer's sample count + output buffer type, two attachments
-      return new THREE.RenderTarget(w, h, { count: 2, type: renderer.getOutputBufferType(), samples: renderer.samples, depthBuffer: true });
+      // same as PassNode.setup(): renderer's sample count + output buffer type, one attachment
+      // per MRT output, named after it (MRT outputs are matched to attachments by name)
+      const names = Object.keys((mainMrt as any).outputNodes);
+      const rt = new THREE.RenderTarget(w, h, { count: names.length, type: renderer.getOutputBufferType(), samples: renderer.samples, depthBuffer: true });
+      names.forEach((n, i) => (rt.textures[i].name = n));
+      return rt;
+    },
+    renderTo(s, cam, rt) {
+      const rc = (renderer as any)._renderContexts;
+      const get = rc.get;
+      rc.get = (t: any, m: any, depth?: number) => get.call(rc, t, m, t === rt ? passDepth : depth);
+      const prevMrt = renderer.getMRT(), prevRt = renderer.getRenderTarget();
+      try {
+        renderer.setRenderTarget(rt);
+        renderer.setMRT(mainMrt);
+        renderer.render(s, cam);
+      } finally {
+        renderer.setMRT(prevMrt);
+        renderer.setRenderTarget(prevRt);
+        rc.get = get;
+      }
     },
   };
   let rendered = false;
