@@ -22,6 +22,7 @@ import { boxes } from "../../world/kit/common";
 import type { Level, LevelCtx, Station } from "../types";
 import { texture, vec3 } from "three/tsl";
 import { LOOPS } from "../../audio/sfx";
+import { decorateStacks } from "./decor";
 
 const R = 3.0; // radius of the shelf fronts (roomy: zooming out keeps you clear of the light shafts)
 const DEPTH = 0.32;
@@ -253,6 +254,9 @@ export default function stacks(): Level {
         },
         { id: "future", label: "The Unwritten", go: () => c.rig.goTo({ s: sOf(thetaEnd + Math.PI * 1.2), h: BAND * 0.5, d: 1.6 }, 2.4) },
       );
+
+      // ---- furnishings: candles, curios, arches, the gallery, the vault (see decor.ts) ----
+      await decorateStacks(c, { R, DEPTH, BAND, PITCH, bays, a0: theta0 - before, a1: thetaEnd + after, libEnd: thetaEnd }, progress);
     },
 
     update(dt, t) {
