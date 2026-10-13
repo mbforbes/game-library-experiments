@@ -331,12 +331,12 @@ export async function loadImage(url: string): Promise<ImageBitmap | HTMLImageEle
     try {
       return await createImageBitmap(blob, bitmapOpts);
     } catch (err) {
-      if (bitmapOpts && err instanceof TypeError) {
-        // older Safari: no options bag
-        bitmapOpts = undefined;
-        return createImageBitmap(blob);
-      }
-      throw err;
+      if (!bitmapOpts) throw err;
+      // some Safari versions reject parts of the options bag: try once without it, and if that
+      // works, stop passing options for good
+      const bmp = await createImageBitmap(blob);
+      bitmapOpts = undefined;
+      return bmp;
     }
   }
   const img = await new THREE.ImageLoader().loadAsync(url);
