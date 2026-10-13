@@ -1,0 +1,28 @@
+# dependencies + build output
+node_modules/
+dist/
+.wrangler/
+.vite/
+
+# local caches (art downloads, HTTP cache, screenshots, logs)
+.cache/
+*.log
+
+# secrets / local Cloudflare vars
+.env*
+.dev.vars
+
+# generated art: rebuild with `bun run art`. The decisions (which image belongs to which game)
+# are committed in art/resolved.json + art/overrides.json, so rebuilds are reproducible.
+public/art/
+art/review/
+
+# test output
+test-results/
+playwright-report/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

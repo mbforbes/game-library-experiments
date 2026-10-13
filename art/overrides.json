@@ -1,0 +1,475 @@
+{
+  "arcade/life-force": {
+    "cover": "https://images.launchbox-app.com/d81a7640-0c3c-4742-be01-0d04e3df3cb2.jpg",
+    "note": "US arcade flyer (LaunchBox DB); not in libretro MAME boxarts"
+  },
+  "arcade/salamander-iii": {
+    "cover": null,
+    "note": "was the 1986 Salamander flyer. Salamander III (2025) only ships inside Gradius Origins; no standalone cover exists (Steam/Wikipedia/LaunchBox checked)"
+  },
+  "arcade/twinbee": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/8/85/Twinbee_flyer.png",
+    "wiki": "TwinBee",
+    "note": "arcade flyer (Wikipedia); libretro MAME TwinBee boxarts are instruction sheets"
+  },
+  "gba/ninja-five-o": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Game%20Boy%20Advance/Named_Boxarts/Ninja%20Five-0%20(USA).png",
+    "libretro": "Ninja Five-0 (USA)",
+    "note": "US box (libretro spells it with a zero); Wikipedia had the PAL Ninja Cop box"
+  },
+  "gc/star-wars-rebel-strike-rogue-squadron-iii": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20GameCube/Named_Boxarts/Star%20Wars%20-%20Rogue%20Squadron%20III%20-%20Rebel%20Strike%20(USA).png",
+    "note": "retail box instead of the Limited Edition Preview Disc"
+  },
+  "genesis/doom-troopers-the-mutant-chronicles": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Doom%20Troopers%20(USA).png",
+    "note": "verified correct (was flagged low-confidence)"
+  },
+  "genesis/g-loc-air-battle": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/G-LOC%20-%20Air%20Battle%20(World).png",
+    "note": "real box; Sega Channel variant is a placeholder with a screenshot"
+  },
+  "genesis/ghouls-n-ghosts": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Ghouls'n%20Ghosts%20(Japan%2C%20USA)%20(En).png",
+    "libretro": "Ghouls'n Ghosts (Japan, USA) (En)",
+    "note": "Genesis box instead of the arcade flyer"
+  },
+  "genesis/quackshot-starring-donald-duck": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/e/e0/QuackShot_-_Starring_Donald_Duck.jpg",
+    "wiki": "QuackShot",
+    "note": "Genesis box (Wikipedia); all libretro QuackShot (World) boxarts are placeholders"
+  },
+  "genesis/saturday-night-slam-masters": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Saturday%20Night%20Slammasters%20(USA).png",
+    "libretro": "Saturday Night Slammasters (USA)",
+    "note": "Genesis box instead of the arcade flyer (libretro spells it Slammasters)"
+  },
+  "genesis/sonic-and-knuckles": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Sonic%20_%20Knuckles%20(World).png",
+    "note": "US Genesis box instead of the Brazilian Tec Toy one"
+  },
+  "genesis/the-lion-king": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Lion%20King%2C%20The%20(World).png",
+    "note": "real Genesis box; Disney Classic Games variant is a placeholder"
+  },
+  "genesis/ys-iii-wanderers-from-ys": {
+    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Ys%20III%20(USA).png",
+    "libretro": "Ys III (USA)",
+    "note": "Genesis box instead of the PC cover"
+  },
+  "n64/mlb-feat-ken-griffey-jr": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%2064/Named_Boxarts/Major%20League%20Baseball%20Featuring%20Ken%20Griffey%20Jr.%20(USA).png",
+    "libretro": "Major League Baseball Featuring Ken Griffey Jr. (USA)",
+    "note": "full title in libretro"
+  },
+  "n64/paperboy-64": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%2064/Named_Boxarts/Paperboy%20(USA).png",
+    "note": "verified correct (was flagged low-confidence); the N64 game is titled Paperboy"
+  },
+  "nes/3d-world-runner": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/3-D%20WorldRunner%20(USA).png",
+    "libretro": "3-D WorldRunner (USA)"
+  },
+  "nes/castlevania-special-im-kid-dracula": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/Kid%20Dracula%20(World)%20(Castlevania%20Anniversary%20Collection).png",
+    "libretro": "Kid Dracula (World) (Castlevania Anniversary Collection)",
+    "note": "Famicom-only release (Akumajou Special: Boku Dracula-kun); Japanese box"
+  },
+  "nes/gargoyles-quest-ii-the-demon-darkness": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/Gargoyle's%20Quest%20II%20(USA).png",
+    "note": "verified correct (was flagged low-confidence)"
+  },
+  "nes/road-blasters": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/RoadBlasters%20(USA).png",
+    "libretro": "RoadBlasters (USA)"
+  },
+  "nes/s-c-a-t": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/4/4c/S.C.A.T._-_Special_Cybernetic_Attack_Team_%28game_box_art%29.jpg",
+    "note": "verified correct (was flagged low-confidence)"
+  },
+  "ps2/ace-combat-4-shattered-skies": {
+    "cover": "https://thumbnails.libretro.com/Sony%20-%20PlayStation%202/Named_Boxarts/Ace%20Combat%2004%20-%20Shattered%20Skies%20(USA).png",
+    "libretro": "Ace Combat 04 - Shattered Skies (USA)",
+    "note": "libretro writes \"04\""
+  },
+  "ps2/james-bond-007-from-russia-with-love": {
+    "cover": "https://thumbnails.libretro.com/Sony%20-%20PlayStation%202/Named_Boxarts/007%20-%20From%20Russia%20with%20Love%20(USA).png",
+    "note": "verified correct (was flagged low-confidence)"
+  },
+  "ps3/metal-gear-solid-peacewalker": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/8/86/Metal_Gear_Solid_Peace_Walker_Cover_Art.jpg",
+    "wiki": "Metal Gear Solid: Peace Walker",
+    "note": "title typo (Peacewalker)"
+  },
+  "ps3/zone-of-the-enders-hd-collection": {
+    "cover": "https://images.launchbox-app.com/r2_a584c19f-8ef4-4fa2-b3f6-8eaf9528cb55.jpg",
+    "note": "PS3 US box (LaunchBox); Wikipedia page has no image"
+  },
+  "ps4/a-kings-tale-final-fantasy-xv": {
+    "cover": "https://images.launchbox-app.com/6ac98d57-6564-44e1-9f6e-2eb830eae61b.png",
+    "note": "A King's Tale cover (LaunchBox, PS4); was the Final Fantasy XV cover"
+  },
+  "ps4/axiom-verge": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/332200/library_600x900_2x.jpg",
+    "steam": 332200,
+    "note": "Steam portrait; Wikipedia image is a wide banner"
+  },
+  "ps4/dead-star": {
+    "cover": "https://images.launchbox-app.com/e0034d50-75ac-485a-88ef-6d035c5a352d.jpg",
+    "snaps": [],
+    "note": "PS4 box (LaunchBox); Steam search matched the unrelated Dead Star Prison (its screenshots dropped)"
+  },
+  "ps4/horizon-chase-turbo": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/389140/library_600x900_2x.jpg",
+    "steam": 389140
+  },
+  "ps4/olli-olli-2-welcome-to-olliwood": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/365660/library_600x900_2x.jpg",
+    "steam": 365660,
+    "note": "OlliOlli2 (title typo \"Olli Olli\")"
+  },
+  "ps4/resident-evil-hd-remaster": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/304240/library_600x900_2x.jpg",
+    "steam": 304240
+  },
+  "ps4/resogun": {
+    "cover": "https://images.launchbox-app.com/9f82b625-f11a-4a1c-87df-e3141663d595.jpg",
+    "note": "square key art (LaunchBox); Wikipedia page has no image"
+  },
+  "ps4/shantae-riskys-revenge": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/277890/library_600x900_2x.jpg",
+    "steam": 277890,
+    "note": "Director's Cut key art (Steam) instead of the DSiWare cover"
+  },
+  "ps4/super-time-force-ultra": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/250700/library_600x900_2x.jpg",
+    "steam": 250700,
+    "note": "Ultra (PS4/PC) art instead of the original Xbox Super Time Force cover"
+  },
+  "ps4/table-top-racing-world-tour": {
+    "cover": "https://images.launchbox-app.com/2a65b2f9-dd7f-4d6e-9a35-f92baac3796b.jpg",
+    "note": "square key art (LaunchBox)"
+  },
+  "ps4/the-playroom-vr": {
+    "cover": "https://images.launchbox-app.com/82e12b45-f367-4608-8b8d-92608f34d9ca.png",
+    "note": "PS4 box (LaunchBox)"
+  },
+  "ps5/astros-playroom": {
+    "cover": "https://images.launchbox-app.com/63073a9e-497e-4069-b47a-e24577a6c407.jpg",
+    "note": "portrait key art (LaunchBox); Wikipedia image is a wide banner"
+  },
+  "ps5/axiom-verge-2": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/946030/library_600x900_2x.jpg",
+    "steam": 946030,
+    "note": "Steam portrait; Wikipedia image is a wide banner"
+  },
+  "ps5/earthion": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/3597580/067756dee6b3109921a27213050e9fb9a132af7a/library_600x900_2x.jpg",
+    "steam": 3597580,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "ps5/ffxvi": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/0/00/Final_Fantasy_XVI_cover_art.png",
+    "wiki": "Final Fantasy XVI",
+    "note": "abbreviated title"
+  },
+  "ps5/final-fantasy-tactics-ivalice-chronicles": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/1004640/988d2f00c81b45d6aab89e5a1737d0737165f905/library_600x900_2x.jpg",
+    "steam": 1004640,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "ps5/forumla-legends-legacy-edition": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/3194360/939ae4d739d3ebbc131ea8d9f5b29cf407b16eb4/library_600x900_2x.jpg",
+    "steam": 3194360,
+    "note": "Formula Legends (title typo); hashed Steam asset path"
+  },
+  "snes/contra-iii-the-alien-wars": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/Named_Boxarts/Contra%20III%20-%20The%20Alien%20Wars%20(USA).png",
+    "note": "US box; the Virtual Console variant shows Contra Spirits (JP)"
+  },
+  "snes/disneys-goof-troop": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/6/60/SNES_Goof_Troop_cover_art.jpg",
+    "note": "verified correct (was flagged low-confidence)"
+  },
+  "snes/disneys-pinocchio": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/Named_Boxarts/Pinocchio%20(USA).png",
+    "libretro": "Pinocchio (USA)"
+  },
+  "snes/hyper-zone": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/Named_Boxarts/HyperZone%20(USA).png",
+    "libretro": "HyperZone (USA)"
+  },
+  "snes/super-castlevania-iv": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/Named_Boxarts/Super%20Castlevania%20IV%20(USA).png",
+    "note": "US box; Anniversary Collection variant shows a PAL box"
+  },
+  "snes/super-earth-defense-force": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/Named_Boxarts/Earth%20Defense%20Force%20(USA).png",
+    "libretro": "Earth Defense Force (USA)",
+    "note": "SNES box instead of the 1991 arcade E.D.F. flyer"
+  },
+  "snes/the-legend-of-the-mystical-ninja": {
+    "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/Named_Boxarts/Legend%20of%20the%20Mystical%20Ninja%2C%20The%20(USA).png",
+    "note": "US box; Virtual Console variant shows the German box"
+  },
+  "switch-2/advanced-busterhawk-gley-lancer-overdrive": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/5198960/2d2b749288fe72e305f6e038cae704923d3ab28b/library_capsule_2x.jpg",
+    "steam": 5198960,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "switch/aleste-collection": {
+    "cover": "https://images.launchbox-app.com/0f3a738a-b3ee-425b-a844-1efb5d41c9bd.jpg",
+    "note": "Switch box (JP, LaunchBox); Wikipedia redirects to GG Aleste 3"
+  },
+  "switch/castlevania-anniversary-collection": {
+    "cover": "https://images.launchbox-app.com/r2_b211ae68-7318-4347-88f4-1c65142e4240.jpg",
+    "steam": 1018010,
+    "note": "Switch box (LaunchBox); Steam has no real library art (auto portrait.png only)"
+  },
+  "switch/diablo-iii-eternal-collection": {
+    "cover": "https://images.launchbox-app.com/6dcd1253-b9cc-4f94-8cc8-b5ce8b111758.jpg",
+    "note": "Switch box (LaunchBox)"
+  },
+  "switch/final-fantasy-i-vi-collection": {
+    "cover": "https://images.launchbox-app.com/04552b31-787a-4c8f-80b2-2e46d0efddc0.jpg",
+    "note": "Pixel Remaster collection Switch box (LaunchBox)"
+  },
+  "switch/gradius-origins": {
+    "cover": "https://images.launchbox-app.com/37ee7d7f-d23b-44f5-89db-1bb2b09d6367.jpg",
+    "steam": 2897590,
+    "note": "Switch box (LaunchBox); Steam storesearch does not return Konami Gradius titles (app 2897590)"
+  },
+  "switch/mario-kart-8-deluxe": {
+    "cover": "https://images.launchbox-app.com/e0f1b0b5-7443-4479-8911-afd857061f48.jpg",
+    "note": "Switch box (LaunchBox); Wikipedia redirects to the Wii U Mario Kart 8"
+  },
+  "switch/octopath-traveller": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/3/34/Octopath_Traveler.jpg",
+    "wiki": "Octopath Traveler",
+    "steam": 921570,
+    "note": "title typo (Traveller)"
+  },
+  "switch/picross-s-genesis-and-master-system-edition": {
+    "cover": "https://images.launchbox-app.com/8000efc1-8e8b-4242-addc-56f307c319c4.png",
+    "note": "official eShop square icon (LaunchBox); digital-only, no box"
+  },
+  "switch/pikmin-1-2": {
+    "cover": "https://images.launchbox-app.com/r2_4641c04d-a9af-499f-a1f1-3cc1adb76133.jpg",
+    "note": "Switch box (LaunchBox)"
+  },
+  "switch/pikmin-3-deluxe": {
+    "cover": "https://images.launchbox-app.com/b2763256-07e4-4c18-b802-a1ac2efe96d0.jpg",
+    "note": "Switch box (LaunchBox); Wikipedia redirects to Wii U Pikmin 3"
+  },
+  "switch/pokemon-lets-go-pikachu": {
+    "cover": "https://images.launchbox-app.com/r2_7a6b2944-b7df-4e26-bac1-7c30133c32e7.jpeg",
+    "note": "Switch box (LaunchBox); Wikipedia image shows both versions side by side"
+  },
+  "switch/pokemon-shield": {
+    "cover": "https://images.launchbox-app.com/be9c86d5-7ce9-455a-9c4d-f2e0185a91e5.jpg",
+    "note": "Switch box (LaunchBox); Wikipedia image shows both versions side by side"
+  },
+  "switch/project-triangle-strategy": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/e/e9/Triangle_Strategy_cover_art.jpg",
+    "note": "verified correct (was flagged low-confidence) (released as Triangle Strategy)"
+  },
+  "switch/shiren-the-wanderer-the-tower-of-fortune-and-th-dice-of-fate": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/1178790/library_600x900_2x.jpg",
+    "steam": 1178790,
+    "note": "verified correct Steam match despite the \"th\" typo; pinned"
+  },
+  "switch/star-ocean-second-story-r": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/2238900/library_600x900_2x.jpg",
+    "steam": 2238900,
+    "note": "the 2023 remake, not the 1998 PS1 original"
+  },
+  "switch/super-mario-rpg-2023": {
+    "cover": "https://images.launchbox-app.com/0be66a78-ae3b-4280-aa4e-8d6005373f15.jpg",
+    "note": "Switch remake box (LaunchBox); Wikipedia redirect gave the 1996 SNES box"
+  },
+  "windows/age-of-empires-ii-de-return-of-rome": {
+    "cover": "https://store-images.s-microsoft.com/image/apps.41274.13647148900592351.64160af8-019d-4257-8588-364814951e17.c41afa38-2aed-4473-a8df-4585e62b7b19",
+    "note": "Microsoft Store poster (DLC has no Steam library art)"
+  },
+  "windows/age-of-empires-ii-de-the-mountain-royals": {
+    "cover": "https://store-images.s-microsoft.com/image/apps.12897.13680256533872452.f64221b2-198e-4e25-8ddf-703001b254f3.fc1bdc67-03a8-4e00-826c-fb4305ad9ad5",
+    "note": "Microsoft Store poster (DLC has no Steam library art)"
+  },
+  "windows/age-of-empires-ii-de-victors-and-vanquished": {
+    "cover": "https://store-images.s-microsoft.com/image/apps.55627.13954481427326459.6078396f-ff3d-4ca5-9160-f2688ec1d719.ac609dfe-8f62-48d1-a816-ae0a567dbff1",
+    "note": "Microsoft Store poster (DLC has no Steam library art)"
+  },
+  "windows/age-of-empires-ii-hd-edition": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/221380/library_600x900_2x.jpg",
+    "steam": 221380,
+    "note": "Steam \"Age of Empires II (Retired)\" = the 2013 HD Edition"
+  },
+  "windows/another-metroid-2-remake": {
+    "cover": "https://images.launchbox-app.com/r2_781401bf-b8ec-4108-9187-a9bd5ab74cc9.jpg",
+    "note": "AM2R fan cover (LaunchBox)"
+  },
+  "windows/ball-x-pit": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/2062430/b6cabe1940c55119820eee4ed2d0b604bd5b3af4/library_600x900_2x.jpg",
+    "steam": 2062430,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/blasphemous-wounds-of-eventide": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/c/cd/Blasphemous_%28video_game%29.jpg",
+    "note": "verified correct (was flagged low-confidence); Wounds of Eventide is a free Blasphemous expansion"
+  },
+  "windows/comanche-gold": {
+    "cover": "https://images.launchbox-app.com/3fcef2c3-ff9e-43c7-89c3-d3eadfcc968b.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/curse-you-red-baron": {
+    "cover": "https://images.launchbox-app.com/5e26eac2-9103-4ea7-8218-96718b6f3392.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/dark-souls-pepare-to-die-edition": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/211420/library_600x900_2x.jpg",
+    "steam": 211420,
+    "note": "title typo (Pepare); delisted Steam app still has art"
+  },
+  "windows/far-cry-3-blood-dragon": {
+    "cover": "https://images.launchbox-app.com/d951f8ce-0bcb-44fa-92ac-dc78353c5a57.jpg",
+    "steam": 233270,
+    "note": "LaunchBox key art; Steam only has an auto-generated portrait.png"
+  },
+  "windows/flight-simulator-x-deluxe-edition": {
+    "cover": "https://images.launchbox-app.com/19c19030-578b-4852-b6f4-1e7c48b43c65.jpg",
+    "note": "Deluxe Edition box (LaunchBox)"
+  },
+  "windows/from-dust": {
+    "cover": "https://images.launchbox-app.com/55759850-8b71-48d7-bd1f-aa4dd5e9dc82.jpg",
+    "steam": 33460,
+    "note": "LaunchBox box; Steam only has an auto-generated portrait.png"
+  },
+  "windows/hell-yeah": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/205230/library_600x900_2x.jpg",
+    "steam": 205230,
+    "note": "Hell Yeah! Wrath of the Dead Rabbit; search matched Hell Yeah Erlik!"
+  },
+  "windows/heroes-chronicles-clash-of-the-dragons": {
+    "cover": "https://images.launchbox-app.com/0c12781d-6f60-4898-912c-a1a456ec7ab8.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/heroes-chronicles-conquest-of-the-underworld": {
+    "cover": "https://images.launchbox-app.com/a881c60f-e0bb-4de1-9efd-2bcf4fbfbbee.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/heroes-chronicles-masters-of-the-elements": {
+    "cover": "https://images.launchbox-app.com/bc6d89dd-b5b0-4910-84fe-bdd03b8a24e8.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/heroes-chronicles-revolt-of-the-beastmasters": {
+    "cover": "https://images.launchbox-app.com/64df5791-a612-4152-af7b-d89c915a5bae.jpg",
+    "note": "GOG cover (LaunchBox)"
+  },
+  "windows/heroes-chronicles-the-fiery-moon": {
+    "cover": "https://images.launchbox-app.com/772d8e08-25f3-466b-b0f8-0d0b08116a55.jpg",
+    "note": "GOG cover (LaunchBox)"
+  },
+  "windows/heroes-chronicles-the-sword-of-frost": {
+    "cover": "https://images.launchbox-app.com/18d028c6-fec6-4f6e-8055-13e7b7d0d346.jpg",
+    "note": "GOG cover (LaunchBox)"
+  },
+  "windows/heroes-chronicles-the-world-tree": {
+    "cover": "https://images.launchbox-app.com/11e98620-3047-4af4-885e-cf3e88685ca3.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/heroes-chronicles-warlords-of-the-wasteland": {
+    "cover": "https://images.launchbox-app.com/r2_f5a59299-df41-4320-9def-263779ff6320.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/ikaruga": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/253750/5641e630ea3a5aa74eedb364652d041674286db9/library_capsule_2x.jpg",
+    "steam": 253750,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/janes-combat-simulator-ah-64d-longbow-gold": {
+    "cover": "https://images.launchbox-app.com/r2_ccff7d1f-8933-43f6-be9a-38391705f362.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/jet-set-radio": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/205950/library_600x900_2x.jpg",
+    "steam": 205950,
+    "note": "PC (Steam) art instead of the PAL Dreamcast box"
+  },
+  "windows/jotun": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/323580/library_600x900_2x.jpg",
+    "steam": 323580,
+    "note": "Jotun: Valhalla Edition"
+  },
+  "windows/lunar-flight": {
+    "cover": "https://images.launchbox-app.com/ff3f4a5c-bdbd-44fd-8de0-50435d13a0ab.jpg",
+    "steam": 208600,
+    "note": "LaunchBox cover; Steam only has an auto-generated portrait.png"
+  },
+  "windows/medal-of-honor-allied-assault-war-chest": {
+    "cover": "https://images.launchbox-app.com/619637ca-c44a-4eb1-83c9-c930e94060b5.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/medieval-ii-total-war-kingdoms": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/7/79/Medieval_II_-_Total_War_-_Kingdoms_Coverart.png",
+    "wiki": "Medieval II: Total War: Kingdoms",
+    "note": "Steam app 4780 is a DLC with no library art"
+  },
+  "windows/minecraft": {
+    "cover": "https://images.launchbox-app.com/943dc5df-6f98-49cd-981a-0cd9b2166360.jpg",
+    "note": "Java Edition key art (LaunchBox); Wikipedia image is a logo"
+  },
+  "windows/rv-there-yet": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/3949040/701632e4a84f8378c23fdf18ae127cb6a0f3f904/library_capsule_2x.jpg",
+    "steam": 3949040,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/sim-city-2000-special-edition": {
+    "cover": "https://images.launchbox-app.com/3d5da9e7-3552-43dd-b8a4-c3e7aed737fa.png",
+    "note": "Special Edition box (LaunchBox)"
+  },
+  "windows/sim-city-3000-unlimited": {
+    "cover": "https://images.launchbox-app.com/3ed73598-6c1f-4812-855c-2ae499f21213.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/sim-city-4": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/d/d2/SimCity_4_cover.jpg",
+    "note": "verified correct (was flagged low-confidence)"
+  },
+  "windows/star-wars-empire-at-war": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/32470/82795235c7d4481a68914f0660abb833540c2144/library_600x900_2x.jpg",
+    "steam": 32470,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/star-wars-republic-commando": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/6000/30259337ac341e9fbe5410650e7aabf1b63796b6/library_600x900_2x.jpg",
+    "steam": 6000,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/star-wars-the-force-unleashed-ii": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/32500/709889a1d64bfc8a4c2aaa92bd5859286970daf7/library_600x900_2x.jpg",
+    "steam": 32500,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/stronghold-crusader-extreme": {
+    "cover": "https://images.launchbox-app.com/9f0cdcac-2ea7-4dbc-b98c-4897300b2229.jpg",
+    "note": "box (LaunchBox)"
+  },
+  "windows/super-ef-2000": {
+    "cover": "https://images.launchbox-app.com/6b3cd201-5aa0-4b53-98e7-64cd4298c2f7.jpg",
+    "note": "EF2000 v2.0 box (LaunchBox)"
+  },
+  "windows/the-sims-deluxe-edition": {
+    "cover": "https://images.launchbox-app.com/e593b05d-1e06-4f3b-8e49-1c58bdec9bb9.jpg",
+    "note": "Deluxe Edition box (LaunchBox) instead of the base-game cover"
+  },
+  "windows/the-swapper": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/231160/8825860664c5d8e1af1140101891282bb31fa797/library_600x900_2x.jpg",
+    "steam": 231160,
+    "note": "hashed Steam asset path (legacy library_600x900 URL 404s)"
+  },
+  "windows/toy-soldiers": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/262120/library_600x900_2x.jpg",
+    "steam": 262120,
+    "note": "PC (Steam) art instead of the Xbox Live Arcade cover"
+  }
+}

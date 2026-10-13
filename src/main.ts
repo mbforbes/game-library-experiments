@@ -1,0 +1,23 @@
+import "@fontsource/press-start-2p";
+import "@fontsource/vt323";
+import "@fontsource/oswald/400.css";
+import "@fontsource/oswald/500.css";
+import "@fontsource/oswald/600.css";
+import "@fontsource/oswald/700.css";
+import "@fontsource/barlow-condensed/500.css";
+import "@fontsource/barlow-condensed/700.css";
+import "@fontsource/inter/400.css";
+import "@fontsource/inter/500.css";
+import "@fontsource/inter/600.css";
+import "@fontsource/silkscreen";
+import "@fontsource/monoton";
+import "@fontsource/tilt-neon";
+import "@fontsource/cinzel/400.css";
+import "@fontsource/cinzel/700.css";
+import "@fontsource/im-fell-english";
+import { App } from "./app";
+
+const canvas = document.getElementById("view") as HTMLCanvasElement;
+const app = new App();
+(window as any).app = app;
+app.start(canvas);
