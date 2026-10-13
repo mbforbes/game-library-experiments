@@ -184,5 +184,6 @@ console.log("worst frames:", worst.map((f) => `${f.dt.toFixed(0)}ms@${f.label}`)
 const all = after.map((f) => f.dt);
 console.log(`overall: ${all.length} frames, p50 ${pct(all, 0.5).toFixed(1)}ms, p95 ${pct(all, 0.95).toFixed(1)}ms, stalls>100ms ${all.filter((x) => x > 100).length}, total stall time ${(all.filter((x) => x > 50).reduce((a, b) => a + b, 0) / 1000).toFixed(1)}s`);
 if (errors.length) console.log("errors:", errors.slice(0, 8).join("\n"));
-if (builds.length) console.log(`render-time node builds (${builds.length}):\n` + builds.slice(0, 40).join("\n"));
+const during = builds.filter((b) => !/ (settle|idle) /.test(b));
+if (builds.length) console.log(`node builds outside the loading screen: ${builds.length} (${during.length} during interactions)\n` + during.slice(0, 40).join("\n"));
 await browser.close();
