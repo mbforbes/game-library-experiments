@@ -46,62 +46,51 @@ export default {
 // ---- library ---------------------------------------------------------------------------------
 
 async function library(req: Request, env: Env, ctx: ExecutionContext, forceFresh: boolean): Promise<Response> {
-  const cache = caches.default;
-  const key = new Request(new URL("/api/library?v=2", req.url).toString());
-  const cached = forceFresh ? undefined : await cache.match(key);
-  const age = cached ? (Date.now() - Date.parse(cached.headers.get("x-fetched-at") ?? "0")) / 1000 : Infinity;
-  if (cached && age <= LIBRARY_FRESH_S) return withClientCache(cached, "hit");
+  // KV is the cache (the Cache API is a no-op on *.workers.dev): the latest snapshot is served
+  // straight from KV, and refreshed from Google in the background when it's > 5 minutes old.
+  void req;
+  const [last, checked] = await Promise.all([
+    env.STORE.getWithMetadata<{ fetchedAt: string; sig: string }>("sheet:last", { cacheTtl: 60 }),
+    env.STORE.get("sheet:checked", { cacheTtl: 60 }),
+  ]);
+  const body = last.value;
+  const age = (Date.now() - Date.parse(checked ?? last.metadata?.fetchedAt ?? "0")) / 1000;
 
-  const refresh = async (): Promise<Response> => {
+  const refresh = async (): Promise<string> => {
     const tabs = await fetchTabCsvs();
     const fetchedAt = new Date().toISOString();
-    const body = JSON.stringify({ v: 2, fetchedAt, tabs });
-    const res = sheetResponse(body, fetchedAt);
-    await cache.put(key, res.clone());
-    // keep the latest good copy forever (only written when the sheet actually changed)
-    const sig = String(await digest(JSON.stringify(tabs)));
-    const prev = await env.STORE.get("sheet:sig");
-    if (prev !== sig) {
-      await env.STORE.put("sheet:last", body);
-      await env.STORE.put("sheet:sig", sig);
-    }
-    return res;
+    const fresh = JSON.stringify({ v: 2, fetchedAt, tabs });
+    const sig = await digest(JSON.stringify(tabs));
+    const writes: Promise<unknown>[] = [env.STORE.put("sheet:checked", fetchedAt)];
+    // the snapshot itself is only rewritten when the sheet actually changed
+    if (sig !== last.metadata?.sig) writes.push(env.STORE.put("sheet:last", fresh, { metadata: { fetchedAt, sig } }));
+    await Promise.all(writes);
+    return fresh;
   };
 
-  if (cached) {
-    // stale: answer instantly, refresh in the background
-    ctx.waitUntil(refresh().catch(() => {}));
-    return withClientCache(cached, "stale");
+  if (body && !forceFresh) {
+    if (age > LIBRARY_FRESH_S) ctx.waitUntil(refresh().catch(() => {}));
+    return sheetResponse(body, last.metadata?.fetchedAt ?? "", age > LIBRARY_FRESH_S ? "stale" : "hit");
   }
   try {
-    return withClientCache(await refresh(), "miss");
+    const fresh = await refresh();
+    return sheetResponse(fresh, "", "miss");
   } catch (err) {
-    // Google unreachable and nothing at this edge: fall back to the permanent copy
-    const last = await env.STORE.get("sheet:last");
-    if (last) {
-      const fetchedAt = (JSON.parse(last) as { fetchedAt: string }).fetchedAt;
-      return withClientCache(sheetResponse(last, fetchedAt), "kv");
-    }
+    if (body) return sheetResponse(body, last.metadata?.fetchedAt ?? "", "fallback");
     return json({ error: String(err) }, 502);
   }
 }
 
-function sheetResponse(body: string, fetchedAt: string) {
+function sheetResponse(body: string, fetchedAt: string, state: string) {
   return new Response(body, {
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "public, max-age=31536000",
+      // browsers may reuse it for a minute
+      "cache-control": "public, max-age=60",
       "x-fetched-at": fetchedAt,
+      "x-cache": state,
     },
   });
-}
-
-function withClientCache(res: Response, state: string): Response {
-  const out = new Response(res.body, res);
-  // browsers may reuse it for a minute; the edge copy does the heavy lifting
-  out.headers.set("cache-control", "public, max-age=60");
-  out.headers.set("x-cache", state);
-  return out;
 }
 
 // ---- image proxy -----------------------------------------------------------------------------
