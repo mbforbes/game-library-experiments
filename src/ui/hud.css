@@ -205,3 +205,10 @@ dd { margin: 0; }
   .help { bottom: calc(58px + var(--safe-b)); }
   .help-card kbd { min-width: 66px; }
 }
+.help-card .credits { margin: 6px 0 0; max-width: 250px; font-size: 10.5px; line-height: 1.4; color: #8b93a3; }
+.help-card .credits:empty { display: none; }
+.help-card .credits a { color: inherit; text-decoration: underline; text-decoration-color: #ffffff40; }
+.forecast { border-top: 1px solid var(--line); padding-top: 12px; }
+.forecast p { margin: 0; font-size: 14px; line-height: 1.5; color: #dfe3ec; }
+.forecast .grade { min-width: 24px; height: 24px; margin-right: 6px; font-size: 13px; vertical-align: 1px; }
+.forecast .conf { color: var(--muted); font-size: 12.5px; white-space: nowrap; }

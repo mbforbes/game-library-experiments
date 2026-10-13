@@ -34,6 +34,10 @@ export class AudioEngine {
   private ambBus!: GainNode;
   private reverb!: ConvolverNode;
   private reverbSend!: GainNode;
+  private musicBus!: GainNode;
+  private musicEl: HTMLAudioElement | null = null;
+  private musicUrl: string | null = null;
+  private musicSwap = 0;
   private emitters: Emitter[] = [];
   private noise!: AudioBuffer;
   private _enabled = true;
@@ -55,6 +59,7 @@ export class AudioEngine {
     } catch {}
     const unlock = () => {
       this.start();
+      this.startMusic();
       if (this.ctx?.state === "running") {
         window.removeEventListener("pointerup", unlock);
         window.removeEventListener("keydown", unlock);
@@ -64,6 +69,17 @@ export class AudioEngine {
     window.addEventListener("pointerup", unlock);
     window.addEventListener("keydown", unlock);
     window.addEventListener("touchend", unlock);
+    // hush when the tab is hidden
+    document.addEventListener("visibilitychange", () => {
+      if (!this.ctx) return;
+      if (document.hidden) {
+        this.musicEl?.pause();
+        this.ctx.suspend().catch(() => {});
+      } else if (this._enabled) {
+        this.ctx.resume().catch(() => {});
+        if (this.musicEl) this.playMusic();
+      }
+    });
   }
 
   get enabled() {
@@ -75,7 +91,10 @@ export class AudioEngine {
     try {
       localStorage.setItem(LS, v ? "on" : "off");
     } catch {}
-    if (v) this.start();
+    if (v) {
+      this.start();
+      this.startMusic();
+    } else this.musicEl?.pause();
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(v ? 0.9 : 0, this.ctx.currentTime, 0.08);
     this.onChange?.(v);
   }
@@ -112,6 +131,9 @@ export class AudioEngine {
       this.sfxBus.connect(this.reverbSend);
       this.ambBus.connect(this.reverbSend);
       this.reverbSend.connect(this.reverb).connect(this.master);
+      this.musicBus = ctx.createGain();
+      this.musicBus.gain.value = 0;
+      this.musicBus.connect(this.master);
       this.noise = makeNoise(ctx, 2);
       this.setRoom(this.room);
     }
@@ -161,6 +183,49 @@ export class AudioEngine {
       p.positionZ.value = at.z;
     } else (p as any).setPosition(at.x, at.y, at.z);
     return p;
+  }
+
+  // ---- music ------------------------------------------------------------------------------
+
+  /** Very soft background music. One media element for all tracks (iOS unlocks it once). */
+  static MUSIC_LEVEL = 0.2;
+  music(url: string | null) {
+    if (url === this.musicUrl) return;
+    this.musicUrl = url;
+    if (!this.musicEl) return; // starts on the first gesture (startMusic)
+    const swap = ++this.musicSwap;
+    const ctx = this.ctx!;
+    this.musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.35);
+    setTimeout(() => {
+      if (swap !== this.musicSwap || !this.musicEl) return;
+      if (!url) {
+        this.musicEl.pause();
+        return;
+      }
+      this.musicEl.src = url;
+      this.playMusic();
+    }, 1200);
+  }
+
+  private startMusic() {
+    if (!this.ctx || !this._enabled || !this.musicUrl) return;
+    if (!this.musicEl) {
+      const el = new Audio();
+      el.loop = true;
+      el.preload = "auto";
+      el.src = this.musicUrl;
+      this.ctx.createMediaElementSource(el).connect(this.musicBus);
+      this.musicEl = el;
+    }
+    this.playMusic();
+  }
+
+  private playMusic() {
+    const el = this.musicEl!;
+    if (!this._enabled || document.hidden) return;
+    el.play()
+      .then(() => this.musicBus.gain.setTargetAtTime(AudioEngine.MUSIC_LEVEL, this.ctx!.currentTime, 1.2))
+      .catch(() => {});
   }
 
   /** Make a scope (world) the audible one: its room + emitters; everything else fades out. */

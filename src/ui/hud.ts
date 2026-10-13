@@ -7,6 +7,8 @@ import { GRADE_COLORS } from "../media/spines";
 import { FILTERS, type Filter, type LibraryStore } from "../library/store";
 import type { ArtStore } from "../library/art";
 import type { Station } from "../levels/types";
+import type { Track } from "../levels";
+import { loadForecasts, type Forecasts } from "../library/forecasts";
 import "./hud.css";
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string) => {
@@ -49,9 +51,11 @@ export class Hud {
   private toastTimer = 0;
 
   art!: ArtStore;
+  private forecasts: Forecasts | null = null;
 
   constructor(private store: LibraryStore, private cb: HudCallbacks, levels: { id: string; name: string; tagline: string }[]) {
     document.body.appendChild(this.root);
+    loadForecasts().then((f) => (this.forecasts = f));
 
     // loading
     this.loading.innerHTML = `<div class="loading-title">THE<br>BACKLOG</div><div class="loading-bar"><i></i></div>`;
@@ -150,7 +154,7 @@ export class Hud {
     const rows: [string, string][] = touch
       ? [["swipe", "move along"], ["pinch", "zoom"], ["tap", "pull out a game"], ["drag game", "turn it over"]]
       : [["scroll", "move along"], ["drag", "pan"], ["ctrl + scroll", "zoom"], ["click", "pull out a game"], ["← → / esc", "browse / put back"]];
-    this.help.innerHTML = `<button class="help-chip" aria-label="Controls">?</button><div class="help-card">${rows.map(([k, v]) => `<div><kbd>${k}</kbd><span>${v}</span></div>`).join("")}</div>`;
+    this.help.innerHTML = `<button class="help-chip" aria-label="Controls">?</button><div class="help-card">${rows.map(([k, v]) => `<div><kbd>${k}</kbd><span>${v}</span></div>`).join("")}<p class="credits"></p></div>`;
     const chip = this.help.querySelector(".help-chip") as HTMLButtonElement;
     chip.onclick = () => {
       cb.onUi("tick");
@@ -180,6 +184,14 @@ export class Hud {
   hideLoading() {
     this.loading.classList.add("done");
     setTimeout(() => this.loading.remove(), 900);
+  }
+
+  /** Music credit (Creative Commons attribution) in the controls card. */
+  setCredits(t: Track | null) {
+    const el = this.help.querySelector(".credits") as HTMLElement;
+    el.innerHTML = t
+      ? `♪ “${esc(t.title)}” by <a href="${t.link}" target="_blank" rel="noopener">${esc(t.artist)}</a>, <a href="${t.licenseUrl}" target="_blank" rel="noopener">${esc(t.license)}</a>, via <a href="https://breakingcopyright.com" target="_blank" rel="noopener">BreakingCopyright</a>`
+      : "";
   }
 
   /** Level switch loader: name + bar while a world builds / compiles; null hides it. */
@@ -261,6 +273,14 @@ export class Hud {
     }
     if (g.hours) facts.push(["Length", `~${g.hours} hours`]);
     const grade = g.grade ? `<span class="grade" style="--g:${GRADE_COLORS[g.grade]}">${g.grade}</span>` : "";
+    // the forecast for games not played yet; Cooper vs the crowd for notable disagreements
+    const fc = g.status === "backlog" || g.status === "playing" ? this.forecasts?.forecasts[g.id] : undefined;
+    const dis = g.status === "completed" ? this.forecasts?.context.disagreements.find((d) => d.id === g.id) : undefined;
+    const extra = fc
+      ? `<div class="forecast"><div class="r-label">Forecast</div><p><span class="grade" style="--g:${GRADE_COLORS[fc.grade] ?? "#999"}">${fc.grade}</span> ${esc(fc.why)} <span class="conf">· ${Math.round(fc.confidence * 100)}% sure</span></p></div>`
+      : dis
+        ? `<div class="forecast"><div class="r-label">vs the crowd</div><p>Crowd ★${dis.community.toFixed(1)}/5 · ${esc(dis.note)}</p></div>`
+        : "";
     this.panel.innerHTML = `
       <div class="grab"></div>
       <div class="p-head">
@@ -269,6 +289,7 @@ export class Hud {
         <div class="p-status s-${g.status}">${statusLabel(g)} ${grade}</div>
       </div>
       <dl>${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      ${extra}
       ${g.review ? `<div class="review"><div class="r-label">Cooper's review</div><p>${esc(g.review)}</p></div>` : ""}
       <div class="p-actions">
         <button data-a="prev" aria-label="Previous">‹</button>

@@ -222,6 +222,8 @@ export class App {
     slot.scene.add(this.bursts.mesh);
     this.burstColor = slot.entry.accent;
     this.audio.activate(slot.id);
+    this.audio.music(slot.entry.music?.url ?? null);
+    this.hud.setCredits(slot.entry.music ?? null);
     this.hud.setLevel(slot.level.name, slot.entry.accent, slot.level.stations);
     this.applyFilter();
     slot.level.enter?.();

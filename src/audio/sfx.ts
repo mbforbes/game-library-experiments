@@ -248,6 +248,43 @@ export type SfxName = keyof typeof SFX;
 
 type Build = (ctx: Ctx, out: AudioNode, noise: AudioBuffer) => () => void;
 
+/** Decoded recordings, shared by every emitter that loops them. */
+const samples = new Map<string, Promise<AudioBuffer | null>>();
+function loadSample(ctx: Ctx, url: string) {
+  let p = samples.get(url);
+  if (!p) {
+    p = fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+      .then((b) => ctx.decodeAudioData(b))
+      .catch(() => null);
+    samples.set(url, p);
+  }
+  return p;
+}
+
+/** Loop a recording (fades in once it has loaded). */
+function sampleLoop(ctx: Ctx, out: AudioNode, url: string, level: number) {
+  const g = gainNode(ctx, 0);
+  g.connect(out);
+  let src: AudioBufferSourceNode | null = null;
+  let stopped = false;
+  loadSample(ctx, url).then((buf) => {
+    if (!buf || stopped) return;
+    src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.connect(g);
+    src.start(ctx.currentTime, Math.random() * buf.duration);
+    g.gain.setTargetAtTime(level, ctx.currentTime, 0.8);
+  });
+  return () => {
+    stopped = true;
+    try {
+      src?.stop();
+    } catch {}
+  };
+}
+
 const stopAll = (nodes: (AudioScheduledSourceNode | null)[], timers: number[] = []) => () => {
   for (const n of nodes) {
     try {
@@ -264,17 +301,13 @@ export const LOOPS = {
     g.connect(out);
     const os = [60, 120, 180].map((f, i) => {
       const o = osc(ctx, "sine", f);
-      const og = gainNode(ctx, [0.05, 0.025, 0.012][i]);
+      const og = gainNode(ctx, [0.03, 0.012, 0.004][i]);
       o.connect(og).connect(g);
       o.start();
       return o;
     });
-    const s = noiseSrc(ctx, noise, true);
-    const hp = filt(ctx, "highpass", 7000, 0.5);
-    const ng = gainNode(ctx, 0.006);
-    s.connect(hp).connect(ng).connect(g);
-    s.start();
-    return stopAll([...os, s]);
+    void noise;
+    return stopAll(os);
   }) as Build,
 
   /** room-tone fluorescent buzz */
@@ -282,7 +315,7 @@ export const LOOPS = {
     const os = [120, 240, 360].map((f, i) => {
       const o = osc(ctx, i === 0 ? "sawtooth" : "sine", f);
       const lp = filt(ctx, "lowpass", 900, 0.7);
-      const og = gainNode(ctx, [0.012, 0.006, 0.003][i]);
+      const og = gainNode(ctx, [0.006, 0.003, 0.0015][i]);
       o.connect(lp).connect(og).connect(out);
       o.start();
       return o;
@@ -290,19 +323,8 @@ export const LOOPS = {
     return stopAll(os);
   }) as Build,
 
-  /** rain on glass: band-limited noise + drips */
-  rain: ((ctx, out, noise) => {
-    const s = noiseSrc(ctx, noise, true);
-    const bp = filt(ctx, "bandpass", 1800, 0.35);
-    const g = gainNode(ctx, 0.12);
-    s.connect(bp).connect(g).connect(out);
-    s.start();
-    const id = window.setInterval(() => {
-      const t = ctx.currentTime;
-      for (let i = 0; i < 3; i++) if (Math.random() < 0.6) burst(ctx, out, t + Math.random() * 0.2, noise, 3000 + Math.random() * 4000, 6, 0.012, 0.04);
-    }, 200);
-    return stopAll([s], [id]);
-  }) as Build,
+  /** rain on the window: a real (public domain) recording, looped seamlessly */
+  rain: ((ctx, out) => sampleLoop(ctx, out, "/audio/rain-v1.mp3", 0.9)) as Build,
 
   /** vending machine compressor */
   compressor: ((ctx, out, noise) => {
@@ -336,41 +358,30 @@ export const LOOPS = {
     return stopAll([s], [id]);
   }) as Build,
 
-  /** hologram shimmer: detuned sines with tremolo + sparkles */
+  /** hologram: a soft airy hush with the odd faint sparkle (no steady tones: they rang) */
   holo: ((ctx, out, noise) => {
-    const g = gainNode(ctx, 0.04);
-    const trem = osc(ctx, "sine", 6);
-    const tg = gainNode(ctx, 0.015);
-    trem.connect(tg).connect(g.gain);
-    g.connect(out);
-    const os = [440, 443.5, 660, 663].map((f) => {
-      const o = osc(ctx, "sine", f);
-      o.connect(g);
-      o.start();
-      return o;
-    });
-    trem.start();
+    const s = noiseSrc(ctx, noise, true);
+    const bp = filt(ctx, "bandpass", 900, 0.5);
+    const lfo = osc(ctx, "sine", 0.13);
+    const lg = gainNode(ctx, 300);
+    lfo.connect(lg).connect(bp.frequency);
+    const g = gainNode(ctx, 0.012);
+    s.connect(bp).connect(g).connect(out);
+    s.start();
+    lfo.start();
     const id = window.setInterval(() => {
-      if (Math.random() < 0.4) blip(ctx, out, ctx.currentTime, "sine", 2000 + Math.random() * 3000, 2500 + Math.random() * 3000, 0.06, 0.012);
-    }, 300);
-    void noise;
-    return stopAll([...os, trem], [id]);
+      if (Math.random() < 0.12) blip(ctx, out, ctx.currentTime, "sine", 1800 + Math.random() * 1200, 2200 + Math.random() * 1200, 0.08, 0.004);
+    }, 600);
+    return stopAll([s, lfo], [id]);
   }) as Build,
 
   /** muffled TV game audio */
   tv: ((ctx, out, noise) => {
     const lp = filt(ctx, "lowpass", 1100, 0.8);
     lp.connect(out);
-    const stop = chiptune(ctx, lp, 7, 0.5);
-    const s = noiseSrc(ctx, noise, true);
-    const hp = filt(ctx, "highpass", 5000, 0.5);
-    const ng = gainNode(ctx, 0.008);
-    s.connect(hp).connect(ng).connect(out);
-    s.start();
-    return () => {
-      stop();
-      s.stop();
-    };
+    const stop = chiptune(ctx, lp, 7, 0.35);
+    void noise;
+    return stop;
   }) as Build,
 
   /** tower wind */

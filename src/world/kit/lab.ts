@@ -213,6 +213,130 @@ export function legendStrip(opts: { title?: string; items?: { color: string; lab
   return new THREE.Mesh(new THREE.PlaneGeometry(opts.width, (opts.width * CH) / CW), m);
 }
 
+/**
+ * An Aperture-style data board (white enamel panel, black type, thin rules). `draw` gets a
+ * canvas laid out in board millimetres scaled to pixels: draw with the helpers it receives.
+ * Origin at the board's centre, facing +Z.
+ */
+export function dataBoard(width: number, height: number, draw: (b: BoardPen) => void) {
+  const PX = 900; // pixels per metre
+  const CW = Math.round(width * PX), CH = Math.round(height * PX);
+  const [c, ctx] = canvas(CW, CH);
+  ctx.fillStyle = "#eceeec";
+  ctx.fillRect(0, 0, CW, CH);
+  ctx.strokeStyle = "#1a1a1a";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(24, 24, CW - 48, CH - 48);
+  const pen = new BoardPen(ctx, CW, CH);
+  draw(pen);
+  const tex = canvasTexture(c);
+  tex.anisotropy = 8;
+  const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.55 });
+  m.colorNode = texture(tex).rgb;
+  m.emissiveNode = texture(tex).rgb.mul(0.22);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), m);
+  // a slim dark bezel behind
+  const back = new THREE.Mesh(new THREE.BoxGeometry(width + 0.06, height + 0.06, 0.03), new THREE.MeshStandardNodeMaterial({ color: 0x2b2d33, roughness: 0.4, metalness: 0.4 }));
+  back.position.z = -0.018;
+  mesh.add(back);
+  return mesh;
+}
+
+/** Drawing helpers for dataBoard: a cursor (y) moving down the board. */
+export class BoardPen {
+  y = 70;
+  readonly pad = 70;
+  constructor(readonly ctx: CanvasRenderingContext2D, readonly W: number, readonly H: number) {
+    ctx.textBaseline = "alphabetic";
+  }
+  get inner() {
+    return this.W - this.pad * 2;
+  }
+  /** big title + small caption, with a rule under */
+  head(title: string, caption?: string, num?: string) {
+    const c = this.ctx;
+    c.fillStyle = "#1a1a1a";
+    c.font = `600 120px "Oswald", sans-serif`;
+    this.y += 108;
+    c.fillText(title, this.pad, this.y, this.inner);
+    if (num) {
+      c.textAlign = "right";
+      c.font = `500 120px "Oswald", sans-serif`;
+      c.fillText(num, this.W - this.pad, this.y);
+      c.textAlign = "left";
+    }
+    if (caption) {
+      c.font = `500 50px "Barlow Condensed", sans-serif`;
+      c.fillStyle = "#555";
+      this.y += 64;
+      c.fillText(caption.toUpperCase(), this.pad + 2, this.y, this.inner);
+    }
+    this.y += 24;
+    c.fillStyle = "#1a1a1a";
+    c.fillRect(this.pad, this.y, this.inner, 5);
+    this.y += 40;
+  }
+  /** horizontal bars: label | bar | value */
+  bars(rows: { label: string; value: number; color: string; text?: string }[], opts: { max?: number; labelW?: number; rowH?: number } = {}) {
+    const c = this.ctx;
+    const max = opts.max ?? Math.max(1, ...rows.map((r) => r.value));
+    const lw = opts.labelW ?? 260, rh = opts.rowH ?? 62;
+    const bw = this.inner - lw - 190;
+    for (const r of rows) {
+      c.fillStyle = "#1a1a1a";
+      c.font = `500 ${Math.round(rh * 0.7)}px "Oswald", sans-serif`;
+      c.fillText(r.label, this.pad, this.y + rh * 0.72, lw - 20);
+      c.fillStyle = "#d4d6d3";
+      c.fillRect(this.pad + lw, this.y + rh * 0.18, bw, rh * 0.6);
+      c.fillStyle = r.color;
+      c.fillRect(this.pad + lw, this.y + rh * 0.18, Math.max(4, (bw * r.value) / max), rh * 0.6);
+      c.fillStyle = "#1a1a1a";
+      c.font = `500 ${Math.round(rh * 0.6)}px "Inter", sans-serif`;
+      c.fillText(r.text ?? String(r.value), this.pad + lw + bw + 22, this.y + rh * 0.7, 150);
+      this.y += rh;
+    }
+    this.y += 16;
+  }
+  /** wrapped paragraph text; returns false if it ran out of room */
+  text(s: string, opts: { size?: number; color?: string; font?: string; indent?: number; gap?: number; bullet?: string } = {}) {
+    const c = this.ctx;
+    const size = opts.size ?? 40;
+    c.font = `${opts.font ?? "400"} ${size}px "Inter", sans-serif`;
+    c.fillStyle = opts.color ?? "#1a1a1a";
+    const x = this.pad + (opts.indent ?? 0);
+    const maxW = this.inner - (opts.indent ?? 0);
+    const words = s.split(/\s+/);
+    let line = "";
+    const lines: string[] = [];
+    for (const w of words) {
+      const t = line ? line + " " + w : w;
+      if (c.measureText(t).width > maxW && line) {
+        lines.push(line);
+        line = w;
+      } else line = t;
+    }
+    if (line) lines.push(line);
+    if (this.y + lines.length * size * 1.3 > this.H - 60) return false;
+    lines.forEach((l, i) => {
+      if (i === 0 && opts.bullet) {
+        c.fillStyle = opts.color ?? "#1a1a1a";
+        c.fillText(opts.bullet, x - size * 1.1, this.y + size);
+      }
+      c.fillText(l, x, this.y + size);
+      this.y += size * 1.3;
+    });
+    this.y += opts.gap ?? size * 0.4;
+    return true;
+  }
+  /** small footer line at the bottom of the board */
+  foot(s: string) {
+    const c = this.ctx;
+    c.font = `500 38px "Barlow Condensed", sans-serif`;
+    c.fillStyle = "#666";
+    c.fillText(s.toUpperCase(), this.pad, this.H - 58, this.inner);
+  }
+}
+
 /** The Archivist: a hanging spherical AI core with a single eye. */
 export class Archivist {
   readonly group = new THREE.Group();

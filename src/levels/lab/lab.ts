@@ -15,7 +15,8 @@ import { platformOf } from "../../../shared/platforms";
 import { wallRail, type Rail } from "../../engine/rail";
 import { MediaField, templateOf, type Placement } from "../../media/field";
 import { faceOut } from "../../world/shelving";
-import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx, legendStrip } from "../../world/kit/lab";
+import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx, legendStrip, dataBoard } from "../../world/kit/lab";
+import { loadForecasts, letterOf, type Forecasts } from "../../library/forecasts";
 import { boxes, neonMaterial, neonSign } from "../../world/kit/common";
 import { neonEnvironment } from "../../world/kit/env";
 import { DotMatrix } from "../../world/kit/displays";
@@ -35,6 +36,7 @@ export default function lab(): Level {
   const tickers: ((dt: number, t: number) => void)[] = [];
   let railA: Rail, railB: Rail;
   let inB = false;
+  let forecasts: Forecasts | null = null;
   let portalA: Portal, portalB: Portal;
   let archivist: Archivist;
   let caption: DotMatrix;
@@ -145,6 +147,11 @@ export default function lab(): Level {
       signB.position.copy(B_OFFSET).add(new THREE.Vector3(W / 2 - 0.02, 2.0, -1.4));
       signB.rotation.y = -Math.PI / 2;
       scene.add(signA, signB);
+
+      // data boards: the forecast + subject profile + platforms (01), findings + crowd + decades (02)
+      forecasts = await loadForecasts();
+      const boards = buildBoards(queue, results);
+      for (const b of boards) scene.add(b);
 
       // portals: blue in A (left wall) <-> orange in B (left wall)
       await progress("Calibrating portals…");
@@ -318,10 +325,11 @@ export default function lab(): Level {
         { id: "portal", label: "Portal", go: goA(railA.project(portalA.group.position), 1.3, 2.4) },
         { id: "tubes", label: "Pending", go: goA(railA.project(new THREE.Vector3(-2.6, 0, D / 2)), 1.6, 2.2) },
         { id: "stats", label: "Chamber Sign", go: goA(railA.project(signA.position), 2.0, 2.0) },
+        { id: "forecast", label: "Forecast", go: goA(railA.project(new THREE.Vector3(1.32, 0, D / 2)), 2.1, 4.3) },
+        { id: "findings", label: "Findings", go: goB(railB.project(B_OFFSET.clone().add(new THREE.Vector3(1.32, 0, D / 2))), 2.1, 4.3) },
       );
       void sA;
       void sB;
-      void goB;
     },
 
     update(dt, t) {
@@ -425,6 +433,11 @@ export default function lab(): Level {
     const age = year ? new Date().getFullYear() - year : 0;
     if (g.status === "wishlist") return `${g.title}: not yet acquired. Estimated cost $${g.looseValue ?? "?"}. You do not need it. You will buy it.`;
     if (g.status === "playing") return `${g.title} (${p}): test in progress. Please continue. Eventually.`;
+    const fc = forecasts?.forecasts[g.id];
+    if (fc && g.status === "backlog" && Math.random() < 0.6) {
+      const pct = Math.round((forecasts!.backtest.exact ?? 0.45) * 100);
+      return `${g.title}: my models predict a ${fc.grade.replace("+", " plus")}. ${fc.why.replace(/\.$/, "")}. I am right ${pct} percent of the time. You are right less often.`;
+    }
     if (g.status === "backlog") {
       if (age > 25) return `${g.title} has waited ${age} years for testing. It is very patient. More patient than me.`;
       if (g.priority === 1) return `${g.title}: priority one. Which apparently means "soon-ish".`;
@@ -446,6 +459,105 @@ export default function lab(): Level {
       default:
         return `${g.title}: test concluded.`;
     }
+  }
+
+  /** The data boards on the front + right walls of both chambers. */
+  function buildBoards(queue: Game[], results: Game[]) {
+    const out: THREE.Object3D[] = [];
+    const place = (m: THREE.Object3D, chamberB: boolean, wall: "front" | "right", along: number, y: number) => {
+      const o = chamberB ? B_OFFSET : new THREE.Vector3();
+      if (wall === "front") {
+        m.position.copy(o).add(new THREE.Vector3(along, y, D / 2 - 0.035));
+        m.rotation.y = Math.PI;
+      } else {
+        m.position.copy(o).add(new THREE.Vector3(W / 2 - 0.035, y, along));
+        m.rotation.y = -Math.PI / 2;
+      }
+      out.push(m);
+    };
+    const titleOf = (id: string) => ctx.store.byId.get(id)?.title ?? id;
+    const F = forecasts;
+    const s = ctx.store.stats;
+
+    // --- 01 front: FORECAST
+    if (F) {
+      const fs = queue.map((g) => F.forecasts[g.id]).filter(Boolean);
+      const counts = GRADE_ORDER.map((g) => ({ g, n: fs.filter((f) => f.grade === g).length })).filter((x) => x.n);
+      const best = queue
+        .filter((g) => F.forecasts[g.id] && GRADE_ORDER.indexOf(F.forecasts[g.id].grade) <= 1)
+        .sort((a, b) => GRADE_ORDER.indexOf(F.forecasts[a.id].grade) - GRADE_ORDER.indexOf(F.forecasts[b.id].grade) || F.forecasts[b.id].confidence - F.forecasts[a.id].confidence)
+        .slice(0, 5);
+      place(
+        dataBoard(2.5, 1.6, (b) => {
+          b.head("FORECAST", `Predicted results for ${fs.length} untested subjects`, `${Math.round(F.backtest.withinOne * 100)}%`);
+          b.bars(counts.map((x) => ({ label: x.g, value: x.n, color: GRADE_COLORS[x.g] })), { labelW: 130, rowH: 80 });
+          b.text("MOST PROMISING", { size: 56, font: "600", color: "#555", gap: 8 });
+          for (const g of best.slice(0, 4)) if (!b.text(`${g.title}: ${F.forecasts[g.id].grade}. ${F.forecasts[g.id].why}`, { size: 56, indent: 56, bullet: "•", gap: 10 })) break;
+          b.foot(`Within one grade ${Math.round(F.backtest.withinOne * 100)}% of the time · exactly right ${Math.round(F.backtest.exact * 100)}% · tested on ${F.backtest.n} past results`);
+        }),
+        false, "front", 0.0, 2.15,
+      );
+      // --- 01 front: SUBJECT PROFILE
+      place(
+        dataBoard(2.0, 1.6, (b) => {
+          b.head("SUBJECT PROFILE", "Observed from 186 written reviews");
+          b.text("RESPONDS WELL TO", { size: 62, font: "600", color: "#2a7a3a", gap: 6 });
+          for (const l of F.context.likes.slice(0, 6)) b.text(l, { size: 59, indent: 62, bullet: "+", gap: 4 });
+          b.y += 14;
+          b.text("ADVERSE REACTIONS", { size: 62, font: "600", color: "#b2392b", gap: 6 });
+          for (const l of F.context.dislikes.slice(0, 6)) if (!b.text(l, { size: 59, indent: 62, bullet: "−", gap: 4 })) break;
+        }),
+        false, "front", 2.65, 2.15,
+      );
+    }
+    // --- 01 right: PLATFORMS (untested subjects by platform)
+    const plat = s.platforms.filter((p) => p.backlog > 0).sort((a, b) => b.backlog - a.backlog).slice(0, 10);
+    place(
+      dataBoard(2.3, 1.55, (b) => {
+        b.head("SUBJECT ORIGINS", "Untested subjects by platform", String(s.backlog));
+        b.bars(plat.map((p) => ({ label: platformOf(p.platform).short, value: p.backlog, color: platformOf(p.platform).neon, text: `${p.backlog} · ${Math.round(p.pct * 100)}%` })), { labelW: 250, rowH: 82 });
+        b.foot("bar = untested · % = share of that platform already tested");
+      }),
+      false, "right", 1.7, 2.05,
+    );
+
+    if (F) {
+      // --- 02 front: FINDINGS
+      place(
+        dataBoard(2.5, 1.6, (b) => {
+          b.head("FINDINGS", `${F.backtest.n} results, compared with ${F.context.vsCommunity.n} crowd ratings`);
+          for (const l of F.insights.slice(0, 9)) if (!b.text(l, { size: 64, indent: 64, bullet: "•", gap: 12 })) break;
+        }),
+        true, "front", 0.0, 2.15,
+      );
+      // --- 02 front: COOPER VS THE CROWD
+      const dis = F.context.disagreements;
+      const harsh = dis.filter((d) => GRADE_ORDER.indexOf(d.grade) >= 3).slice(0, 2);
+      const kind = dis.filter((d) => GRADE_ORDER.indexOf(d.grade) <= 1).slice(0, 2);
+      place(
+        dataBoard(2.0, 1.6, (b) => {
+          b.head("SUBJECT VS CROWD", `Harsher on ${F.context.vsCommunity.harsher} · kinder on ${F.context.vsCommunity.kinder}`);
+          b.text("HARSHER THAN THE CROWD", { size: 56, font: "600", color: "#b2392b", gap: 6 });
+          for (const d of harsh) b.text(`${titleOf(d.id)}: ${d.grade} vs ★${d.community.toFixed(1)}. ${d.note}`, { size: 50, indent: 53, bullet: "•", gap: 8 });
+          b.y += 10;
+          b.text("KINDER THAN THE CROWD", { size: 56, font: "600", color: "#2a7a3a", gap: 6 });
+          for (const d of kind) if (!b.text(`${titleOf(d.id)}: ${d.grade} vs ★${d.community.toFixed(1)}. ${d.note}`, { size: 50, indent: 53, bullet: "•", gap: 8 })) break;
+        }),
+        true, "front", 2.65, 2.15,
+      );
+      // --- 02 right: BY DECADE + PER YEAR
+      const years = s.completionsByYear.slice(-7);
+      place(
+        dataBoard(2.3, 1.55, (b) => {
+          b.head("RESULTS BY ERA", "Average grade by release decade");
+          b.bars(F.context.byDecade.map((d) => ({ label: d.decade, value: d.avg, color: GRADE_COLORS[letterOf(d.avg)] ?? "#888", text: `${letterOf(d.avg)} · ${d.n}` })), { max: 5, labelW: 220, rowH: 76 });
+          b.text("TESTS CONCLUDED PER YEAR", { size: 56, font: "600", color: "#555", gap: 6 });
+          b.bars(years.map((y) => ({ label: String(y.year), value: y.count, color: "#3a3d44" })), { labelW: 220, rowH: 60 });
+        }),
+        true, "right", 1.7, 2.05,
+      );
+    }
+    return out;
   }
 
   function buildChamber(scene: THREE.Scene, o: THREE.Vector3, num: string) {
