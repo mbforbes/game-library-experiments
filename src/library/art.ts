@@ -184,8 +184,11 @@ export class ArtStore {
           const q = new URLSearchParams({ platform: g.platform, title: g.title, ...(g.year ? { year: String(g.year) } : {}) });
           const r = await fetch(`/api/art?${q}`);
           cover = r.ok ? ((await r.json()).cover ?? null) : null;
-          known[g.artKey] = cover ?? null;
-          localStorage.setItem(LS, JSON.stringify(known));
+          // remember finds forever; misses are retried next visit (the Worker re-looks weekly)
+          if (cover) {
+            known[g.artKey] = cover;
+            localStorage.setItem(LS, JSON.stringify(known));
+          }
         } catch {
           return;
         }

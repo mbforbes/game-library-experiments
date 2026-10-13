@@ -1,7 +1,7 @@
 // Client-side library: loads data (Worker API -> direct Google fallback -> last cached copy),
 // holds selection + filter state, and notifies listeners.
 
-import { fetchLibrary } from "../../shared/sheet";
+import { fetchLibrary, parseLibrary } from "../../shared/sheet";
 import { computeStats, type Stats } from "../../shared/stats";
 import { platformOf } from "../../shared/platforms";
 import type { Game, Library } from "../../shared/types";
@@ -36,7 +36,9 @@ export class LibraryStore {
     try {
       const res = await fetch("/api/library", { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      lib = await res.json();
+      const raw = await res.json();
+      // v2: the Worker sends the tabs as raw CSV (keeps it tiny on CPU); parse here
+      lib = raw.tabs ? { ...parseLibrary(raw.tabs), fetchedAt: raw.fetchedAt } : raw;
       this.source = "api";
     } catch (err) {
       console.warn("library API unavailable, fetching sheet directly", err);

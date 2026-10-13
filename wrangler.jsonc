@@ -8,5 +8,7 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
   },
+  // permanent store: last good sheet snapshot, runtime art lookups + images (free tier)
+  "kv_namespaces": [{ "binding": "STORE", "id": "cf686d99bbbb491b9221b45b50155f00" }],
   "observability": { "enabled": true }
 }

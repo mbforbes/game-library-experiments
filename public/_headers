@@ -1,12 +1,26 @@
-# Cloudflare static asset caching. Art files and Vite bundles have content hashes in their
-# names, so they can be cached forever; the manifest and HTML must revalidate.
+# Cloudflare static asset caching. Everything here except the manifest and HTML has a content hash
+# (or a version) in its name and never changes, so browsers and the edge keep it forever.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
-/art/covers/*
-  Cache-Control: public, max-age=31536000, immutable
-/art/snaps/*
+/audio/*
   Cache-Control: public, max-age=31536000, immutable
 /art/atlas-*
   Cache-Control: public, max-age=31536000, immutable
+/art/spines-*
+  Cache-Control: public, max-age=31536000, immutable
+/art/covers/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/backs/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/carts/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/discs/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/logos/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/snaps/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/spines/*
+  Cache-Control: public, max-age=31536000, immutable
 /art/manifest.json
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+  Cache-Control: public, max-age=300, stale-while-revalidate=604800
