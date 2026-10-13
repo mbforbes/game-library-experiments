@@ -6,7 +6,7 @@ import * as THREE from "three/webgpu";
 import {
   uv, vec2, vec3, float, uniform, time, sin, cos, fract, floor, hash, step, smoothstep, mix, length, abs, max, min, pow, texture,
 } from "three/tsl";
-import { lin, neonFx } from "./common";
+import { colorU, lin, neonFx } from "./common";
 
 export const outsideFx = {
   mode: uniform(0), // 0 city, 1 outrun, 2 space (fractional during transitions is fine)
@@ -66,28 +66,28 @@ function skyMaterial() {
   return m;
 }
 
-/** A skyline layer: building silhouettes with lit windows and neon roof trims. */
+/** A skyline layer: building silhouettes with lit windows and neon roof trims (all params are uniforms). */
 function skylineMaterial(opts: { seed: number; cols: number; base: string; min: number; max: number; windows: number; neon: string[] }) {
   const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false });
+  const seedU = uniform(opts.seed), colsU = uniform(opts.cols), minU = uniform(opts.min), maxU = uniform(opts.max), winU = uniform(opts.windows);
+  const baseU = colorU(opts.base), n0 = colorU(opts.neon[0]), n1 = colorU(opts.neon[1] ?? opts.neon[0]);
   const p = uv();
-  const x = p.x.mul(opts.cols);
+  const x = p.x.mul(colsU);
   const cell = floor(x);
-  const r = hash(cell.add(opts.seed));
-  const h = float(opts.min).add(r.mul(r).mul(opts.max - opts.min));
+  const r = hash(cell.add(seedU));
+  const h = minU.add(r.mul(r).mul(maxU.sub(minU)));
   const inB = step(p.y, h);
   const fx = fract(x);
   const gap = step(0.04, fx).mul(step(fx, 0.96));
-  const wx = fract(x.mul(opts.windows / 2));
-  const wy = fract(p.y.mul(opts.windows * 3));
+  const wx = fract(x.mul(winU.div(2)));
+  const wy = fract(p.y.mul(winU.mul(3)));
   const win = step(0.28, wx).mul(step(wx, 0.72)).mul(step(0.3, wy)).mul(step(wy, 0.7));
-  const wid = floor(x.mul(opts.windows / 2)).add(floor(p.y.mul(opts.windows * 3)).mul(17.17)).add(opts.seed * 3.1);
+  const wid = floor(x.mul(winU.div(2))).add(floor(p.y.mul(winU.mul(3))).mul(17.17)).add(seedU.mul(3.1));
   const lit = step(0.64, hash(wid.add(floor(time.mul(0.05).add(hash(wid).mul(4))))));
   const warm = mix(vec3(1.0, 0.75, 0.4), vec3(0.5, 0.85, 1.0), step(0.7, hash(wid.mul(1.7))));
-  const base = lin(opts.base);
-  let col: any = vec3(base.r, base.g, base.b).add(warm.mul(win.mul(lit).mul(1.2)));
+  let col: any = (baseU as any).add(warm.mul(win.mul(lit).mul(1.2)));
   // neon roof line on some buildings
-  const n0 = lin(opts.neon[0]), n1 = lin(opts.neon[1] ?? opts.neon[0]);
-  const neonC = mix(vec3(n0.r, n0.g, n0.b), vec3(n1.r, n1.g, n1.b), step(0.5, hash(cell.mul(3.3))));
+  const neonC = mix(n0, n1, step(0.5, hash(cell.mul(3.3))));
   const roof = step(h.sub(0.006), p.y).mul(inB).mul(step(0.55, r));
   col = col.add(neonC.mul(roof.mul(5)).mul(neonFx.boost));
   // in outrun/space modes the skyline becomes black silhouettes / disappears

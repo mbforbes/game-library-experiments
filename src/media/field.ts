@@ -50,6 +50,40 @@ interface Batch {
   base: THREE.Matrix4[];
 }
 
+interface Overlay {
+  mesh: THREE.Mesh;
+  photo: boolean;
+  id: string;
+}
+
+/**
+ * Two materials serve every overlay in the app (cover crop / photo contain-fit). The texture,
+ * crop and fade come from each mesh's userData, set per object right before it's drawn, so a
+ * new overlay costs nothing to build (node graphs are keyed per node instance: a fresh material
+ * would mean a fresh ~15 ms node build each time).
+ */
+const overlayMats = new Map<boolean, THREE.MeshStandardNodeMaterial>();
+function overlayMaterial(photo: boolean, initial: THREE.Texture) {
+  let mat = overlayMats.get(photo);
+  if (mat) return mat;
+  mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.3, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 });
+  const fade = uniform(0);
+  let t: any = null;
+  const crop = uniform(new THREE.Vector4(0, 0, 1, 1)).onObjectUpdate(({ object }: any) => {
+    const u = object.userData;
+    t.value = u.tex;
+    fade.value = u.fade;
+    return u.crop;
+  });
+  // photo mode: contain-fit; crop.xy = pad, crop.zw = 1 - 2*pad
+  const pu = uv().sub(crop.xy).div(crop.zw);
+  t = texture(initial, photo ? vec2(pu.x, pu.y.oneMinus()) : crop.xy.add(vec2(uv().x, uv().y.oneMinus()).mul(crop.zw)));
+  mat.colorNode = t.rgb;
+  mat.opacityNode = photo ? fade.mul(t.a).mul(step(0, pu.x).mul(step(pu.x, 1)).mul(step(0, pu.y)).mul(step(pu.y, 1))) : fade;
+  overlayMats.set(photo, mat);
+  return mat;
+}
+
 export interface StateTarget {
   highlight: number;
   dim: number;
@@ -118,6 +152,7 @@ export class MediaField {
     }
     for (const [key, ps] of byKind) this.batches.push(this.makeBatch(key.replace("+photo", "") as MediaKind, key.endsWith("+photo"), ps));
     if (!this.holo) this.makeStickers();
+    this.warmOverlays();
   }
 
   private makeBatch(kind: MediaKind, photo: boolean, ps: Placement[]): Batch {
@@ -320,9 +355,28 @@ export class MediaField {
   }
 
   // ---- hi-res detail overlays for nearby covers -------------------------------------------
-  private overlays = new Map<string, { mesh: THREE.Mesh; mat: THREE.MeshStandardNodeMaterial }>();
+  // Overlays are pooled: materials are reused (new materials cost a node build each, and a
+  // shader compile the first time), and one of each kind is pre-made so it gets precompiled.
+  private overlays = new Map<string, Overlay>();
+  private pool: Overlay[] = [];
   private detailT = 0;
   private hidden = new Set<string>();
+  private static unitPlane = new THREE.PlaneGeometry(1, 1);
+
+  private makeOverlay(photo: boolean): Overlay {
+    const mesh = new THREE.Mesh(MediaField.unitPlane, overlayMaterial(photo, this.kit.art.pages[0]));
+    mesh.matrixAutoUpdate = false;
+    mesh.visible = false;
+    mesh.userData = { tex: this.kit.art.pages[0], crop: new THREE.Vector4(0, 0, 1, 1), fade: 0 };
+    this.group.add(mesh);
+    return { mesh, photo, id: "" };
+  }
+
+  private warmOverlays() {
+    if (this.holo) return;
+    const kinds = new Set(this.batches.map((b) => b.photo));
+    for (const photo of kinds) this.pool.push(this.makeOverlay(photo));
+  }
 
   /** Lay sharp hi-res covers over the nearest face-out instances (call every frame). */
   detail(camera: THREE.Camera, dt: number, maxN = 20, maxDist = 1.5) {
@@ -354,9 +408,10 @@ export class MediaField {
     const keep = new Set(cands.slice(0, maxN).map((c) => c.id));
     for (const [id, o] of this.overlays) {
       if (!keep.has(id)) {
-        o.mesh.removeFromParent();
-        o.mat.dispose();
+        o.mesh.visible = false;
+        o.id = "";
         this.overlays.delete(id);
+        this.pool.push(o);
       }
     }
     for (const c of cands.slice(0, maxN)) {
@@ -364,37 +419,33 @@ export class MediaField {
       const g = c.b.games[c.i];
       const photo = c.b.photo;
       const rect = (photo ? photoRect(c.b.kind) : coverRect(c.b.kind))!;
-      const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.3, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 });
-      const crop = uniform(new THREE.Vector4(0, 0, 1, 1));
-      const fade = uniform(0);
-      // photo mode: contain-fit; crop.xy = pad, crop.zw = 1 - 2*pad
-      const pu = uv().sub(crop.xy).div(crop.zw);
-      const t = photo ? texture(this.kit.art.pages[0], vec2(pu.x, pu.y.oneMinus())) : texture(this.kit.art.pages[0], crop.xy.add(vec2(uv().x, uv().y.oneMinus()).mul(crop.zw)));
-      mat.colorNode = t.rgb;
-      mat.opacityNode = photo ? fade.mul(t.a).mul(step(0, pu.x).mul(step(pu.x, 1)).mul(step(0, pu.y)).mul(step(pu.y, 1))) : fade;
+      const pi = this.pool.findIndex((o) => o.photo === photo);
+      const o = pi >= 0 ? this.pool.splice(pi, 1)[0] : this.makeOverlay(photo);
+      o.id = c.id;
+      const ud = o.mesh.userData;
+      ud.fade = 0;
+      o.mesh.visible = false;
       const w = rect[2] - rect[0], h = rect[3] - rect[1];
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
-      mesh.matrixAutoUpdate = false;
-      mesh.matrix.multiplyMatrices(c.b.base[c.i], new THREE.Matrix4().makeTranslation((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2, rect[4]));
-      mesh.visible = false;
-      this.group.add(mesh);
-      this.overlays.set(c.id, { mesh, mat });
+      o.mesh.matrix.multiplyMatrices(c.b.base[c.i], new THREE.Matrix4().makeTranslation((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2, rect[4])).multiply(new THREE.Matrix4().makeScale(w, h, 1));
+      this.overlays.set(c.id, o);
       const la = c.b.t.labelAspect, cy = c.b.t.cropY;
+      const mine = () => o.id === c.id && this.overlays.get(c.id) === o;
       (photo ? this.kit.art.tex(this.kit.art.entry(g)?.k) : this.kit.art.hiRes(g)).then((tex) => {
-        if (!tex || !this.overlays.has(c.id)) return;
+        if (!tex || !mine()) return;
         const img = tex.image as { width: number; height: number };
         const a = img.width / img.height;
         if (photo) {
           const [px, py] = photoPad(a, c.b.kind);
-          crop.value.set(px, py, 1 - 2 * px, 1 - 2 * py);
-        } else if (a > la) crop.value.set((1 - la / a) / 2, 0, la / a, 1);
-        else crop.value.set(0, (1 - a / la) * cy, 1, a / la);
-        t.value = tex;
-        mesh.visible = true;
+          ud.crop.set(px, py, 1 - 2 * px, 1 - 2 * py);
+        } else if (a > la) ud.crop.set((1 - la / a) / 2, 0, la / a, 1);
+        else ud.crop.set(0, (1 - a / la) * cy, 1, a / la);
+        ud.tex = tex;
+        o.mesh.visible = true;
         const t0 = performance.now();
         const step = () => {
-          fade.value = Math.min(1, (performance.now() - t0) / 250);
-          if (fade.value < 1 && this.overlays.has(c.id)) requestAnimationFrame(step);
+          if (!mine()) return;
+          ud.fade = Math.min(1, (performance.now() - t0) / 250);
+          if (ud.fade < 1) requestAnimationFrame(step);
         };
         step();
       });
@@ -424,8 +475,8 @@ export class MediaField {
   }
 
   dispose() {
-    for (const o of this.overlays.values()) o.mat.dispose();
     this.overlays.clear();
+    this.pool = [];
     for (const b of this.batches) {
       b.mesh.geometry.dispose();
       b.mesh.dispose();

@@ -62,7 +62,7 @@ export default function stacks(): Level {
       engine.post.bloomStrength.value = 0.85;
       engine.post.bloomRadius.value = 0.7;
       engine.post.vignette.value = 0.6;
-      engine.renderer.toneMappingExposure = 1.0;
+      engine.post.exposure.value = 1.0;
       scene.background = new THREE.Color(0x07080d);
       scene.fog = new THREE.FogExp2(0x0a0705, 0.07);
       scene.environment = null;
@@ -71,7 +71,7 @@ export default function stacks(): Level {
       c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.6, build: LOOPS.wind });
       c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.45, build: LOOPS.candles });
 
-      progress("Ordering the ages…");
+      await progress("Ordering the ages…");
       const owned = store.games.filter((g) => g.status !== "wishlist");
       const yearOf = (g: Game) => art.year(g) ?? 9999;
       const byYear = new Map<number, Game[]>();
@@ -84,7 +84,7 @@ export default function stacks(): Level {
       for (const y of years) byYear.get(y)!.sort((a, b) => platformOf(a.platform).released.localeCompare(platformOf(b.platform).released) || sortTitle(a.title).localeCompare(sortTitle(b.title)));
 
       // ---- one continuous chronological run along the helix; brass tags mark each new year ----
-      progress("Raising the shelves…");
+      await progress("Raising the shelves…");
       const theta0 = 0;
       let theta = theta0;
       const ordered = years.flatMap((y) => byYear.get(y)!);
@@ -142,7 +142,7 @@ export default function stacks(): Level {
       console.info(`[stacks] ${owned.length} games in ${bays.length} bays (fill ${(pack.fill * 100).toFixed(0)}%) over ${((thetaEnd - theta0) / (Math.PI * 2)).toFixed(2)} turns`);
 
       // ---- architecture ----
-      progress("Carving stone…");
+      await progress("Carving stone…");
       const before = Math.PI * 2 * 1.2; // decorative turns below and above
       const after = Math.PI * 2 * 1.5;
       buildTower(scene, theta0 - before, thetaEnd + after);
@@ -150,7 +150,7 @@ export default function stacks(): Level {
       buildPlaques(scene, plaques);
 
       // ---- light: lantern + moon + candles + shafts + dust ----
-      progress("Lighting candles…");
+      await progress("Lighting candles…");
       const yTop = thetaY(thetaEnd + after) + 2;
       const yBot = thetaY(theta0 - before) - 1;
       scene.add(new THREE.HemisphereLight(0x3a3448, 0x140a04, 0.32));
@@ -173,7 +173,7 @@ export default function stacks(): Level {
       scene.add(dust(engine.quality.mobile ? 250 : 600, R - 0.3, yBot, yTop));
 
       // ---- the Codex at the centre ----
-      progress("Opening the Codex…");
+      await progress("Opening the Codex…");
       codex = new Codex(1.5);
       scene.add(codex.group);
       const drone = c.audio.addEmitter({ position: new THREE.Vector3(), radius: 3.2, volume: 0.8, ref: 1.2, build: LOOPS.drone });
@@ -203,7 +203,7 @@ export default function stacks(): Level {
       });
 
       // ---- the wishlist flock ----
-      progress("Releasing the wishes…");
+      await progress("Releasing the wishes…");
       const wish = store.games.filter((g) => g.status === "wishlist");
       const yWish = thetaY(thetaEnd) + 1.6;
       const orbits = wish.map((_, k) => ({ r: 0.7 + ((k * 0.381) % 1) * (R - 1.2), y: yWish + ((k * 0.7071) % 1) * 3.2, speed: 0.08 + ((k * 0.13) % 1) * 0.12, phase: k * 2.399, tilt: ((k * 0.29) % 1) * 0.6 - 0.3 }));

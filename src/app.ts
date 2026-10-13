@@ -11,15 +11,33 @@ import { ArtStore } from "./library/art";
 import { SpineAtlas } from "./media/spines";
 import { makeMediaKit, type MediaField, type MediaKit } from "./media/field";
 import { Hud } from "./ui/hud";
-import { LEVELS, DEFAULT_LEVEL } from "./levels";
+import { LEVELS, DEFAULT_LEVEL, type LevelEntry } from "./levels";
+import { Hero } from "./media/hero";
 import { AudioEngine } from "./audio/audio";
 import { neonFx } from "./world/kit/common";
 import { Bursts } from "./world/kit/particles";
+import { off } from "./engine/flags";
 import type { Level, LevelCtx } from "./levels/types";
+
+/** A built world, kept alive so switching back is instant: own scene, rig, tickers, post look. */
+interface Slot {
+  id: string;
+  entry: LevelEntry;
+  level: Level;
+  scene: THREE.Scene;
+  rig: CameraRig;
+  post: Record<"bloomStrength" | "bloomRadius" | "bloomThreshold" | "vignette" | "grain" | "exposure", { value: number }>;
+  pickables: { obj: THREE.Object3D; onTap: (hit: THREE.Intersection) => void }[];
+  tickers: ((dt: number, t: number) => void)[];
+  ready: Promise<void>;
+  compiled: boolean;
+  /** building quietly in the background (yields generously between phases) */
+  background: boolean;
+  onProgress?: (k: number, msg: string) => void;
+}
 
 export class App {
   engine!: Engine;
-  rig!: CameraRig;
   input!: Input;
   store = new LibraryStore();
   audio = new AudioEngine();
@@ -28,13 +46,18 @@ export class App {
   kit!: MediaKit;
   hud!: Hud;
   inspector!: Inspector;
-  level: Level | null = null;
-  private pickables: { obj: THREE.Object3D; onTap: (hit: THREE.Intersection) => void }[] = [];
-  private tickers: ((dt: number, t: number) => void)[] = [];
+  private slots = new Map<string, Slot>();
+  private active: Slot | null = null;
+  get level(): Level | null {
+    return this.active?.level ?? null;
+  }
+  get rig(): CameraRig {
+    return this.active!.rig;
+  }
   private raycaster = new THREE.Raycaster();
   private debug = new URLSearchParams(location.search).has("debug");
   private frames: number[] = [];
-  private loadingLevel = false;
+  loadingLevel = false;
 
   async start(canvas: HTMLCanvasElement) {
     const t0 = performance.now();
@@ -47,12 +70,12 @@ export class App {
       this.hud.setProgress("Reading Cooper's spreadsheet…", 0.15);
       const fontsReady = loadFonts();
       await Promise.all([this.store.load(), this.art.load(), fontsReady]);
+      this.audio.prepare();
       this.hud.setProgress("Printing spines…", 0.75);
       await nextFrame();
       this.spines = new SpineAtlas(this.engine.quality.mobile, this.art);
       this.spines.build(this.store.games);
       this.kit = makeMediaKit(this.art, this.spines);
-      this.rig = new CameraRig(this.engine.camera);
       this.inspector = new Inspector(this.engine.scene, this.engine.camera, this.art);
       this.input = new Input(canvas);
       this.bindInput();
@@ -60,71 +83,148 @@ export class App {
 
       const params = new URLSearchParams(location.search);
       const id = params.get("level") ?? DEFAULT_LEVEL;
-      await this.loadLevel(LEVELS[id] ? id : DEFAULT_LEVEL);
+      this.engine.renderer.setAnimationLoop(this.frame);
+      await this.loadLevel(LEVELS[id] ? id : DEFAULT_LEVEL, (k, msg) => this.hud.setProgress(msg, 0.8 + k * 0.2));
       console.info(`[library] ready in ${Math.round(performance.now() - t0)}ms (${this.engine.backend}, ${this.store.source})`);
       (window as any).__ready = performance.now() - t0;
       this.hud.hideLoading();
-      this.engine.renderer.setAnimationLoop(this.frame);
-      this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
+      if (!off("upgrade")) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
+      if (!off("prebuild")) this.prebuildOthers();
     } catch (err) {
       console.error(err);
       this.hud.showError(String((err as Error)?.message ?? err));
     }
   }
 
-  private ctx(): LevelCtx {
+  private ctx(slot: Pick<Slot, "scene" | "rig" | "pickables" | "tickers" | "post">): LevelCtx {
+    // levels set their look on ctx.engine.post (bloom, vignette, exposure…): give each level its
+    // own copy so a world building in the background can't change the one on screen
+    const engine = Object.create(this.engine) as Engine;
+    Object.defineProperty(engine, "post", { value: { ...this.engine.post, ...slot.post } });
     return {
-      engine: this.engine,
-      scene: this.engine.scene,
+      engine,
+      scene: slot.scene,
       camera: this.engine.camera,
-      rig: this.rig,
+      rig: slot.rig,
       store: this.store,
       art: this.art,
       kit: this.kit,
       audio: this.audio,
-      pickable: (obj, onTap) => this.pickables.push({ obj, onTap }),
+      pickable: (obj, onTap) => slot.pickables.push({ obj, onTap }),
       inspect: (g) => this.openGame(g),
       toast: (t, ms) => this.hud.toast(t, ms),
-      onUpdate: (fn) => this.tickers.push(fn),
+      onUpdate: (fn) => slot.tickers.push(fn),
     };
   }
 
-  async loadLevel(id: string) {
-    if (this.loadingLevel) return;
-    this.loadingLevel = true;
-    const post = this.engine.post;
-    // fade out
-    if (this.level) {
-      this.audio.play("crtoff");
-      this.audio.clearEmitters();
-      await tween(420, (k) => (post.crt.value = k * k));
-      this.closeGame(true);
-      this.level.dispose();
-      this.pickables = [];
-      this.tickers = [];
-      this.engine.scene.clear();
-      this.engine.scene.add(this.inspector["dimmer"]);
+  /** Build a world (once) into its own scene and precompile all its shaders. */
+  private ensureSlot(id: string, background = false): Slot {
+    const have = this.slots.get(id);
+    if (have) return have;
+    const entry = LEVELS[id];
+    const p = this.engine.post;
+    const slot = {
+      id,
+      entry,
+      scene: new THREE.Scene(),
+      rig: new CameraRig(this.engine.camera),
+      post: {
+        bloomStrength: { value: p.bloomStrength.value },
+        bloomRadius: { value: p.bloomRadius.value },
+        bloomThreshold: { value: p.bloomThreshold.value },
+        vignette: { value: p.vignette.value },
+        grain: { value: p.grain.value },
+        exposure: { value: 1 },
+      },
+      pickables: [],
+      tickers: [],
+      compiled: false,
+      background,
+    } as unknown as Slot;
+    this.slots.set(id, slot);
+    slot.ready = (async () => {
+      const report = (k: number, msg: string) => slot.onProgress?.(k, msg);
+      report(0, `Loading ${entry.name}…`);
+      const tb = performance.now();
+      const level = (await entry.load())();
+      slot.level = level;
+      let phase = 0;
+      this.audio.scope = id;
+      await level.build(this.ctx(slot), async (msg) => {
+        report(Math.min(0.6, 0.08 * ++phase), msg);
+        this.audio.scope = "";
+        // background builds give the frame loop room to breathe between phases
+        await (slot.background ? idle(120) : nextFrame());
+        this.audio.scope = id;
+      });
+      this.audio.scope = "";
+      slot.scene.add(Hero.warmup(this.art));
+      report(0.62, "Compiling shaders…");
+      const tc = performance.now();
+      await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"));
+      slot.compiled = true;
+      console.info(`[level] ${id}: built ${Math.round(tc - tb)}ms, compiled ${Math.round(performance.now() - tc)}ms${slot.background ? " (background)" : ""}`);
+      report(1, "Ready");
+    })();
+    return slot;
+  }
+
+  /** After the first world is up, quietly build + compile the others so switching is instant. */
+  private async prebuildOthers() {
+    await idle(2500);
+    for (const id of Object.keys(LEVELS)) {
+      if (LEVELS[id].hidden || this.slots.has(id)) continue;
+      // wait for a quiet moment (no level switch in flight)
+      while (this.loadingLevel) await idle(500);
+      await this.ensureSlot(id, true).ready.catch((e) => console.warn("[prebuild]", id, e));
     }
-    const factory = LEVELS[id];
-    const level = (await factory.load())();
-    this.level = level;
-    await level.build(this.ctx(), (m) => this.hud.setProgress(m));
-    this.engine.scene.add(this.bursts.mesh);
-    this.burstColor = factory.accent;
-    this.hud.setLevel(level.name, factory.accent, level.stations);
-    this.applyFilter();
+  }
+
+  async loadLevel(id: string, onProgress?: (k: number, msg: string) => void) {
+    if (this.loadingLevel || this.active?.id === id) return;
+    this.loadingLevel = true;
+    this.unhover();
+    this.hud.tooltip(null, 0, 0);
+    const post = this.engine.post;
+    const first = !this.active;
+    // switch off the current world
+    if (this.active) {
+      this.audio.play("crtoff");
+      this.closeGame(true);
+      await tween(380, (k) => (post.crt.value = k * k));
+    }
+    const slot = this.ensureSlot(id);
+    slot.background = false;
+    if (!slot.compiled) {
+      const name = slot.entry.name;
+      slot.onProgress = (k: number, msg: string) => (onProgress ? onProgress(k, msg) : this.hud.switching(name, k));
+      if (!onProgress) this.hud.switching(name, 0.02);
+      await slot.ready;
+      slot.onProgress = undefined;
+      this.hud.switching(null);
+    }
+    this.activate(slot);
     const url = new URL(location.href);
     url.searchParams.set("level", id);
     history.replaceState(null, "", url);
-    // compile shaders before showing the frame to avoid hitches
-    await this.engine.renderer.compileAsync(this.engine.scene, this.engine.camera).catch(() => {});
     post.crt.value = 1;
     post.fade.value = 0;
     this.levelStart = performance.now();
-    if (this.level && this.loaded) this.audio.play("crton");
-    this.loaded = true;
-    await tween(520, (k) => (post.crt.value = (1 - k) * (1 - k)));
+    if (!first) this.audio.play("crton");
+    await tween(first ? 600 : 460, (k) => (post.crt.value = (1 - k) * (1 - k)));
     this.loadingLevel = false;
+  }
+
+  private activate(slot: Slot) {
+    this.active = slot;
+    this.engine.setScene(slot.scene);
+    this.inspector.setScene(slot.scene);
+    slot.scene.add(this.bursts.mesh);
+    this.burstColor = slot.entry.accent;
+    this.audio.activate(slot.id);
+    this.hud.setLevel(slot.level.name, slot.entry.accent, slot.level.stations);
+    this.applyFilter();
+    slot.level.enter?.();
   }
 
   private callbacks() {
@@ -197,7 +297,7 @@ export class App {
 
   private bindInput() {
     let dragHero = false;
-    this.input.handlers = {
+    const handlers: Input["handlers"] = {
       pan: (dx, dy, dt) => {
         if (this.inspector.active) {
           dragHero = true;
@@ -245,6 +345,10 @@ export class App {
         if (e.key.startsWith("Arrow")) setTimeout(() => this.rig.endPan(), 0);
       },
     };
+    // ignore input while a world switches (and before the first one is up)
+    this.input.handlers = Object.fromEntries(
+      Object.entries(handlers).map(([k, fn]) => [k, (...a: any[]) => (this.loadingLevel || !this.active ? undefined : (fn as any)(...a))]),
+    ) as Input["handlers"];
   }
 
   // ---- desktop hover: lift the game under the pointer + show its title ----------------------
@@ -252,7 +356,7 @@ export class App {
   private hoverT = 0;
   private hoverAt(x: number, y: number) {
     const now = performance.now();
-    if (now - this.hoverT < 50 || this.inspector.active) return;
+    if (now - this.hoverT < 50 || this.inspector.active || off("hover")) return;
     this.hoverT = now;
     const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.engine.camera);
@@ -316,7 +420,7 @@ export class App {
       const hit = f.raycast(this.raycaster.ray);
       if (hit && (!best || hit.distance < best.d)) best = { d: hit.distance, run: () => this.openGame(hit.game) };
     }
-    for (const p of this.pickables) {
+    for (const p of this.active?.pickables ?? []) {
       if (!p.obj.visible) continue;
       const [hit] = this.raycaster.intersectObject(p.obj, true);
       if (hit && (!best || hit.distance < best.d)) best = { d: hit.distance, run: () => p.onTap(hit) };
@@ -330,6 +434,17 @@ export class App {
   private bursts = new Bursts();
   private burstColor = "#ffffff";
   private frame = () => {
+    if (!this.active) {
+      this.engine.render();
+      return;
+    }
+    const sp = this.active.post, ep = this.engine.post;
+    ep.bloomStrength.value = sp.bloomStrength.value;
+    ep.bloomRadius.value = sp.bloomRadius.value;
+    ep.bloomThreshold.value = sp.bloomThreshold.value;
+    ep.vignette.value = sp.vignette.value;
+    ep.grain.value = sp.grain.value;
+    this.engine.renderer.toneMappingExposure = sp.exposure.value;
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
@@ -340,12 +455,12 @@ export class App {
     this.level?.update(dt, t);
     for (const f of this.level?.fields ?? []) {
       f.update(dt);
-      f.detail(this.engine.camera, dt, this.engine.quality.mobile ? 12 : 24);
+      if (!off("overlays")) f.detail(this.engine.camera, dt, this.engine.quality.mobile ? 12 : 24);
     }
-    for (const fn of this.tickers) fn(dt, t);
+    for (const fn of this.active?.tickers ?? []) fn(dt, t);
     this.inspector.update(dt, t);
     this.bursts.update(dt);
-    this.audio.update(this.engine.camera);
+    if (!off("audio")) this.audio.update(this.engine.camera);
     this.engine.render();
     this.engine.adapt(dt);
     if (this.debug) this.debugStats(dt);
@@ -378,6 +493,13 @@ function loadFonts() {
 }
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+/** Resolve when the browser is idle (or after `ms` at the latest). */
+const idle = (ms: number) =>
+  new Promise<void>((r) => {
+    const w = window as any;
+    if (w.requestIdleCallback) w.requestIdleCallback(() => r(), { timeout: ms });
+    else setTimeout(r, Math.min(ms, 50));
+  });
 function tween(ms: number, fn: (k: number) => void) {
   return new Promise<void>((resolve) => {
     const t0 = performance.now();

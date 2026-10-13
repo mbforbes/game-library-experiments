@@ -57,7 +57,7 @@ export default function lab(): Level {
       engine.post.bloomStrength.value = 0.7;
       engine.post.bloomRadius.value = 0.4;
       engine.post.vignette.value = 0.3;
-      engine.renderer.toneMappingExposure = 0.95;
+      engine.post.exposure.value = 0.95;
       scene.background = new THREE.Color(0x9aa0a8);
       scene.fog = null;
       scene.environment = neonEnvironment(
@@ -74,7 +74,7 @@ export default function lab(): Level {
       c.audio.setRoom({ seconds: 1.8, decay: 2.6, wet: 0.3 });
       c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.55, build: LOOPS.fluorescent });
 
-      progress("Pressurizing test chambers…");
+      await progress("Pressurizing test chambers…");
       labFx.since.value = 0;
       const owned = store.games.filter((g) => g.status !== "wishlist");
       const queue = owned
@@ -96,7 +96,7 @@ export default function lab(): Level {
         scene.add(key, key.target);
       }
 
-      progress("Filing test subjects…");
+      await progress("Filing test subjects…");
       const gridA = buildGrid(queue, new THREE.Vector3(0, 0, -D / 2), (g) => (g.status === "playing" ? "#ffb000" : "#e8f4ff"));
       const gridB = buildGrid(results, B_OFFSET.clone().add(new THREE.Vector3(0, 0, -D / 2)), (g) => GRADE_COLORS[g.grade ?? "C"] ?? "#cccccc");
       const fieldA = new MediaField(c.kit, gridA.placements, { name: "queue" });
@@ -139,9 +139,9 @@ export default function lab(): Level {
       scene.add(signA, signB);
 
       // portals: blue in A (left wall) <-> orange in B (left wall)
-      progress("Calibrating portals…");
-      portalA = new Portal("#3aa0ff");
-      portalB = new Portal("#ff8a1a");
+      await progress("Calibrating portals…");
+      portalA = new Portal("#3aa0ff", engine.matchingTarget(512, 512));
+      portalB = new Portal("#ff8a1a", engine.matchingTarget(512, 512));
       portalA.group.position.set(-W / 2 + 0.03, 1.05, 0.6);
       portalA.group.rotation.y = Math.PI / 2;
       portalB.group.position.copy(B_OFFSET).add(new THREE.Vector3(-W / 2 + 0.03, 1.05, 0.6));
@@ -174,9 +174,13 @@ export default function lab(): Level {
         near.resize(size.x * scale, size.y * scale);
         near.updateCamera(c.camera);
         portalA.group.visible = portalB.group.visible = false;
+        // same MRT + target layout as the main pass: no extra shader variants to compile
+        const prevMrt = r.getMRT(), prevRt = r.getRenderTarget();
         r.setRenderTarget(near.rt);
+        r.setMRT(engine.mrt);
         r.render(scene, near.cam);
-        r.setRenderTarget(null);
+        r.setMRT(prevMrt);
+        r.setRenderTarget(prevRt);
         portalA.group.visible = portalB.group.visible = true;
       });
 
@@ -212,7 +216,7 @@ export default function lab(): Level {
       sayTo("WELCOME TO THE BACKLOG SCIENCE ENRICHMENT CENTER.  " + quips[0]);
 
       // pneumatic tubes carrying the wishlist upward
-      progress("Pressurizing tubes…");
+      await progress("Pressurizing tubes…");
       const wish = store.games.filter((g) => g.status === "wishlist");
       for (const x of tubeX) {
         const tb = tube(H - 0.2, 0.17);

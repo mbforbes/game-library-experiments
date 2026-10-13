@@ -10,7 +10,7 @@
 // Everything that holds games is sized from the data, so the room grows with the backlog.
 
 import * as THREE from "three/webgpu";
-import { texture, vec3, uv, fract, step, length, vec2, float, mix, positionWorld, hash, floor, reflector } from "three/tsl";
+import { texture, vec3, uv, fract, step, length, vec2, float, mix, positionWorld, hash, floor } from "three/tsl";
 import type { Game } from "../../../shared/types";
 import { platformOf, type MediaKind } from "../../../shared/platforms";
 import { wallRail, type Rail } from "../../engine/rail";
@@ -61,11 +61,11 @@ export default function den(): Level {
     async build(c, progress) {
       ctx = c;
       const { scene, art, store, kit, engine } = c;
-      progress("Wiring the neon…");
+      await progress("Wiring the neon…");
       engine.post.bloomStrength.value = 1.15;
       engine.post.bloomRadius.value = 0.6;
       engine.post.vignette.value = 0.45;
-      engine.renderer.toneMappingExposure = 1.05;
+      engine.post.exposure.value = 1.05;
       scene.background = new THREE.Color(0x030208);
       scene.fog = new THREE.FogExp2(0x0b0716, 0.035);
       scene.environment = neonEnvironment(engine.renderer, [
@@ -95,7 +95,7 @@ export default function den(): Level {
       const wishlist = store.games.filter((g) => g.status === "wishlist").sort((a, b) => (a.score ?? 999) - (b.score ?? 999) || (a.priority ?? 9) - (b.priority ?? 9));
 
       // ---------------- back wall: console library ----------------
-      progress("Shelving the console library…");
+      await progress("Shelving the console library…");
       const consoleMode = (g: Game, i: number, sec: Game[]): Mode => (g.grade === "A+" ? "face" : sec.length >= 12 && i >= sec.length - 3 ? "stack" : "spine");
       const caseRows = [0.24, 0.24, 0.24, 0.24, 0.24, 0.24, 0.24];
       const caseW = 1.15;
@@ -149,7 +149,7 @@ export default function den(): Level {
       tickers.push((dt) => ticker.update(dt));
 
       // ---------------- back-left: TV nook ----------------
-      progress("Warming up the CRT…");
+      await progress("Warming up the CRT…");
       const tvSet = crtTv(art, 0.62);
       const nookX = Math.min(-2.4, consoleCenterX - consoleSpan / 2 - 0.9);
       tvSet.group.position.set(nookX, 0, Z0 + 0.42);
@@ -175,7 +175,7 @@ export default function den(): Level {
       c.pickable(den, () => eggs.tapTable());
 
       // ---------------- left wall: PC ----------------
-      progress("Racking the PC wall…");
+      await progress("Racking the PC wall…");
       const pcRows = [0.26, 0.26, 0.26, 0.26, 0.26, 0.26, 0.26];
       const pcW = 1.2;
       const pcNeed = runLength(pc, art, () => "spine");
@@ -227,7 +227,7 @@ export default function den(): Level {
       c.pickable(mon, () => pcScreen.current && c.inspect(pcScreen.current));
 
       // ---------------- right wall: cartridge wall ----------------
-      progress("Hanging the cartridge wall…");
+      await progress("Hanging the cartridge wall…");
       const cartRowH = 0.17;
       const cartW = 3.4;
       const cartCenterZ = -0.4;
@@ -265,7 +265,7 @@ export default function den(): Level {
       scene.add(cartSign);
 
       // ---------------- front wall: arcade alcove, window, vending alcove ----------------
-      progress("Plugging in the arcade…");
+      await progress("Plugging in the arcade…");
       const arcadePicks = pickArcadeHeadliners(arcade);
       arcadePicks.forEach((g, i) => {
         const cab = arcadeCabinet(art, { color: ["#1d1340", "#401326", "#132a40"][i % 3], neon: ["#ffd23f", "#ff3d9a", "#4fd8ff"][i % 3], title: g.title });
@@ -288,7 +288,7 @@ export default function den(): Level {
       arcSign.rotation.y = Math.PI;
       scene.add(arcSign);
 
-      progress("Stocking the Want-O-Matic…");
+      await progress("Stocking the Want-O-Matic…");
       vending = new VendingMachine(kit, wishlist, scene);
       vending.group.position.set(2.75, 0, Z1 - 0.5);
       vending.group.rotation.y = Math.PI;
@@ -310,7 +310,7 @@ export default function den(): Level {
       tickers.push((dt) => vending.update(dt));
 
       // the window + the world outside
-      progress("Opening the window…");
+      await progress("Opening the window…");
       const outside = buildOutside(new THREE.Vector3(0, 1.5, Z1), new THREE.Vector3(0, 0, -1), 2.8, 1.4);
       outside.group.traverse((o) => {
         const m = (o as THREE.Mesh).material as THREE.Material | undefined;
@@ -385,7 +385,7 @@ export default function den(): Level {
       });
 
       // ---------------- centre: rug, couch, holo-table ----------------
-      progress("Calibrating the hologram…");
+      await progress("Calibrating the hologram…");
       scene.add(rugAt(0, 0.4, 3.4, 2.4));
       const sofa = couch();
       sofa.position.set(0, 0, 1.75);
@@ -577,15 +577,6 @@ export default function den(): Level {
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
-    // polished floor: real (blurred, distorted) reflections of the neon on desktop
-    if (!ctx.engine.quality.mobile) {
-      const refl = reflector({ resolutionScale: 0.35 });
-      refl.target.rotateX(-Math.PI / 2);
-      scene.add(refl.target);
-      const wob = vec2(hash(floor_uvSeed()).sub(0.5), 0).mul(0.004);
-      refl.uvNode = refl.uvNode!.add(wob);
-      floorMat.emissiveNode = refl.rgb.mul(0.32).mul(float(1).sub((floorMat as any).userData.seam ?? float(0)));
-    }
     // dust drifting through the neon light
     const motes = dust(ctx.engine.quality.mobile ? 110 : 240, 3.4, 0.2, CEIL - 0.2, "#ffb3e0");
     scene.add(motes);
@@ -688,11 +679,6 @@ function shelfLabel(text: string, color: string) {
   m.emissiveNode = texture(t).rgb.mul(1.2);
   m.colorNode = vec3(0);
   return new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.0234), m);
-}
-
-
-function floor_uvSeed() {
-  return floor(positionWorld.xz.mul(80)).dot(vec2(1, 157));
 }
 
 function floorMaterial() {

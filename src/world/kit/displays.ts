@@ -3,7 +3,7 @@
 
 import * as THREE from "three/webgpu";
 import { texture, uv, vec2, vec3, float, uniform, fract, floor, smoothstep, length, mix, time, sin, mod } from "three/tsl";
-import { canvas, canvasTexture, lin, neonFx } from "./common";
+import { canvas, canvasTexture, colorU, neonFx } from "./common";
 
 // ---------------------------------------------------------------------------------------------
 // Dot-matrix LED display: renders a text canvas through a grid of round LEDs. Scrolls when the
@@ -28,19 +28,21 @@ export class DotMatrix {
     this.speed = opts.speed ?? 14; // dots per second
     [this.c, this.ctx] = canvas(2048, this.rows);
     this.tex = canvasTexture(this.c, { nearest: true, repeat: true });
-    const on = lin(opts.color ?? "#ffb000");
-    const off = lin(opts.off ?? "#2a1a08");
+    // per-display values are uniforms so every dot-matrix shares one compiled shader
+    const on = colorU(opts.color ?? "#ffb000");
+    const off = colorU(opts.off ?? "#2a1a08");
     const m = new THREE.MeshBasicNodeMaterial();
-    const grid = vec2(this.cols, this.rows);
+    const grid = uniform(new THREE.Vector2(this.cols, this.rows));
+    const rowsU = uniform(this.rows);
     const cell = floor(uv().mul(grid));
     const local = fract(uv().mul(grid)).sub(0.5);
     // sample the text canvas: x in dots, scrolled, wrapped over the text width
     const sx = mod(cell.x.add(this.scroll), this.texW).add(0.5).div(2048);
-    const sy = cell.y.add(0.5).div(this.rows); // canvas textures are flipY: v=0 is the bottom row
+    const sy = cell.y.add(0.5).div(rowsU); // canvas textures are flipY: v=0 is the bottom row
     const lit = texture(this.tex, vec2(sx, sy)).r;
     const dot = smoothstep(0.5, 0.32, length(local));
-    const onC = mix(vec3(on.r, on.g, on.b), sin(time.mul(2).add(cell.x.mul(0.05)).add(vec3(0, 2.1, 4.2))).mul(0.5).add(0.5), neonFx.rainbow);
-    const col = mix(vec3(off.r, off.g, off.b).mul(0.6), onC.mul(2.6), lit).mul(dot);
+    const onC = mix(on, sin(time.mul(2).add(cell.x.mul(0.05)).add(vec3(0, 2.1, 4.2))).mul(0.5).add(0.5), neonFx.rainbow);
+    const col = mix(off.mul(0.6), onC.mul(2.6), lit).mul(dot);
     m.colorNode = vec3(0.004);
     m.emissiveNode = col;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(opts.width, opts.height), m);

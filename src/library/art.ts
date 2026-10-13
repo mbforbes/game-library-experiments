@@ -56,7 +56,7 @@ export class ArtStore {
   private fallbackSlots = new Map<string, CoverRef>();
   private hiCache = new Map<string, Promise<THREE.Texture | null>>();
   private snapCache = new Map<string, Promise<THREE.Texture | null>>();
-  private loader = new THREE.TextureLoader();
+  private loader = { loadAsync: (url: string) => loadImage(url).then((img) => new THREE.Texture(img as any)) };
   maxAnisotropy = 8;
   /** resolves when the light atlases have arrived */
   ready: Promise<void> = Promise.resolve();
@@ -85,8 +85,7 @@ export class ArtStore {
     this.ready = Promise.all(
       all.map(async ([f, tex]) => {
         try {
-          const img = await new THREE.ImageLoader().loadAsync(ART + f);
-          swapImage(tex, img);
+          swapImage(tex, await loadImage(ART + f));
         } catch {}
         onProgress?.(++done / all.length);
       }),
@@ -106,8 +105,7 @@ export class ArtStore {
     const jobs = [...this.manifest.atlas.hi.map((f, i) => [f, this.pages[i]] as const), ...(this.manifest.spines?.hi ?? []).map((f, i) => [f, this.spinePages[i]] as const)];
     for (const [f, tex] of jobs) {
       try {
-        const img = await new THREE.ImageLoader().loadAsync(ART + f);
-        swapImage(tex, img);
+        swapImage(tex, await loadImage(ART + f));
       } catch {}
     }
   }
@@ -194,13 +192,7 @@ export class ArtStore {
       }
       if (!cover) return;
       const proxied = `/api/img?u=${encodeURIComponent(cover)}`;
-      const img = await new Promise<HTMLImageElement | null>((res) => {
-        const i = new Image();
-        i.crossOrigin = "anonymous";
-        i.onload = () => res(i);
-        i.onerror = () => res(null);
-        i.src = proxied;
-      });
+      const img = await loadImage(proxied).catch(() => null);
       if (!img) return;
       this.runtime.set(g.artKey, proxied);
       const ctx = this.fallbackCanvas.getContext("2d")!;
@@ -322,8 +314,35 @@ export class ArtStore {
 
 // ---------------------------------------------------------------------------------------
 
+/**
+ * Fetch + decode an image OFF the main thread (ImageBitmap). Plain <img> elements get decoded
+ * synchronously the moment they're uploaded to the GPU, which showed up as 100+ ms hitches
+ * whenever covers streamed in while you moved around.
+ */
+let bitmapOpts: ImageBitmapOptions | undefined | null = typeof createImageBitmap === "function" ? { imageOrientation: "none", premultiplyAlpha: "none", colorSpaceConversion: "none" } : null;
+export async function loadImage(url: string): Promise<ImageBitmap | HTMLImageElement> {
+  if (bitmapOpts !== null) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status} ${url}`);
+    const blob = await res.blob();
+    try {
+      return await createImageBitmap(blob, bitmapOpts);
+    } catch (err) {
+      if (bitmapOpts && err instanceof TypeError) {
+        // older Safari: no options bag
+        bitmapOpts = undefined;
+        return createImageBitmap(blob);
+      }
+      throw err;
+    }
+  }
+  const img = await new THREE.ImageLoader().loadAsync(url);
+  await img.decode?.().catch(() => {});
+  return img;
+}
+
 /** Replace a texture's image with one of a different size (GPU texture is re-created). */
-function swapImage(t: THREE.Texture, img: HTMLImageElement) {
+function swapImage(t: THREE.Texture, img: HTMLImageElement | ImageBitmap) {
   t.dispose();
   t.image = img;
   t.needsUpdate = true;

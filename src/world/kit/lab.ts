@@ -40,8 +40,9 @@ export class Portal {
   readonly cam = new THREE.PerspectiveCamera();
   private open = uniform(0);
 
-  constructor(readonly color: string, readonly w = 1.1, readonly h = 1.9) {
-    this.rt = new THREE.RenderTarget(512, 512, { samples: 1 });
+  /** `rt` should match the main pass (engine.matchingTarget) so the view reuses its pipelines. */
+  constructor(readonly color: string, rt: THREE.RenderTarget, readonly w = 1.1, readonly h = 1.9) {
+    this.rt = rt;
     const m = new THREE.MeshBasicNodeMaterial();
     const c = lin(color);
     const ec = vec3(c.r, c.g, c.b);

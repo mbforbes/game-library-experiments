@@ -5,7 +5,7 @@ import * as THREE from "three/webgpu";
 import { texture, uv, vec2, vec3, float, uniform, sin, time, fract, hash, floor, mix, smoothstep, length, max, abs, step, dot } from "three/tsl";
 import type { Game } from "../../../shared/types";
 import type { ArtStore } from "../../library/art";
-import { boxes, canvas, canvasTexture, lin, neonMaterial } from "./common";
+import { boxes, canvas, canvasTexture, colorU, lin, neonMaterial } from "./common";
 
 const BLANK = (() => {
   const [c, ctx] = canvas(4, 4);
@@ -31,7 +31,10 @@ export class CrtScreen {
 
   constructor(private art: ArtStore, width: number, height: number, opts: { curve?: number; tint?: string } = {}) {
     const m = new THREE.MeshBasicNodeMaterial();
-    const curve = float(opts.curve ?? 0.12);
+    // sizes/curvature/tint are uniforms so every CRT shares one compiled shader
+    const curve = uniform(opts.curve ?? 0.12);
+    const sizeU = uniform(new THREE.Vector2(width, height));
+    const tintU = colorU(opts.tint ?? "#ffffff");
     this.aspect.value = width / height;
     // barrel distortion
     const c = uv().sub(0.5);
@@ -46,8 +49,8 @@ export class CrtScreen {
     const edge = step(0, uvc.x).mul(step(uvc.x, 1)).mul(step(0, uvc.y)).mul(step(uvc.y, 1));
     let col: any = this.texNode.rgb.mul(inside);
     // scanlines + RGB shadow mask
-    const lines = sin(uvc.y.mul(height * 1400)).mul(0.5).add(0.5).pow(1.6).mul(0.35).add(0.65);
-    const px = floor(uvc.x.mul(width * 1100));
+    const lines = sin(uvc.y.mul(sizeU.y.mul(1400))).mul(0.5).add(0.5).pow(1.6).mul(0.35).add(0.65);
+    const px = floor(uvc.x.mul(sizeU.x.mul(1100)));
     const mask = vec3(
       step(fract(px.div(3)), 0.33).mul(0.25).add(0.85),
       step(0.33, fract(px.div(3))).mul(step(fract(px.div(3)), 0.66)).mul(0.25).add(0.85),
@@ -55,14 +58,13 @@ export class CrtScreen {
     );
     col = col.mul(lines).mul(mask);
     // static noise
-    const n = hash(floor(uvc.mul(vec2(width * 600, height * 600))).add(floor(time.mul(30)).mul(17.13)));
+    const n = hash(floor(uvc.mul(sizeU.mul(600))).add(floor(time.mul(30)).mul(17.13)));
     const roll = smoothstep(0.0, 0.05, abs(fract(uvc.y.sub(time.mul(0.7))).sub(0.5))).mul(0.15).add(0.85);
     col = mix(col, vec3(n).mul(0.9), this.staticAmt).mul(roll);
     // vignette at the tube edge + slight flicker
     const vig = smoothstep(0.75, 0.35, length(c.mul(vec2(1, 1)))).mul(0.6).add(0.4);
     const flick = sin(time.mul(60)).mul(0.015).add(1);
-    const tint = lin(opts.tint ?? "#ffffff");
-    col = col.mul(vig).mul(flick).mul(edge).mul(vec3(tint.r, tint.g, tint.b)).mul(this.bright);
+    col = col.mul(vig).mul(flick).mul(edge).mul(tintU).mul(this.bright);
     m.colorNode = vec3(0);
     m.emissiveNode = col.mul(1.25);
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), m);

@@ -39,6 +39,13 @@ export class Inspector {
     return !!this.hero;
   }
 
+  /** The world on screen changed: the dimmer (and any hero) live in its scene. */
+  setScene(scene: THREE.Scene) {
+    this.close(true);
+    this.scene = scene;
+    scene.add(this.dimmer);
+  }
+
   open(game: Game, field: MediaField | null) {
     if (this.hero) this.close(true);
     const hero = new Hero(game, this.art);

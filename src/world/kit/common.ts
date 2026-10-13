@@ -10,12 +10,19 @@ export const neonFx = {
   since: uniform(99), // seconds since the level appeared (drives the power-on sequence)
 };
 
-/** Neon tubes don't just appear: each one stutters on after its own delay. */
-function powerOn(delay: number, seed: number) {
+// PERFORMANCE NOTE: every distinct shader costs ~200 ms to compile on the GPU (Metal). Per-object
+// values (colours, intensities, seeds) therefore live in uniforms, never as constants baked into
+// the shader code, so all neon tubes / signs / screens share a handful of compiled programs.
+
+/** Neon tubes don't just appear: each one stutters on after its own delay (uniform per object). */
+function powerOn(delay: any, seed: any) {
   const s = neonFx.since.sub(delay);
   const sputter = hash(floor(neonFx.since.mul(26)).add(seed)).greaterThan(0.45).select(float(1), float(0.06));
   return s.lessThan(0).select(float(0.015), s.lessThan(0.5).select(sputter, float(1)));
 }
+
+/** Uniform colour from a hex string (linear). */
+export const colorU = (hex: string | number) => uniform(new THREE.Color(hex).convertSRGBToLinear());
 
 export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement("canvas");
@@ -43,19 +50,16 @@ export const lin = (hex: string | number) => new THREE.Color(hex).convertSRGBToL
 /** Emissive "neon tube" material. Colour is hex; intensity scales the bloom. Supports flicker + rainbow. */
 export function neonMaterial(hex: string | number, intensity = 4, opts: { flicker?: number; seed?: number; delay?: number } = {}) {
   const m = new THREE.MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.4 });
-  const c = lin(hex);
-  const base = vec3(c.r, c.g, c.b);
+  const base = colorU(hex);
+  const k = uniform(intensity);
+  const flicker = uniform(opts.flicker ?? 0);
+  const seed = uniform(opts.seed ?? Math.random() * 100);
+  const delay = uniform(opts.delay ?? 0.2 + Math.random() * 1.4);
   const hue = sin(time.mul(1.7).add(positionWorld.x.mul(1.3)).add(vec3(0, 2.094, 4.188))).mul(0.5).add(0.5);
-  let col: any = mix(base, hue, neonFx.rainbow);
-  if (opts.flicker) {
-    const seed = float(opts.seed ?? Math.random() * 100);
-    const n = hash(floor(time.mul(14)).add(seed));
-    const dip = n.greaterThan(1 - opts.flicker).select(float(0.15), float(1));
-    col = col.mul(dip);
-  }
-  const on = powerOn(opts.delay ?? 0.2 + Math.random() * 1.4, opts.seed ?? Math.random() * 100);
+  const dip = hash(floor(time.mul(14)).add(seed)).greaterThan(float(1).sub(flicker)).select(float(0.15), float(1));
+  const col = mix(base, hue, neonFx.rainbow).mul(dip);
   m.colorNode = col.mul(0.2);
-  m.emissiveNode = col.mul(intensity).mul(neonFx.boost).mul(on);
+  m.emissiveNode = col.mul(k).mul(neonFx.boost).mul(powerOn(delay, seed));
   return m;
 }
 
@@ -125,16 +129,16 @@ export function neonSign(text: string, opts: { font: string; height: number; col
   const tex = canvasTexture(c);
   const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false });
   const s = texture(tex);
-  const col = lin(opts.color);
+  const col = colorU(opts.color);
+  const seed = uniform(text.length * 3.7);
+  const flicker = uniform(opts.flicker ?? 0);
+  const delay = uniform(opts.delay ?? 0.3 + Math.random() * 1.6);
   const hue = sin(time.mul(1.7).add(positionWorld.x.mul(1.3)).add(vec3(0, 2.094, 4.188))).mul(0.5).add(0.5);
   // keep the white core but tint the glow; rainbow mode recolours
-  const tint = mix(vec3(col.r, col.g, col.b), hue, neonFx.rainbow);
-  let rgb: any = mix(tint.mul(s.a), s.rgb, s.r.mul(s.g).mul(s.b).pow(2));
-  if (opts.flicker) {
-    const n = hash(floor(time.mul(12)).add(float(text.length * 7.13)));
-    rgb = rgb.mul(n.greaterThan(1 - opts.flicker).select(float(0.12), float(1)));
-  }
-  const k = float(opts.intensity ?? 3).mul(neonFx.boost).mul(powerOn(opts.delay ?? 0.3 + Math.random() * 1.6, text.length * 3.7));
+  const tint = mix(col, hue, neonFx.rainbow);
+  const dip = hash(floor(time.mul(12)).add(seed)).greaterThan(float(1).sub(flicker)).select(float(0.12), float(1));
+  const rgb = mix(tint.mul(s.a), s.rgb, s.r.mul(s.g).mul(s.b).pow(2)).mul(dip);
+  const k = uniform(opts.intensity ?? 3).mul(neonFx.boost).mul(powerOn(delay, seed));
   // unlit: emissive only (it is what blooms)
   m.colorNode = vec3(0);
   m.opacityNode = s.a;

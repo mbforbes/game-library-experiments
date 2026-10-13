@@ -44,6 +44,8 @@ export class Hud {
   private levelName = h("span", "level-name");
   private debugEl = h("div", "debug");
   private tip = h("div", "tip");
+  private switcher = h("div", "switcher");
+  private help = h("div", "help");
   private toastTimer = 0;
 
   art!: ArtStore;
@@ -52,14 +54,14 @@ export class Hud {
     document.body.appendChild(this.root);
 
     // loading
-    this.loading.innerHTML = `<div class="loading-title">COOPER'S<br>LIBRARY</div><div class="loading-bar"><i></i></div>`;
+    this.loading.innerHTML = `<div class="loading-title">THE<br>BACKLOG</div><div class="loading-bar"><i></i></div>`;
     this.loading.appendChild(this.loadingMsg);
     this.root.appendChild(this.loading);
 
     // top bar
     const top = h("header", "topbar");
     const brand = h("button", "brand");
-    brand.innerHTML = `<span class="logo">COOPER'S LIBRARY</span>`;
+    brand.innerHTML = `<span class="logo">THE BACKLOG</span>`;
     brand.appendChild(this.levelName);
     brand.onclick = () => this.levelMenu.classList.toggle("open");
     const actions = h("div", "actions");
@@ -140,8 +142,32 @@ export class Hud {
     }
     this.root.appendChild(this.filterBox);
 
+    // level-switch loader (over the CRT-off black)
+    this.switcher.innerHTML = `<div class="sw-name"></div><div class="loading-bar"><i></i></div>`;
+
+    // tiny controls card: open on the first visit, then a "?" chip
+    const touch = matchMedia("(pointer: coarse)").matches;
+    const rows: [string, string][] = touch
+      ? [["swipe", "move along"], ["pinch", "zoom"], ["tap", "pull out a game"], ["drag game", "turn it over"]]
+      : [["scroll", "move along"], ["drag", "pan"], ["ctrl + scroll", "zoom"], ["click", "pull out a game"], ["← → / esc", "browse / put back"]];
+    this.help.innerHTML = `<button class="help-chip" aria-label="Controls">?</button><div class="help-card">${rows.map(([k, v]) => `<div><kbd>${k}</kbd><span>${v}</span></div>`).join("")}</div>`;
+    const chip = this.help.querySelector(".help-chip") as HTMLButtonElement;
+    chip.onclick = () => {
+      cb.onUi("tick");
+      this.help.classList.toggle("open");
+    };
+    let seen = false;
+    try {
+      seen = localStorage.getItem("the-backlog-help") === "1";
+      localStorage.setItem("the-backlog-help", "1");
+    } catch {}
+    if (!seen) {
+      this.help.classList.add("open");
+      setTimeout(() => this.help.classList.remove("open"), 9000);
+    }
+
     // stations + panel + toast + debug
-    this.root.append(this.stationsEl, this.panel, this.toastEl, this.debugEl, this.tip);
+    this.root.append(this.stationsEl, this.panel, this.toastEl, this.debugEl, this.tip, this.switcher, this.help);
     this.panel.addEventListener("pointerdown", (e) => e.stopPropagation());
     this.syncFilters();
   }
@@ -154,6 +180,14 @@ export class Hud {
   hideLoading() {
     this.loading.classList.add("done");
     setTimeout(() => this.loading.remove(), 900);
+  }
+
+  /** Level switch loader: name + bar while a world builds / compiles; null hides it. */
+  switching(name: string | null, frac = 0) {
+    this.switcher.classList.toggle("show", name !== null);
+    if (name === null) return;
+    (this.switcher.querySelector(".sw-name") as HTMLElement).textContent = name;
+    (this.switcher.querySelector(".loading-bar i") as HTMLElement).style.width = `${Math.round(frac * 100)}%`;
   }
 
   showError(msg: string) {

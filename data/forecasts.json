@@ -1,0 +1,3267 @@
+{
+  "generatedAt": "2026-10-13T16:02:40Z",
+  "method": "Ridge regression on his 438 grades (A+=5..F=0) using shrunk series, developer, genre, era and platform-genre averages, years since release and LaunchBox crowd stars (shown raw as 'community'; for delta converted to his scale by percentile rank, so the crowd's Nth-percentile game = his Nth-percentile grade), with grade cutoffs set to his own A/B/C mix.",
+  "backtest": {
+    "exact": 0.447,
+    "withinOne": 0.911,
+    "n": 438
+  },
+  "insights": [
+    "Crowd rates his games 4.0/5 on average; he grades them a flat B",
+    "Fighting games: 1.3 grades below the crowd. MK II got an F.",
+    "Sims, strategy and builders: half a grade kinder than the crowd",
+    "Kojima Productions: 6 games, avg A, a full grade over the crowd",
+    "Nintendo: avg A-, yet half a grade under the crowd's hype",
+    "PS5 games: half a grade harsher than the crowd",
+    "Played at launch: avg B+. Played 20+ years late: avg B-",
+    "'Clunky' in a review = never above a B (14 for 14)",
+    "Mentions checkpoints? 11 of those 14 reviews end in a C",
+    "Backlog forecast: 2 A+, 64 A, 275 B, 186 C, 8 D"
+  ],
+  "context": {
+    "vsCommunity": {
+      "n": 398,
+      "avgDelta": 0.0,
+      "harsher": 120,
+      "kinder": 118,
+      "same": 160
+    },
+    "byGenre": [
+      {
+        "genre": "Action/Adventure",
+        "n": 60,
+        "avg": 3.1,
+        "delta": 0.03
+      },
+      {
+        "genre": "Sports",
+        "n": 40,
+        "avg": 2.42,
+        "delta": -0.32
+      },
+      {
+        "genre": "Shooter",
+        "n": 39,
+        "avg": 2.97,
+        "delta": 0.07
+      },
+      {
+        "genre": "RPG",
+        "n": 38,
+        "avg": 3.45,
+        "delta": -0.29
+      },
+      {
+        "genre": "Platformer",
+        "n": 32,
+        "avg": 3.16,
+        "delta": -0.36
+      },
+      {
+        "genre": "Action Platformer",
+        "n": 30,
+        "avg": 2.9,
+        "delta": 0.05
+      },
+      {
+        "genre": "FPS",
+        "n": 28,
+        "avg": 2.79,
+        "delta": 0.1
+      },
+      {
+        "genre": "Strategy",
+        "n": 27,
+        "avg": 3.48,
+        "delta": 0.43
+      },
+      {
+        "genre": "Racing",
+        "n": 21,
+        "avg": 2.81,
+        "delta": 0.11
+      },
+      {
+        "genre": "Flight Sim",
+        "n": 17,
+        "avg": 3.29,
+        "delta": 0.37
+      },
+      {
+        "genre": "Simulation",
+        "n": 14,
+        "avg": 3.36,
+        "delta": 0.57
+      },
+      {
+        "genre": "Puzzle",
+        "n": 13,
+        "avg": 2.92,
+        "delta": 0.15
+      },
+      {
+        "genre": "Puzzle Platformer",
+        "n": 11,
+        "avg": 2.27,
+        "delta": 0.24
+      },
+      {
+        "genre": "Stealth",
+        "n": 11,
+        "avg": 3.55,
+        "delta": 0.25
+      },
+      {
+        "genre": "Open World",
+        "n": 10,
+        "avg": 3.5,
+        "delta": -0.07
+      },
+      {
+        "genre": "Brawler",
+        "n": 9,
+        "avg": 2.78,
+        "delta": -0.21
+      },
+      {
+        "genre": "Run & Gun",
+        "n": 9,
+        "avg": 2.89,
+        "delta": -0.37
+      },
+      {
+        "genre": "Point & Click",
+        "n": 7,
+        "avg": 1.57,
+        "delta": 0.08
+      },
+      {
+        "genre": "Fighting",
+        "n": 6,
+        "avg": 1.83,
+        "delta": -1.31
+      },
+      {
+        "genre": "City Builder",
+        "n": 5,
+        "avg": 3.0,
+        "delta": 0.27
+      },
+      {
+        "genre": "Music/Rhythm",
+        "n": 5,
+        "avg": 3.0,
+        "delta": 0.27
+      },
+      {
+        "genre": "Compilation",
+        "n": 3,
+        "avg": 2.67,
+        "delta": 1.1
+      }
+    ],
+    "byPlatform": [
+      {
+        "platform": "Windows",
+        "n": 99,
+        "avg": 3.12,
+        "delta": 0.07
+      },
+      {
+        "platform": "Genesis",
+        "n": 84,
+        "avg": 2.62,
+        "delta": 0.24
+      },
+      {
+        "platform": "PS4",
+        "n": 58,
+        "avg": 3.17,
+        "delta": 0.17
+      },
+      {
+        "platform": "PS2",
+        "n": 47,
+        "avg": 2.94,
+        "delta": -0.06
+      },
+      {
+        "platform": "PS5",
+        "n": 30,
+        "avg": 3.07,
+        "delta": -0.49
+      },
+      {
+        "platform": "PS3",
+        "n": 27,
+        "avg": 3.11,
+        "delta": -0.14
+      },
+      {
+        "platform": "Switch",
+        "n": 18,
+        "avg": 3.78,
+        "delta": 0.13
+      },
+      {
+        "platform": "NES",
+        "n": 18,
+        "avg": 2.61,
+        "delta": -0.41
+      },
+      {
+        "platform": "N64",
+        "n": 16,
+        "avg": 2.75,
+        "delta": 0.14
+      },
+      {
+        "platform": "PS1",
+        "n": 11,
+        "avg": 3.0,
+        "delta": -0.69
+      },
+      {
+        "platform": "SNES",
+        "n": 11,
+        "avg": 3.27,
+        "delta": -0.38
+      },
+      {
+        "platform": "GC",
+        "n": 6,
+        "avg": 2.83,
+        "delta": -0.27
+      },
+      {
+        "platform": "Wii",
+        "n": 5,
+        "avg": 2.8,
+        "delta": 0.56
+      },
+      {
+        "platform": "MSX",
+        "n": 3,
+        "avg": 2.67,
+        "delta": -0.67
+      }
+    ],
+    "byDeveloper": [
+      {
+        "developer": "Nintendo",
+        "n": 27,
+        "avg": 3.56
+      },
+      {
+        "developer": "Sega",
+        "n": 23,
+        "avg": 2.43
+      },
+      {
+        "developer": "Konami",
+        "n": 18,
+        "avg": 2.72
+      },
+      {
+        "developer": "Capcom",
+        "n": 9,
+        "avg": 3.22
+      },
+      {
+        "developer": "Square Enix",
+        "n": 7,
+        "avg": 3.43
+      },
+      {
+        "developer": "Bethesda Game Studios",
+        "n": 7,
+        "avg": 3.29
+      },
+      {
+        "developer": "EA Tiburon",
+        "n": 7,
+        "avg": 2.14
+      },
+      {
+        "developer": "Neversoft",
+        "n": 7,
+        "avg": 3.29
+      },
+      {
+        "developer": "Kojima Productions",
+        "n": 6,
+        "avg": 4.0
+      },
+      {
+        "developer": "Sony San Diego",
+        "n": 5,
+        "avg": 2.8
+      },
+      {
+        "developer": "Visual Concepts",
+        "n": 5,
+        "avg": 2.0
+      },
+      {
+        "developer": "Sony Santa Monica",
+        "n": 5,
+        "avg": 4.4
+      },
+      {
+        "developer": "Electronic Arts",
+        "n": 5,
+        "avg": 2.4
+      },
+      {
+        "developer": "Toaplan",
+        "n": 5,
+        "avg": 2.2
+      },
+      {
+        "developer": "Project Aces",
+        "n": 5,
+        "avg": 3.4
+      },
+      {
+        "developer": "Treyarch",
+        "n": 5,
+        "avg": 2.6
+      },
+      {
+        "developer": "EA Los Angeles",
+        "n": 5,
+        "avg": 2.8
+      },
+      {
+        "developer": "Sonic Team",
+        "n": 5,
+        "avg": 3.4
+      },
+      {
+        "developer": "Square",
+        "n": 5,
+        "avg": 3.2
+      },
+      {
+        "developer": "Humongous Entertainment",
+        "n": 5,
+        "avg": 1.8
+      },
+      {
+        "developer": "Namco",
+        "n": 5,
+        "avg": 2.6
+      },
+      {
+        "developer": "From Software",
+        "n": 4,
+        "avg": 4.0
+      },
+      {
+        "developer": "DICE",
+        "n": 4,
+        "avg": 2.5
+      },
+      {
+        "developer": "Harmonix",
+        "n": 4,
+        "avg": 3.25
+      },
+      {
+        "developer": "The Creative Assembly",
+        "n": 4,
+        "avg": 3.5
+      },
+      {
+        "developer": "Naughty Dog",
+        "n": 4,
+        "avg": 3.25
+      },
+      {
+        "developer": "Treasure",
+        "n": 4,
+        "avg": 4.0
+      },
+      {
+        "developer": "Ensemble Studios",
+        "n": 4,
+        "avg": 3.75
+      },
+      {
+        "developer": "Technosoft",
+        "n": 4,
+        "avg": 3.0
+      },
+      {
+        "developer": "BlueSky Software",
+        "n": 4,
+        "avg": 2.25
+      },
+      {
+        "developer": "Compile",
+        "n": 4,
+        "avg": 3.5
+      },
+      {
+        "developer": "Sony Japan",
+        "n": 3,
+        "avg": 4.0
+      },
+      {
+        "developer": "Paradox",
+        "n": 3,
+        "avg": 3.33
+      },
+      {
+        "developer": "Yacht Club Games",
+        "n": 3,
+        "avg": 4.0
+      },
+      {
+        "developer": "Ubisoft Montpellier",
+        "n": 3,
+        "avg": 3.33
+      },
+      {
+        "developer": "Infinity Ward",
+        "n": 3,
+        "avg": 4.0
+      },
+      {
+        "developer": "Zipper Interactive",
+        "n": 3,
+        "avg": 3.0
+      }
+    ],
+    "byDecade": [
+      {
+        "decade": "1980s",
+        "n": 28,
+        "avg": 2.5
+      },
+      {
+        "decade": "1990s",
+        "n": 124,
+        "avg": 2.74
+      },
+      {
+        "decade": "2000s",
+        "n": 91,
+        "avg": 2.92
+      },
+      {
+        "decade": "2010s",
+        "n": 128,
+        "avg": 3.21
+      },
+      {
+        "decade": "2020s",
+        "n": 67,
+        "avg": 3.31
+      }
+    ],
+    "disagreements": [
+      {
+        "id": "g:windows/zeroranger",
+        "title": "ZeroRanger",
+        "grade": "C",
+        "community": 4.78,
+        "note": "Grindy STG tropes and a save-wiping finale: 'I never want to see or play ZeroRanger again'"
+      },
+      {
+        "id": "g:genesis/mortal-kombat-ii",
+        "title": "Mortal Kombat II",
+        "grade": "F",
+        "community": 4.15,
+        "note": "Cheating AI even on VERY EASY: 'If I could give a grade lower than F, I would.'"
+      },
+      {
+        "id": "g:ps5/nba-2k23",
+        "title": "NBA 2K23",
+        "grade": "F",
+        "community": 4.12,
+        "note": "Rotten with ads and pay-to-win: 'it's just way too toxic now'"
+      },
+      {
+        "id": "g:ps4/shadow-of-the-colossus-2018",
+        "title": "Shadow of the Colossus (2018)",
+        "grade": "D",
+        "community": 4.22,
+        "note": "Loves the atmosphere, but the camera, horse and puzzle-boss tedium sink it. 'Tragic.'"
+      },
+      {
+        "id": "g:ps4/crash-bandicoot-4-its-about-time",
+        "title": "Crash Bandicoot 4: It's About Time",
+        "grade": "C",
+        "community": 4.42,
+        "note": "'A little too authentic': brutal 90s platforming, a camera he can't control"
+      },
+      {
+        "id": "g:ps3/uncharted-3-drakes-deception",
+        "title": "Uncharted 3: Drake's Deception",
+        "grade": "C",
+        "community": 4.34,
+        "note": "Recycled story and kamikaze enemy AI; a letdown after he loved 1 and 2"
+      },
+      {
+        "id": "g:switch/mario-kart-8-deluxe",
+        "title": "Mario Kart 8 Deluxe",
+        "grade": "B",
+        "community": 4.61,
+        "note": "Blue shells: his biggest rage-game in years, Sekiro included"
+      },
+      {
+        "id": "g:ps4/metal-gear-solid-v-the-phantom-pain",
+        "title": "Metal Gear Solid V: The Phantom Pain",
+        "grade": "A+",
+        "community": 3.52,
+        "note": "No review needed: his 6 Kojima Productions games avg A; this crowd is oddly cool"
+      },
+      {
+        "id": "g:ps4/final-fantasy-vii-remake",
+        "title": "Final Fantasy VII: Remake",
+        "grade": "A+",
+        "community": 3.75,
+        "note": "Lived up to years of anticipation: Wall Market, Cloud and Aerith, a stellar score"
+      },
+      {
+        "id": "g:genesis/aerobiz-supersonic",
+        "title": "Aerobiz Supersonic",
+        "grade": "A",
+        "community": 3.2,
+        "note": "An airline tycoon sim for a management-sim fan who wishes for an airport sim"
+      },
+      {
+        "id": "g:genesis/dynamite-headdy",
+        "title": "Dynamite Headdy",
+        "grade": "A+",
+        "community": 3.87,
+        "note": "His yardstick for 'really novel ideas' on the Genesis (see his Batman & Robin review)"
+      },
+      {
+        "id": "g:ps4/ghost-of-tsushima",
+        "title": "Ghost of Tsushima",
+        "grade": "A+",
+        "community": 4.04,
+        "note": "'Perhaps the most beautiful game I've ever played'"
+      },
+      {
+        "id": "g:ps4/sekiro-shadows-die-twice",
+        "title": "Sekiro: Shadows Die Twice",
+        "grade": "A+",
+        "community": 4.04,
+        "note": "Still his FromSoft '1A', even after Elden Ring ('1B')"
+      },
+      {
+        "id": "g:n64/star-soldier-vanishing-earth",
+        "title": "Star Soldier: Vanishing Earth",
+        "grade": "A",
+        "community": 3.66,
+        "note": "A short, welcoming STG with an awesome soundtrack: exactly his kind of shmup"
+      }
+    ],
+    "likes": [
+      "gorgeous pixel art and sprite work",
+      "a killer soundtrack",
+      "infinite continues and fair checkpoints",
+      "short games that respect his time",
+      "new abilities that stack up",
+      "quality-of-life fixes in remakes",
+      "Nintendo-grade polish",
+      "co-op runs with Max or Alexis",
+      "deep management and builder sims",
+      "big character moments and twists"
+    ],
+    "dislikes": [
+      "brutal, coin-munching difficulty",
+      "losing every power-up on death",
+      "scarce checkpoints",
+      "clunky controls and uncontrollable cameras",
+      "checklist open worlds and fetch quests",
+      "recycled enemies and bosses",
+      "bugs, crashes and soft locks",
+      "microtransactions and menu bloat",
+      "cryptic puzzles with no clear goal",
+      "cheating or rubber-banding AI",
+      "retro games 'too faithful' to old flaws",
+      "great art bolted to a bad game"
+    ]
+  },
+  "forecasts": {
+    "g:gameboy/castlevania-ii-belmonts-revenge": {
+      "grade": "C",
+      "confidence": 0.47,
+      "why": "Rough history with Castlevania: 6 beaten, avg B-; crowd 4.0/5"
+    },
+    "g:switch-2/orbitals": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Fresh release: his launch-window plays avg B+"
+    },
+    "g:switch-2/star-fox-2026": {
+      "grade": "A",
+      "confidence": 0.38,
+      "why": "Star Fox 64 got an A, and his launch-window plays avg B+"
+    },
+    "g:switch-2/pokemon-pokopia": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Pokemon Shield got A, Let's Go, Pikachu! got B"
+    },
+    "g:switch-2/the-elder-scrolls-iv-oblivion-remastered": {
+      "grade": "A",
+      "confidence": 0.54,
+      "why": "He gave the 2006 Oblivion an A; crowd loves the remaster (4.6/5)"
+    },
+    "g:ps5/signalis": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.3/5 from 30 votes"
+    },
+    "g:ps5/big-walk": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Fresh release: his launch-window plays avg B+"
+    },
+    "g:ps5/nine-sols": {
+      "grade": "A",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.4/5 from 29 votes"
+    },
+    "g:ps5/lords-of-the-fallen": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A, but crowd is lukewarm: 4.0/5 (26 votes)"
+    },
+    "g:ps5/tomb-raider-i-iii-remastered-starring-lara-croft": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:windows/tomb-raider-iii-adventures-of-lara-croft": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:windows/tomb-raider-ii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "29 years old: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:windows/tomb-raider": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:ps5/chained-echoes": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A"
+    },
+    "g:ps5/mlb-the-show-26": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "The Show 22, 24 and 25 all got B's; he wants Sony to push it further"
+    },
+    "g:ps5/forumla-legends-legacy-edition": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Fresh release: his launch-window plays avg B+, but racers: 21 beaten, avg B-"
+    },
+    "g:ps5/marvel-cosmic-invasion": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 47 votes"
+    },
+    "g:windows/news-tower": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "His sims average: B+ over 14"
+    },
+    "g:windows/a-train-pc-classic": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "His sims average: B+ over 14, but 10 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:ps5/monster-hunter-rise": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A; crowd 4.3/5"
+    },
+    "g:ps5/pga-tour-2k25": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PS4/PS5 sports games: 10 beaten, avg C+, but fresh release: his launch-window plays avg B+"
+    },
+    "g:ps5/neon-white": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.2/5 from 22 votes"
+    },
+    "g:ps5/lies-of-p": {
+      "grade": "A",
+      "confidence": 0.47,
+      "why": "Crowd favorite: 4.6/5 from 81 votes; PS4/PS5 RPGs: 9 beaten, avg A"
+    },
+    "g:ps5/diablo-iv": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A; crowd 4.2/5"
+    },
+    "g:ps5/jusant": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.2/5 from 25 votes, but puzzle platformers: 11 beaten, avg C+"
+    },
+    "g:ps5/warhammer-40-000-boltgun": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.3/5 from 33 votes"
+    },
+    "g:ps5/teenage-mutant-ninja-turtles-the-cowabunga-collection": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.2/5 from 41 votes"
+    },
+    "g:ps5/dragon-age-the-veilguard": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.3/5 from 23 votes, but PS4/PS5 RPGs: 9 beaten, avg A"
+    },
+    "g:windows/tiny-thor": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC action platformers: 9 beaten, avg B"
+    },
+    "g:windows/exapunks": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Small but adoring crowd: 4.7/5 from 9 votes; PC puzzlers: 5 beaten, avg A-"
+    },
+    "g:windows/transport-fever-2": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Small but adoring crowd: 4.2/5 from 14 votes"
+    },
+    "g:windows/minishoot-adventures": {
+      "grade": "A",
+      "confidence": 0.42,
+      "why": "Crowd favorite: 4.6/5 from 19 votes; his action-adventures average: B over 60"
+    },
+    "g:windows/thronefall": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-; crowd 4.2/5"
+    },
+    "g:ps5/screamer": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Fresh release: his launch-window plays avg B+, but racers: 21 beaten, avg B-"
+    },
+    "g:windows/foundation": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd shrugs: 3.7/5 from 13 votes"
+    },
+    "g:windows/stronghold-definitive-edition": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/stronghold-crusader-definitive-edition": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-"
+    },
+    "g:ps5/final-fantasy-xvi": {
+      "grade": "A",
+      "confidence": 0.39,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A; crowd 4.2/5"
+    },
+    "g:windows/freeways": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Sims: 14 beaten, avg B+, but playing it 9 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:ps2/gradius-v": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Gradius got a C, but this one's by Treasure (his avg: A)"
+    },
+    "g:windows/arc-raiders": {
+      "grade": "A",
+      "confidence": 0.37,
+      "why": "Small but adoring crowd: 4.5/5 from 10 votes"
+    },
+    "g:switch-2/hades-ii": {
+      "grade": "A+",
+      "confidence": 0.33,
+      "why": "Hades got an A, his favorite Supergiant game; crowd 4.7/5"
+    },
+    "g:ps5/ea-sports-wrc-24": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Crowd is lukewarm: 3.7/5 (5 votes); racers: 21 beaten, avg B-"
+    },
+    "g:ps5/stray": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "His puzzle platformers average: C+ over 11; crowd 3.9/5"
+    },
+    "g:windows/talk-to-me-human": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "PC puzzlers: 5 beaten, avg A-"
+    },
+    "g:ps5/nascar-25": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Fresh release: his launch-window plays avg B+, but his racers average: B- over 21"
+    },
+    "g:ps5/cocoon": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.3/5 from 32 votes, but puzzle platformers: 11 beaten, avg C+"
+    },
+    "g:switch/diablo-iii-eternal-collection": {
+      "grade": "A",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.4/5 from 55 votes; Diablo got A, Diablo II: Resurrected got B"
+    },
+    "g:ps5/final-fantasy-tactics-ivalice-chronicles": {
+      "grade": "A",
+      "confidence": 0.45,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A; crowd 4.3/5"
+    },
+    "g:ps5/ninja-gaiden-ragebound": {
+      "grade": "A",
+      "confidence": 0.43,
+      "why": "Crowd loves it (4.5/5); his ninja homages (Messenger, Cyber Shadow) got B's"
+    },
+    "g:arcade/life-force": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "He gave Gradius a C; crowd 4.1/5"
+    },
+    "g:arcade/salamander-2": {
+      "grade": "C",
+      "confidence": 0.54,
+      "why": "He gave Gradius a C; crowd 3.9/5"
+    },
+    "g:arcade/salamander-iii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "He gave Gradius a C, but fresh release: his launch-window plays avg B+"
+    },
+    "g:arcade/gradius-iii": {
+      "grade": "C",
+      "confidence": 0.58,
+      "why": "Crowd is lukewarm: 3.6/5 (121 votes); he gave Gradius a C"
+    },
+    "g:switch/gradius-origins": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "Gradius got a C from him, but fresh release: his launch-window plays avg B+"
+    },
+    "g:switch/shinobi-art-of-vengeance": {
+      "grade": "A",
+      "confidence": 0.36,
+      "why": "Self-declared 'huge Shinobi III fan' (an A); crowd 4.4/5"
+    },
+    "g:nes/space-shuttle-project": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd pans it: 2.7/5 from 47 votes, but his sims average: B+ over 14"
+    },
+    "g:nes/milons-secret-castle": {
+      "grade": "C",
+      "confidence": 0.53,
+      "why": "Crowd is lukewarm: 3.3/5 (80 votes); puzzle platformers: 11 beaten, avg C+"
+    },
+    "g:nes/kirbys-adventure": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 442 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:ps5/ea-sports-college-football-26": {
+      "grade": "B",
+      "confidence": 0.44,
+      "why": "College Football 25 got a B; EA Tiburon games avg C for him"
+    },
+    "g:n64/f-1-world-grand-prix": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd shrugs: 3.7/5 from 89 votes; N64/GC/Wii racers: 4 beaten, avg C+"
+    },
+    "g:nes/ninja-gaiden": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "His go-to example of unfair 80s design ('hello Ninja Gaiden')"
+    },
+    "g:nes/guerrilla-war": {
+      "grade": "C",
+      "confidence": 0.47,
+      "why": "Crowd is lukewarm: 3.8/5 (120 votes)"
+    },
+    "g:windows/heroes-of-hammerwatch-ii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC RPGs: 8 beaten, avg A-; crowd 4.2/5"
+    },
+    "g:ps5/bomb-rush-cyberfunk": {
+      "grade": "A",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.5/5 from 36 votes"
+    },
+    "g:windows/blue-prince": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC puzzlers: 5 beaten, avg A-; crowd 4.2/5"
+    },
+    "g:arcade/salamander": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "He gave Gradius a C; crowd 4.1/5"
+    },
+    "g:arcade/a-jax": {
+      "grade": "C",
+      "confidence": 0.6,
+      "why": "Crowd shrugs: 3.4/5 from 141 votes; Konami track record: 18 beaten, avg B-"
+    },
+    "g:arcade/gradius": {
+      "grade": "C",
+      "confidence": 0.58,
+      "why": "NES Gradius got a C: 'way too hard' to beat legit"
+    },
+    "g:arcade/gradius-ii": {
+      "grade": "C",
+      "confidence": 0.58,
+      "why": "Crowd shrugs: 3.7/5 from 99 votes; Gradius got a C from him"
+    },
+    "g:arcade/haunted-castle": {
+      "grade": "D",
+      "confidence": 0.29,
+      "why": "Crowd shrugs: 3.1/5 from 149 votes; Castlevania track record: 6 beaten, avg B-"
+    },
+    "g:arcade/twinbee": {
+      "grade": "C",
+      "confidence": 0.6,
+      "why": "Crowd is lukewarm: 3.2/5 (66 votes); Konami: 18 of theirs beaten, avg B-"
+    },
+    "g:arcade/scramble": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "45 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:arcade/thunder-cross": {
+      "grade": "C",
+      "confidence": 0.6,
+      "why": "Crowd is lukewarm: 3.5/5 (91 votes); Konami: 18 of theirs beaten, avg B-"
+    },
+    "g:ps4/arcade-classics-anniversary-collection": {
+      "grade": "B",
+      "confidence": 0.48,
+      "why": "Konami: 18 of theirs beaten, avg B-"
+    },
+    "g:windows/age-of-empires-ii-de-chronicles-battle-for-greece": {
+      "grade": "A",
+      "confidence": 0.48,
+      "why": "Self-described 'sucker for ancient history' + AoE II (avg A+)"
+    },
+    "g:windows/age-of-empires-ii-de-victors-and-vanquished": {
+      "grade": "A",
+      "confidence": 0.48,
+      "why": "He'd beaten every AoE II campaign that existed in 2021; avg A+"
+    },
+    "g:windows/age-of-empires-ii-de-the-mountain-royals": {
+      "grade": "A",
+      "confidence": 0.47,
+      "why": "More AoE II, his 'pantheon' game: three A+ grades so far"
+    },
+    "g:windows/age-of-empires-ii-de-return-of-rome": {
+      "grade": "A",
+      "confidence": 0.47,
+      "why": "AoE1's campaigns (his B) rebuilt inside AoE II (three A+ grades)"
+    },
+    "g:ps2/yu-gi-oh-the-duelists-of-the-roses": {
+      "grade": "B",
+      "confidence": 0.46,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but strategy games: 27 beaten, avg B+"
+    },
+    "g:ps2/mvp-baseball-2005": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "His sports games average: C+ over 40, but crowd favorite: 4.3/5 from 35 votes"
+    },
+    "g:switch/castlevania-dominus-collection": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Rough history with Castlevania: 6 beaten, avg B-; crowd 4.0/5"
+    },
+    "g:ds/castlevania-dawn-of-sorrow": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Crowd favorite: 4.4/5 from 215 votes, but Castlevania track record: 6 beaten, avg B-"
+    },
+    "g:ds/castlevania-portrait-of-ruin": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Crowd favorite: 4.4/5 from 184 votes, but Castlevania track record: 6 beaten, avg B-"
+    },
+    "g:ds/castlevania-order-of-ecclesia": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Crowd favorite: 4.4/5 from 204 votes, but Castlevania track record: 6 beaten, avg B-"
+    },
+    "g:switch/castlevania-haunted-castle-revisited": {
+      "grade": "B",
+      "confidence": 0.36,
+      "why": "Rough history with Castlevania: 6 beaten, avg B-"
+    },
+    "g:windows/pillars-of-eternity-ii-deadfire": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC RPGs: 8 beaten, avg A-, but 8 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/pillars-of-eternity": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC RPGs: 8 beaten, avg A-, but 11 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/songs-of-conquest": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-, but crowd is lukewarm: 4.0/5 (16 votes)"
+    },
+    "g:windows/valheim": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.4/5 from 59 votes"
+    },
+    "g:windows/divinity-original-sin-2": {
+      "grade": "A",
+      "confidence": 0.49,
+      "why": "Crowd-certified classic (4.6/5, 111 votes); PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/divinity-original-sin": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "PC RPGs: 8 beaten, avg A-, but 12 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:switch/super-mario-party-jamboree": {
+      "grade": "A",
+      "confidence": 0.43,
+      "why": "Crowd favorite: 4.4/5 from 64 votes; Switch strategy games: 4 beaten, avg A"
+    },
+    "g:windows/kingdom-two-crowns": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-, but 8 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/total-war-three-kingdoms": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Total War track record: 4 beaten, avg A-; crowd 4.0/5"
+    },
+    "g:windows/chasm": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 27 votes; PC action platformers: 9 beaten, avg B"
+    },
+    "g:windows/chris-sawyers-locomotion": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but his sims average: B+ over 14"
+    },
+    "g:windows/surviving-mars": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd shrugs: 3.6/5 from 27 votes"
+    },
+    "g:windows/bots-are-stupid": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC puzzlers: 5 beaten, avg A-"
+    },
+    "g:windows/rebel-galaxy-outlaw": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.4/5 (9 votes)"
+    },
+    "g:windows/lords-of-exile": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Fresh release: his launch-window plays avg B+"
+    },
+    "g:windows/gunbrella": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.0/5 (8 votes)"
+    },
+    "g:windows/gravity-circuit": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.3/5 from 32 votes; PC action platformers: 9 beaten, avg B"
+    },
+    "g:windows/everspace-2": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd shrugs: 3.6/5 from 19 votes"
+    },
+    "g:windows/ufo-50": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Fresh release: his launch-window plays avg B+"
+    },
+    "g:ps5/astro-bot": {
+      "grade": "A",
+      "confidence": 0.48,
+      "why": "Team Asobi's last two got A+ and A; he told Sony to 'write a blank check'"
+    },
+    "g:switch/castlevania-advance-collection": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Castlevania track record: 6 beaten, avg B-; crowd 4.0/5"
+    },
+    "g:gba/castlevania-circle-of-the-moon": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Rough history with Castlevania: 6 beaten, avg B-, but crowd favorite: 4.2/5 from 261 votes"
+    },
+    "g:gba/castlevania-harmony-of-dissonance": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Castlevania track record: 6 beaten, avg B-, but crowd favorite: 4.3/5 from 237 votes"
+    },
+    "g:gba/castlevania-aria-of-sorrow": {
+      "grade": "A",
+      "confidence": 0.39,
+      "why": "Crowd-certified classic (4.6/5, 378 votes); action-adventures: 60 beaten, avg B"
+    },
+    "g:snes/castlevania-dracula-x": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Castlevania track record: 6 beaten, avg B-; crowd 4.0/5"
+    },
+    "g:ps1/castlevania-chronicles": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Rough history with Castlevania: 6 beaten, avg B-; crowd 3.9/5"
+    },
+    "g:ps4/dark-souls-iii": {
+      "grade": "A",
+      "confidence": 0.51,
+      "why": "He's 5 deep in Souls games, avg A; crowd 4.8/5"
+    },
+    "g:windows/golden-lap": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Sims: 14 beaten, avg B+"
+    },
+    "g:windows/aggelos": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Small but adoring crowd: 4.3/5 from 14 votes"
+    },
+    "g:ps5/lego-star-wars-the-skywalker-saga": {
+      "grade": "B",
+      "confidence": 0.35,
+      "why": "Star Wars games track record: 6 beaten, avg C+; crowd 4.2/5"
+    },
+    "g:nes/adventure-island-ii": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "35 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:nes/dynowarz-destruction-of-spondylus": {
+      "grade": "D",
+      "confidence": 0.27,
+      "why": "Crowd pans it: 2.8/5 from 75 votes"
+    },
+    "g:ps2/okami": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 135 votes, but 20 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:ps5/nhl-24": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 sports games: 10 beaten, avg C+"
+    },
+    "g:switch/nintendo-world-championships-nes-edition": {
+      "grade": "B",
+      "confidence": 0.48,
+      "why": "Crowd shrugs: 3.6/5 from 9 votes, but Nintendo track record: 27 beaten, avg A-"
+    },
+    "g:genesis/eliminate-down": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "33 years old: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:snes/thunder-spirits": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Crowd shrugs: 3.7/5 from 63 votes"
+    },
+    "g:nes/kings-knight": {
+      "grade": "D",
+      "confidence": 0.25,
+      "why": "Crowd pans it: 3.0/5 from 72 votes"
+    },
+    "g:nes/dragon-spirit-the-new-legend": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "37 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:nes/burai-fighter": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "Crowd is lukewarm: 3.5/5 (102 votes)"
+    },
+    "g:nes/star-force": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Crowd shrugs: 3.7/5 from 121 votes"
+    },
+    "g:switch/sea-of-stars": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "The Messenger got a B, but he called its follow-up a 'must-play' on release"
+    },
+    "g:ps5/tunic": {
+      "grade": "A",
+      "confidence": 0.38,
+      "why": "Crowd favorite: 4.4/5 from 62 votes; PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps5/ghostrunner-ii": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+, but crowd shrugs: 4.0/5 from 23 votes"
+    },
+    "g:nes/blaster-master": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:ps5/steelrising": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd shrugs: 3.5/5 from 22 votes, but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps5/rollerdrome": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.9/5 from 20 votes, but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:windows/farthest-frontier": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.9/5 (9 votes)"
+    },
+    "g:switch/final-fantasy-i-vi-collection": {
+      "grade": "B",
+      "confidence": 0.44,
+      "why": "Final Fantasy regular: 11 beaten, avg B+, but crowd shrugs: 3.8/5 from 6 votes"
+    },
+    "g:tg-16/r-type": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "38 years old: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:ps1/gran-turismo": {
+      "grade": "A",
+      "confidence": 0.46,
+      "why": "Gran Turismo 7 got A+, Gran Turismo 5 got A, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:nes/metal-gear": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "He gave the MSX original a B; this NES port's crowd is far cooler (3.6/5)"
+    },
+    "g:nes/air-fortress": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "Crowd shrugs: 3.6/5 from 131 votes"
+    },
+    "g:nes/gun-smoke": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "41 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:nes/zanac": {
+      "grade": "C",
+      "confidence": 0.57,
+      "why": "Its sequel Gun Nac got an A, but the crowd is cool on Zanac (3.4/5)"
+    },
+    "g:nes/cobra-triangle": {
+      "grade": "C",
+      "confidence": 0.53,
+      "why": "Crowd is lukewarm: 3.6/5 (121 votes)"
+    },
+    "g:nes/zelda-ii-the-adventure-of-link": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "He's 4 deep in Zelda, avg A, but 38 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:ps1/ridge-racer": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "31 years old: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:windows/below": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Small but adoring crowd: 4.7/5 from 10 votes; action-adventures: 60 beaten, avg B"
+    },
+    "g:windows/hollow-knight": {
+      "grade": "A",
+      "confidence": 0.46,
+      "why": "Crowd-certified classic (4.6/5, 409 votes); PC action platformers: 9 beaten, avg B"
+    },
+    "g:windows/crosscode": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.5/5 from 40 votes; PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/flinthook": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd is lukewarm: 3.9/5 (17 votes)"
+    },
+    "g:windows/later-alligator": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "PC point & clicks: 6 beaten, avg C-; crowd 3.9/5"
+    },
+    "g:windows/ori-and-the-will-of-the-wisps": {
+      "grade": "A",
+      "confidence": 0.47,
+      "why": "Crowd-certified classic (4.6/5, 130 votes); his platformers average: B over 32"
+    },
+    "g:windows/project-wingman": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.3/5 from 30 votes; flight sims: 17 beaten, avg B+"
+    },
+    "g:windows/valfaris": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.2/5 from 43 votes"
+    },
+    "g:windows/battle-axe": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.6/5 from 12 votes"
+    },
+    "g:windows/okinawa-rush": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Brawlers: 9 beaten, avg B-"
+    },
+    "g:windows/wargroove": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-, but crowd shrugs: 4.0/5 from 25 votes"
+    },
+    "g:nes/jackal": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "40 years old: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:switch/gimmick-special-edition": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "His platformers average: B over 32"
+    },
+    "g:ps5/immortals-fenyx-rising": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps5/star-wars-jedi-survivor": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Fallen Order got a C; he's back 'against my better judgement'"
+    },
+    "g:ps2/champions-return-to-arms": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "He gave Champions of Norrath a C, but RPGs: 38 beaten, avg B+"
+    },
+    "g:ps1/einhander": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "Crowd favorite: 4.4/5 from 211 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:gba/iridion-ii": {
+      "grade": "C",
+      "confidence": 0.46,
+      "why": "Crowd is lukewarm: 3.8/5 (57 votes)"
+    },
+    "g:ps1/chrono-cross": {
+      "grade": "A",
+      "confidence": 0.42,
+      "why": "Crowd favorite: 4.4/5 from 359 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:ps1/ace-combat-3-electrosphere": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but Ace Combat track record: 8 beaten, avg A-"
+    },
+    "g:ps1/colony-wars": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "29 years old: his 20+ yr-late plays avg B-, but PS1/PS2 flight sims: 7 beaten, avg B+"
+    },
+    "g:ps4/olli-olli-2-welcome-to-olliwood": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "11 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:ps4/contrast": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Puzzle platformers: 11 beaten, avg C+; crowd 3.7/5"
+    },
+    "g:ps5/meet-your-maker": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Fresh release: his launch-window plays avg B+"
+    },
+    "g:ps5/sackboy-a-big-adventure": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "He gave LittleBigPlanet a C, but PS4/PS5 platformers: 8 beaten, avg A-"
+    },
+    "g:ps5/axiom-verge-2": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:n64/pilotwings-64": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "30 years old: his 20+ yr-late plays avg B-, but Nintendo track record: 27 beaten, avg A-"
+    },
+    "g:n64/rush-2-extreme-racing-usa": {
+      "grade": "C",
+      "confidence": 0.5,
+      "why": "Crowd shrugs: 3.7/5 from 95 votes; N64/GC/Wii racers: 4 beaten, avg C+"
+    },
+    "g:ps1/r4-ridge-racer-type-4": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "He knocked Ridge Racer V (B) for lacking R4's charm"
+    },
+    "g:ps1/nuclear-strike": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd shrugs: 3.6/5 from 61 votes; Electronic Arts track record: 5 beaten, avg C+"
+    },
+    "g:ps1/soviet-strike": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Crowd is lukewarm: 3.8/5 (57 votes); Electronic Arts: 5 of theirs beaten, avg C+"
+    },
+    "g:ps1/alundra": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "29 years old: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:gba/star-x": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd pans it: 2.7/5 from 33 votes"
+    },
+    "g:gba/gunstar-super-heroes": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd is lukewarm: 3.8/5 (104 votes), but Treasure: 4 of theirs beaten, avg A"
+    },
+    "g:gba/metroid-zero-mission": {
+      "grade": "A",
+      "confidence": 0.5,
+      "why": "Metroid Fusion (A) left him 'really looking forward to' this one"
+    },
+    "g:windows/oniken": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "14 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/demons-tilt": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.8/5 from 34 votes"
+    },
+    "g:windows/odallus-the-dark-call": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Playing it 11 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:windows/xeno-crisis": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.2/5 from 34 votes"
+    },
+    "g:windows/luftrausers": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd is lukewarm: 3.8/5 (31 votes)"
+    },
+    "g:windows/kaze-and-the-wild-masks": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "His platformers average: B over 32"
+    },
+    "g:windows/hypnospace-outlaw": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC point & clicks: 6 beaten, avg C-; crowd 4.2/5"
+    },
+    "g:windows/yes-your-grace": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC RPGs: 8 beaten, avg A-, but crowd is lukewarm: 4.0/5 (10 votes)"
+    },
+    "g:windows/scourgebringer": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Action-adventures: 60 beaten, avg B"
+    },
+    "g:gameboy/castlevania-the-adventure": {
+      "grade": "D",
+      "confidence": 0.24,
+      "why": "Crowd is lukewarm: 3.3/5 (175 votes); rough history with Castlevania: 6 beaten, avg B-"
+    },
+    "g:nes/castlevania-special-im-kid-dracula": {
+      "grade": "C",
+      "confidence": 0.53,
+      "why": "Crowd is lukewarm: 3.8/5 (151 votes); rough history with Castlevania: 6 beaten, avg B-"
+    },
+    "g:gameboy/pokemon-crystal": {
+      "grade": "A",
+      "confidence": 0.43,
+      "why": "Crowd favorite: 4.4/5 from 311 votes, but 26 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:gameboy/mega-man-dr-wilys-revenge": {
+      "grade": "C",
+      "confidence": 0.55,
+      "why": "Crowd is lukewarm: 3.6/5 (130 votes); rough history with Mega Man: 3 beaten, avg B-"
+    },
+    "g:gameboy/super-mario-land": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Mario platformers regular: 8 beaten, avg A-, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:gameboy/donkey-kong-land": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd is lukewarm: 3.8/5 (129 votes)"
+    },
+    "g:gameboy/donkey-kong-land-iii": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Crowd is lukewarm: 3.7/5 (93 votes)"
+    },
+    "g:gameboy/the-legend-of-zelda-oracle-of-seasons": {
+      "grade": "A",
+      "confidence": 0.45,
+      "why": "He's 4 deep in Zelda, avg A, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:gameboy/wave-race": {
+      "grade": "C",
+      "confidence": 0.6,
+      "why": "Crowd shrugs: 3.2/5 from 59 votes, but Nintendo track record: 27 beaten, avg A-"
+    },
+    "g:gameboy/donkey-kong": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Nintendo track record: 27 beaten, avg A-, but 32 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:gameboy/tetris": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd-certified classic (4.5/5, 322 votes), but 37 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:gc/star-wars-rebel-strike-rogue-squadron-iii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Rogue Leader got an A; he says 'go back to the classics from Factor Five'"
+    },
+    "g:gc/the-legend-of-zelda-the-wind-waker": {
+      "grade": "A",
+      "confidence": 0.53,
+      "why": "Zelda regular: 4 beaten, avg A, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:gc/super-smash-bros-melee": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd-certified classic (4.6/5, 677 votes), but fighting games: 6 beaten, avg C"
+    },
+    "g:genesis/mega-man-the-wily-wars": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "32 years old: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:genesis/soldiers-of-fortune": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Crowd shrugs: 3.8/5 from 80 votes"
+    },
+    "g:genesis/castle-of-illusion-starring-mickey-mouse": {
+      "grade": "B",
+      "confidence": 0.46,
+      "why": "Sega: 23 of theirs beaten, avg C+, but crowd favorite: 4.2/5 from 338 votes"
+    },
+    "g:genesis/ranger-x": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:genesis/mega-bomberman": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Crowd favorite: 4.2/5 from 137 votes, but 32 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:genesis/ecco-the-dolphin": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd is lukewarm: 3.8/5 (170 votes); Sega action-adventures: 7 beaten, avg B-"
+    },
+    "g:genesis/road-rash-2": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Road Rash got a C from him; crowd 4.1/5"
+    },
+    "g:genesis/beyond-oasis": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "RPGs: 38 beaten, avg B+, but 32 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:genesis/battletech-a-game-of-armored-combat": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd shrugs: 3.8/5 from 102 votes; Sega action-adventures: 7 beaten, avg B-"
+    },
+    "g:genesis/shining-force": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "RPGs: 38 beaten, avg B+, but 34 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:genesis/shining-force-ii": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.4/5 from 199 votes, but 33 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:genesis/shove-it-the-warehouse-game": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd shrugs: 3.3/5 from 69 votes"
+    },
+    "g:genesis/super-hang-on": {
+      "grade": "C",
+      "confidence": 0.57,
+      "why": "Sega: 23 of theirs beaten, avg C+; crowd 3.8/5"
+    },
+    "g:genesis/rocket-knight-adventures": {
+      "grade": "B",
+      "confidence": 0.47,
+      "why": "33 years old: his 20+ yr-late plays avg B-, but crowd favorite: 4.2/5 from 261 votes"
+    },
+    "g:genesis/sub-terrania": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "32 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:genesis/puggsy": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "Crowd shrugs: 3.5/5 from 67 votes"
+    },
+    "g:genesis/road-rash-3": {
+      "grade": "C",
+      "confidence": 0.54,
+      "why": "He gave Road Rash a C; crowd 3.9/5"
+    },
+    "g:genesis/junction": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "Crowd pans it: 2.8/5 from 21 votes"
+    },
+    "g:genesis/taz-in-escape-from-mars": {
+      "grade": "C",
+      "confidence": 0.5,
+      "why": "Crowd is lukewarm: 3.6/5 (85 votes)"
+    },
+    "g:genesis/jewel-master": {
+      "grade": "C",
+      "confidence": 0.57,
+      "why": "Sega track record: 23 beaten, avg C+; crowd 3.8/5"
+    },
+    "g:genesis/air-diver": {
+      "grade": "D",
+      "confidence": 0.33,
+      "why": "Crowd pans it: 2.3/5 from 79 votes; Sega shooters: 19 beaten, avg B-"
+    },
+    "g:genesis/ecco-the-tides-of-time": {
+      "grade": "C",
+      "confidence": 0.46,
+      "why": "Crowd is lukewarm: 3.8/5 (125 votes); Sega action-adventures: 7 beaten, avg B-"
+    },
+    "g:genesis/vectorman-2": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "BlueSky Software track record: 4 beaten, avg C+; crowd 4.2/5"
+    },
+    "g:genesis/688-attack-sub": {
+      "grade": "D",
+      "confidence": 0.23,
+      "why": "Crowd pans it: 2.8/5 from 104 votes, but his strategy games average: B+ over 27"
+    },
+    "g:n64/aerofighters-assault": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "Crowd shrugs: 3.3/5 from 150 votes"
+    },
+    "g:n64/star-wars-episode-i-battle-for-naboo": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Factor Five, whose classics he champions, but crowd is cool (3.7/5)"
+    },
+    "g:n64/diddy-kong-racing": {
+      "grade": "B",
+      "confidence": 0.38,
+      "why": "Crowd favorite: 4.3/5 from 531 votes, but N64/GC/Wii racers: 4 beaten, avg C+"
+    },
+    "g:n64/goldeneye-007": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.5/5 from 824 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:n64/super-mario-64": {
+      "grade": "A",
+      "confidence": 0.53,
+      "why": "Crowd-certified classic (4.7/5, 1,000+ votes); Mario platformers regular: 8 beaten, avg A-"
+    },
+    "g:n64/1080-snowboarding": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd is lukewarm: 3.8/5 (342 votes), but Nintendo: 27 of theirs beaten, avg A-"
+    },
+    "g:n64/mario-kart-64": {
+      "grade": "A",
+      "confidence": 0.42,
+      "why": "His N64-Christmas kart; Mario Kart 8 Deluxe got a B (blue shells)"
+    },
+    "g:n64/gex-3-deep-cover-gecko": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd shrugs: 3.5/5 from 76 votes"
+    },
+    "g:nes/the-guardian-legend": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "38 years old: his 20+ yr-late plays avg B-, but Compile track record: 4 beaten, avg A-"
+    },
+    "g:nes/castlevania-iii-draculas-curse": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Curse of the Moon (B) was 'almost too faithful' to this one's stiff jumps"
+    },
+    "g:nes/solar-jetman-hunt-for-the-golden-warpship": {
+      "grade": "C",
+      "confidence": 0.5,
+      "why": "Crowd is lukewarm: 3.6/5 (88 votes)"
+    },
+    "g:nes/willow": {
+      "grade": "C",
+      "confidence": 0.53,
+      "why": "Crowd shrugs: 3.7/5 from 116 votes, but his RPGs average: B+ over 38"
+    },
+    "g:nes/legendary-wings": {
+      "grade": "C",
+      "confidence": 0.59,
+      "why": "Crowd shrugs: 3.5/5 from 93 votes"
+    },
+    "g:nes/renegade": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd is lukewarm: 3.4/5 (93 votes); brawlers: 9 beaten, avg B-"
+    },
+    "g:nes/mike-tysons-punch-out": {
+      "grade": "B",
+      "confidence": 0.47,
+      "why": "Crowd-certified classic (4.6/5, 498 votes), but his fighting games average: C over 6"
+    },
+    "g:nes/wizards-and-warriors": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd is lukewarm: 3.7/5 (139 votes)"
+    },
+    "g:nes/the-last-starfighter-uridium": {
+      "grade": "D",
+      "confidence": 0.34,
+      "why": "Crowd pans it: 1.8/5 from 60 votes"
+    },
+    "g:nes/paperboy": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Crowd shrugs: 3.4/5 from 138 votes; Paperboy 64 got a C from him"
+    },
+    "g:nes/wizardry-proving-grounds-of-the-mad-overlord": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd is lukewarm: 3.2/5 (62 votes), but RPGs: 38 beaten, avg B+"
+    },
+    "g:nes/freedom-force": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Crowd is lukewarm: 3.8/5 (68 votes); FPSes: 28 beaten, avg B-"
+    },
+    "g:windows/shovel-knight-king-of-cards": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "All 3 Shovel Knight campaigns got A's, though he ranked Specter last"
+    },
+    "g:windows/age-of-empires-iii-the-warchiefs": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd is lukewarm: 3.5/5 (17 votes), but Ensemble Studios: 4 of theirs beaten, avg A-"
+    },
+    "g:windows/bastion": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Hades was his favorite of their games; this is where Supergiant began"
+    },
+    "g:windows/age-of-empires-iii-the-asian-dynasties": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.8/5 (16 votes), but Ensemble Studios: 4 of theirs beaten, avg A-"
+    },
+    "g:windows/age-of-empires-iii-definitive-edition": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "PC strategy games: 19 beaten, avg A-; crowd 4.1/5"
+    },
+    "g:windows/il-2-sturmovik-battle-of-bodenplatte": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Battle of Moscow got an A from him"
+    },
+    "g:windows/star-of-providence": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Small but adoring crowd: 4.7/5 from 6 votes; PC shooters: 7 beaten, avg B"
+    },
+    "g:windows/timespinner": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Crowd is lukewarm: 3.6/5 (22 votes)"
+    },
+    "g:windows/cave-story": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.3/5 from 61 votes"
+    },
+    "g:windows/wilmots-warehouse": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Crowd pans it: 2.5/5 from 11 votes, but PC puzzlers: 5 beaten, avg A-"
+    },
+    "g:windows/into-the-breach": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/a-total-war-saga-troy": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Total War track record: 4 beaten, avg A-, but crowd shrugs: 3.4/5 from 15 votes"
+    },
+    "g:windows/anodyne-2-return-to-dust": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd is lukewarm: 3.5/5 (22 votes)"
+    },
+    "g:windows/ori-and-the-blind-forest-definitive-edition": {
+      "grade": "A",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.4/5 from 169 votes; his platformers average: B over 32"
+    },
+    "g:windows/yooka-laylee": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Platformers: 32 beaten, avg B"
+    },
+    "g:windows/frostpunk": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-, but 8 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/pathway": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.5/5 from 16 votes, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/environmental-station-alpha": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd is lukewarm: 3.7/5 (9 votes)"
+    },
+    "g:windows/undertale": {
+      "grade": "A",
+      "confidence": 0.45,
+      "why": "Crowd-certified classic (4.6/5, 321 votes); PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/blasphemous-wounds-of-eventide": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Action-adventures: 60 beaten, avg B"
+    },
+    "g:windows/alien-isolation": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "The Creative Assembly: 4 of theirs beaten, avg A-"
+    },
+    "g:windows/shogun-total-war": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd is lukewarm: 3.3/5 (12 votes), but he's 4 deep in Total War, avg A-"
+    },
+    "g:windows/assassins-creed-syndicate": {
+      "grade": "B",
+      "confidence": 0.38,
+      "why": "Crowd is lukewarm: 3.9/5 (119 votes)"
+    },
+    "g:windows/il-2-sturmovik-battle-of-kuban": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Battle of Moscow got an A from him"
+    },
+    "g:windows/sid-meiers-civilization-vi": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-; crowd 4.3/5"
+    },
+    "g:windows/la-mulana": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.3/5 from 25 votes, but 14 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/poly-bridge": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "11 yrs late: his late plays avg B vs B+ at launch, but his sims average: B+ over 14"
+    },
+    "g:windows/last-call-bbs": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "No series, studio or crowd history to go on: the safe middle"
+    },
+    "g:windows/heroes-of-might-and-magic-ii": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-, but 30 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/dark-souls-pepare-to-die-edition": {
+      "grade": "A",
+      "confidence": 0.43,
+      "why": "Souls games track record: 5 beaten, avg A; crowd 4.3/5"
+    },
+    "g:windows/red-baron-ii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "29 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/stronghold-crusader": {
+      "grade": "C",
+      "confidence": 0.37,
+      "why": "24 years old: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/the-elder-scrolls-iii-morrowind": {
+      "grade": "A",
+      "confidence": 0.43,
+      "why": "Elder Scrolls regular: 6 beaten, avg A-, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/medieval-ii-total-war-kingdoms": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Total War track record: 4 beaten, avg A-; crowd 4.4/5"
+    },
+    "g:windows/darkest-dungeon": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC RPGs: 8 beaten, avg A-, but 11 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/rollercoaster-tycoon-deluxe": {
+      "grade": "A",
+      "confidence": 0.38,
+      "why": "Planet Zoo and Planet Coaster both got A, but 27 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/sim-city-3000-unlimited": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "27 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/portal": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.5/5 from 295 votes, but puzzle platformers: 11 beaten, avg C+"
+    },
+    "g:windows/creature-in-the-well": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd shrugs: 3.0/5 from 13 votes"
+    },
+    "g:windows/absolute-drift": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd pans it: 2.9/5 from 48 votes; racers: 21 beaten, avg B-"
+    },
+    "g:windows/superbrothers-sword-and-sworcery-ep": {
+      "grade": "C",
+      "confidence": 0.5,
+      "why": "Crowd shrugs: 3.0/5 from 23 votes"
+    },
+    "g:windows/far-cry-3-blood-dragon": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "PC FPSes: 6 beaten, avg B-; crowd 4.0/5"
+    },
+    "g:windows/getting-over-it-with-bennett-foddy": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.7/5 from 37 votes"
+    },
+    "g:windows/inside": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 178 votes; platformers: 32 beaten, avg B"
+    },
+    "g:windows/yokus-island-express": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.2/5 from 49 votes, but 8 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/jotun": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd is lukewarm: 3.9/5 (38 votes)"
+    },
+    "g:windows/solitairica": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Crowd pans it: 2.7/5 from 16 votes, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/void-bastards": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd is lukewarm: 3.8/5 (34 votes); PC FPSes: 6 beaten, avg B-"
+    },
+    "g:windows/dandara": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd is lukewarm: 4.0/5 (27 votes)"
+    },
+    "g:windows/kingdom-new-lands": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.8/5 from 40 votes, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/besiege": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Sims: 14 beaten, avg B+, but playing it 11 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:windows/star-wars-republic-commando": {
+      "grade": "C",
+      "confidence": 0.46,
+      "why": "Star Wars games track record: 6 beaten, avg C+; crowd 3.9/5"
+    },
+    "g:windows/summer-catchers": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Action-adventures: 60 beaten, avg B"
+    },
+    "g:windows/metro-last-light-redux": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.3/5 from 100 votes, but PC FPSes: 6 beaten, avg B-"
+    },
+    "g:windows/il-2-sturmovik-battle-of-stalingrad": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Battle of Moscow got an A from him"
+    },
+    "g:windows/kentucky-route-zero": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "PC point & clicks: 6 beaten, avg C-; crowd 3.5/5"
+    },
+    "g:windows/portal-2": {
+      "grade": "A",
+      "confidence": 0.42,
+      "why": "Crowd-certified classic (4.6/5, 341 votes), but his puzzle platformers average: C+ over 11"
+    },
+    "g:windows/star-wars-battlefront-ii": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.3/5 from 133 votes, but PC FPSes: 6 beaten, avg B-"
+    },
+    "g:windows/train-valley": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.6/5 from 5 votes, but PC puzzlers: 5 beaten, avg A-"
+    },
+    "g:windows/war-of-the-roses": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Crowd pans it: 2.2/5 from 7 votes"
+    },
+    "g:windows/moonlighter": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.8/5 (41 votes), but PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/metro-2033-redux": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PC FPSes: 6 beaten, avg B-; crowd 4.1/5"
+    },
+    "g:windows/for-the-king": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd shrugs: 3.5/5 from 29 votes, but PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/shadowrun-returns": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.9/5 (47 votes), but PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/the-banner-saga": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.8/5 (48 votes), but PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/the-elder-scrolls-iii-tribunal": {
+      "grade": "B",
+      "confidence": 0.44,
+      "why": "Elder Scrolls track record: 6 beaten, avg A-"
+    },
+    "g:windows/house-flipper": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 4.0/5 from 44 votes, but his sims average: B+ over 14"
+    },
+    "g:windows/age-of-empires-iii": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Ensemble Studios track record: 4 beaten, avg A-"
+    },
+    "g:windows/curse-you-red-baron": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "27 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/endless-legend": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.8/5 (33 votes), but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/ftl-faster-than-light": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "14 yrs late: his late plays avg B vs B+ at launch; crowd 4.1/5"
+    },
+    "g:windows/heroes-of-might-and-magic-a-strategic-quest": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "31 years old: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/the-sims-deluxe-edition": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but sims: 14 beaten, avg B+"
+    },
+    "g:windows/arcade-paradise": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "His sims average: B+ over 14; crowd 4.3/5"
+    },
+    "g:windows/pc-building-simulator": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd shrugs: 3.5/5 from 48 votes, but his sims average: B+ over 14"
+    },
+    "g:windows/tyranny": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd is lukewarm: 3.7/5 (34 votes), but PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/roller-coaster-tycoon-3-complete-edition": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "He called Planet Coaster (A) this game's spiritual successor"
+    },
+    "g:windows/watch-dogs-2": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.4/5 from 94 votes; action-adventures: 60 beaten, avg B"
+    },
+    "g:windows/microsoft-combat-flight-simulator-3": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "MSFS 2020 got A, FSX got B, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/star-wars-empire-at-war": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Star Wars games track record: 6 beaten, avg C+, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/pillars-of-eternity~2": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC RPGs: 8 beaten, avg A-, but 11 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/dont-starve": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd shrugs: 3.9/5 from 62 votes"
+    },
+    "g:windows/immortal-cities-children-of-the-nile": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 3.5/5"
+    },
+    "g:windows/medieval-total-war": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.0/5 from 8 votes, but he's 4 deep in Total War, avg A-"
+    },
+    "g:windows/pharaoh": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "27 years old: his 20+ yr-late plays avg B-; crowd 4.2/5"
+    },
+    "g:windows/sid-meiers-civilization-v": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/trials-evolution": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Trials Fusion got a C from him; crowd 3.8/5"
+    },
+    "g:windows/total-war-warhammer": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.7/5 (42 votes), but Total War regular: 4 beaten, avg A-"
+    },
+    "g:windows/rise-of-nations-extended-edition": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.9/5 (20 votes), but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/total-war-rome-ii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Total War track record: 4 beaten, avg A-"
+    },
+    "g:windows/heroes-of-might-and-magic-iii": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.6/5 from 27 votes, but 27 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/cossacks-back-to-war": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd pans it: 2.7/5 from 6 votes, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/rollercoaster-tycoon-2-triple-thrill-pack": {
+      "grade": "A",
+      "confidence": 0.37,
+      "why": "Planet Zoo and Planet Coaster both got A, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/sim-city-2000-special-edition": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/prime-mover": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 8 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:windows/comanche-gold": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "28 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/microsoft-flight-simulator-2000": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "MSFS 2020 got A, FSX got B, but 27 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/microsoft-flight-simulator-2004": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "MSFS 2020 got A, FSX got B, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/mig-29-fulcrum": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/rise-of-flight": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "17 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/insanely-twisted-shadow-planet": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Playing it 15 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:windows/rock-of-ages": {
+      "grade": "C",
+      "confidence": 0.47,
+      "why": "Crowd pans it: 2.9/5 from 12 votes, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/bit-trip-presents-runner2-future-legend-of-rhythm-alien": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.8/5 (21 votes)"
+    },
+    "g:windows/hell-yeah": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Playing it 14 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:windows/star-wars-the-force-unleashed-ii": {
+      "grade": "C",
+      "confidence": 0.46,
+      "why": "Star Wars games track record: 6 beaten, avg C+; crowd 3.8/5"
+    },
+    "g:windows/castle-crashers": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.3/5 from 196 votes"
+    },
+    "g:windows/jet-set-radio": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.2/5 from 64 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/mark-of-the-ninja": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Stealth games: 11 beaten, avg A-, but 14 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/metro-2033": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd is lukewarm: 3.8/5 (49 votes); PC FPSes: 6 beaten, avg B-"
+    },
+    "g:windows/star-wars-the-force-unleashed": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Rough history with Star Wars games: 6 beaten, avg C+; crowd 4.1/5"
+    },
+    "g:windows/trine-2": {
+      "grade": "C",
+      "confidence": 0.37,
+      "why": "Puzzle platformers: 11 beaten, avg C+; crowd 4.1/5"
+    },
+    "g:windows/heroes-chronicles-warlords-of-the-wasteland": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-conquest-of-the-underworld": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "26 years old: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-clash-of-the-dragons": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "26 years old: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-masters-of-the-elements": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "26 years old: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-the-world-tree": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-the-fiery-moon": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "26 years old: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-the-sword-of-frost": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/heroes-chronicles-revolt-of-the-beastmasters": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/super-meat-boy": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Platformers: 32 beaten, avg B, but 16 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/half-life-2": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Crowd-certified classic (4.6/5, 324 votes), but PC FPSes: 6 beaten, avg B-"
+    },
+    "g:windows/darksiders": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Playing it 16 yrs late: late plays avg B, launch plays B+, but PC RPGs: 8 beaten, avg A-"
+    },
+    "g:windows/endless-space": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Crowd is lukewarm: 3.4/5 (17 votes), but PC strategy games: 19 beaten, avg A-"
+    },
+    "g:windows/rogue-legacy": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "13 yrs late: his late plays avg B vs B+ at launch; crowd 4.0/5"
+    },
+    "g:windows/torchlight-ii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Diablo (A) sent him straight back to Torchlight II; PC RPGs avg A-"
+    },
+    "g:windows/ancestors-the-humankind-odyssey": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Crowd is lukewarm: 3.5/5 (33 votes)"
+    },
+    "g:windows/company-of-heroes-opposing-fronts": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "19 yrs late: his late plays avg B vs B+ at launch; crowd 3.8/5"
+    },
+    "g:windows/company-of-heroes-tales-of-valor": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "17 yrs late: his late plays avg B vs B+ at launch; crowd 3.9/5"
+    },
+    "g:windows/saints-row-the-third": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 15 yrs late: late plays avg B, launch plays B+; crowd 4.0/5"
+    },
+    "g:windows/spore": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.9/5 (77 votes), but sims: 14 beaten, avg B+"
+    },
+    "g:windows/stronghold-crusader-extreme": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Playing it 18 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:windows/xcom-enemy-unknown": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PC strategy games: 19 beaten, avg A-; crowd 4.3/5"
+    },
+    "g:windows/empire-total-war": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "He's 4 deep in Total War, avg A-, but 17 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/just-cause-2": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Crowd shrugs: 3.8/5 from 100 votes, but his open-world games average: A- over 10"
+    },
+    "g:windows/rome-total-war": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Total War regular: 4 beaten, avg A-, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/wargame-european-escalation": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "14 yrs late: his late plays avg B vs B+ at launch; crowd 3.9/5"
+    },
+    "g:windows/janes-combat-simulator-ah-64d-longbow-gold": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "29 years old: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:windows/super-ef-2000": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "30 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:windows/red-faction-armageddon": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Crowd is lukewarm: 3.3/5 (30 votes)"
+    },
+    "g:windows/lunar-flight": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "14 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:windows/viking-battle-for-asgard": {
+      "grade": "C",
+      "confidence": 0.55,
+      "why": "Crowd shrugs: 3.0/5 from 20 votes"
+    },
+    "g:windows/terraria": {
+      "grade": "A",
+      "confidence": 0.42,
+      "why": "Crowd-certified classic (4.5/5, 270 votes)"
+    },
+    "g:windows/total-war-arena": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Total War track record: 4 beaten, avg A-"
+    },
+    "g:ps1/chrono-trigger": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "Crowd favorite: 4.4/5 from 89 votes, but 31 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:ps1/yu-gi-oh-forbidden-memories": {
+      "grade": "B",
+      "confidence": 0.46,
+      "why": "24 years old: his 20+ yr-late plays avg B-, but his strategy games average: B+ over 27"
+    },
+    "g:ps1/red-dead-revolver": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Not a Redemption (his A+ x2): a 2004 linear shooter; crowd 4.1/5"
+    },
+    "g:ps1/dragon-ball-z-ultimate-battle-22": {
+      "grade": "D",
+      "confidence": 0.28,
+      "why": "Crowd pans it: 3.0/5 from 94 votes; his fighting games average: C over 6"
+    },
+    "g:ps1/driver-2": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 4.1/5"
+    },
+    "g:ps1/grand-theft-auto-2": {
+      "grade": "B",
+      "confidence": 0.38,
+      "why": "27 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:ps1/dance-dance-revolution": {
+      "grade": "C",
+      "confidence": 0.5,
+      "why": "Crowd shrugs: 3.7/5 from 16 votes; Konami track record: 18 beaten, avg B-"
+    },
+    "g:ps1/army-men-3d": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Crowd is lukewarm: 3.6/5 (57 votes)"
+    },
+    "g:ps1/fighting-force": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "Crowd shrugs: 3.7/5 from 125 votes; his brawlers average: B- over 9"
+    },
+    "g:ps1/urban-chaos": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Crowd is lukewarm: 3.4/5 (34 votes)"
+    },
+    "g:ps2/shadow-of-the-colossus": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "The 2018 remake got a D; he hoped the PS2 original is 'more charming'"
+    },
+    "g:ps2/ico": {
+      "grade": "B",
+      "confidence": 0.37,
+      "why": "He gave SotC (2018) a D, but crowd favorite: 4.3/5 from 211 votes"
+    },
+    "g:ps2/dark-cloud": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but his RPGs average: B+ over 38"
+    },
+    "g:ps2/gran-turismo-4": {
+      "grade": "A",
+      "confidence": 0.49,
+      "why": "Gran Turismo 7 got A+, Gran Turismo 5 got A, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:ps2/burnout-revenge": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.5/5 from 155 votes, but 21 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:ps2/jak-ii": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "Crowd favorite: 4.2/5 from 165 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:ps2/nascar-2005-chase-for-the-cup": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "EA Tiburon: 7 of theirs beaten, avg C; crowd 3.9/5"
+    },
+    "g:ps2/odin-sphere": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "RPGs: 38 beaten, avg B+, but playing it 19 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:ps2/gran-turismo-3-a-spec": {
+      "grade": "A",
+      "confidence": 0.46,
+      "why": "Gran Turismo 7 got A+, Gran Turismo 5 got A, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:ps2/metal-slug-4": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "24 years old: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:ps2/metal-slug-5": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "23 years old: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:ps2/espn-nba-2k5": {
+      "grade": "C",
+      "confidence": 0.53,
+      "why": "NBA 2K track record: 4 beaten, avg C; crowd 3.9/5"
+    },
+    "g:ps3/zone-of-the-enders-hd-collection": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Same two games he graded: Zone of the Enders (B), 2nd Runner (A)"
+    },
+    "g:ps3/assassins-creed-ii": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 17 yrs late: late plays avg B, launch plays B+; crowd 4.0/5"
+    },
+    "g:ps3/demons-souls": {
+      "grade": "A",
+      "confidence": 0.5,
+      "why": "He gave the PS5 remake an A; this is the 2009 original"
+    },
+    "g:ps3/lightning-returns-final-fantasy-xiii": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Crowd shrugs: 3.3/5 from 17 votes, but Final Fantasy track record: 11 beaten, avg B+"
+    },
+    "g:ps3/final-fantasy-xiii-2": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "He's 11 deep in Final Fantasy, avg B+, but crowd shrugs: 3.8/5 from 20 votes"
+    },
+    "g:ps3/bioshock": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.3/5 from 31 votes"
+    },
+    "g:ps3/bioshock-infinite": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.9/5 from 22 votes, but PS3 action-adventures: 5 beaten, avg A-"
+    },
+    "g:ps3/motorstorm-pacific-rift": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 18 yrs late: late plays avg B, launch plays B+; crowd 4.2/5"
+    },
+    "g:ps3/metal-gear-solid-peacewalker": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Metal Gear regular: 8 beaten, avg A-"
+    },
+    "g:ps3/destiny": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.5/5 from 10 votes, but his RPGs average: B+ over 38"
+    },
+    "g:ps3/grand-theft-auto-iv": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Vice City got A, Grand Theft Auto III got B; crowd 4.2/5"
+    },
+    "g:ps3/valkyria-chronicles": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "Crowd favorite: 4.5/5 from 29 votes, but Sega track record: 23 beaten, avg C+"
+    },
+    "g:ps3/battlefield-bad-company-2": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Battlefield 1 and Battlefield 1942 both got C; crowd 3.9/5"
+    },
+    "g:ps3/metal-gear-rising-revengeance": {
+      "grade": "B",
+      "confidence": 0.35,
+      "why": "Metal Gear track record: 8 beaten, avg A-; crowd 4.1/5"
+    },
+    "g:ps3/devil-may-cry-4": {
+      "grade": "B",
+      "confidence": 0.45,
+      "why": "18 yrs late: his late plays avg B vs B+ at launch; crowd 4.0/5"
+    },
+    "g:ps3/bioshock-2": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd shrugs: 3.8/5 from 25 votes, but PS3 action-adventures: 5 beaten, avg A-"
+    },
+    "g:ps3/need-for-speed-hot-pursuit": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Playing it 16 yrs late: late plays avg B, launch plays B+; crowd 4.0/5"
+    },
+    "g:ps4/pocky-and-rocky-reshrined": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.2/5 from 15 votes"
+    },
+    "g:ps4/rime": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd shrugs: 3.1/5 from 5 votes, but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/mortal-shell": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A"
+    },
+    "g:ps4/dust-an-elysian-tail": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.4/5 (6 votes), but PS4/PS5 platformers: 8 beaten, avg A-"
+    },
+    "g:ps4/tomb-raider-2013": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.4/5 from 321 votes; PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/the-last-guardian": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "SotC (2018) got a D from him, but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/control": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/wonder-boy-the-dragons-trap": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "9 yrs late: his late plays avg B vs B+ at launch; crowd 4.1/5"
+    },
+    "g:ps4/need-for-speed-heat": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.9/5 from 8 votes; his racers average: B- over 21"
+    },
+    "g:ps4/destiny-2": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.6/5 (6 votes); PS4/PS5 FPSes: 7 beaten, avg B-"
+    },
+    "g:ps4/dirt-rally-2-0": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.4/5 from 68 votes; PS4/PS5 racers: 5 beaten, avg B+"
+    },
+    "g:ps4/steep": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "PS4/PS5 sports games: 10 beaten, avg C+; crowd 3.8/5"
+    },
+    "g:ps4/uncharted-4-a-thiefs-end": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Loved Uncharted 1 and 2 (A's), soured on 3 (C); crowd 4.4/5"
+    },
+    "g:ps4/subnautica": {
+      "grade": "A",
+      "confidence": 0.38,
+      "why": "Crowd favorite: 4.3/5 from 155 votes; his open-world games average: A- over 10"
+    },
+    "g:ps4/xcom-2": {
+      "grade": "A",
+      "confidence": 0.38,
+      "why": "Crowd favorite: 4.3/5 from 97 votes; his strategy games average: B+ over 27"
+    },
+    "g:ps4/yakuza-kiwami": {
+      "grade": "B",
+      "confidence": 0.49,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+, but Sega: 23 of theirs beaten, avg C+"
+    },
+    "g:ps4/horizon-zero-dawn-complete-edition": {
+      "grade": "A",
+      "confidence": 0.41,
+      "why": "Crowd favorite: 4.6/5 from 29 votes; open-world games: 10 beaten, avg A-"
+    },
+    "g:ps4/dark-souls-ii-scholar-of-the-first-sin": {
+      "grade": "A",
+      "confidence": 0.47,
+      "why": "Souls games track record: 5 beaten, avg A; crowd 4.5/5"
+    },
+    "g:ps4/absolver": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.6/5 from 13 votes, but PS4/PS5 RPGs: 9 beaten, avg A"
+    },
+    "g:ps4/pac-man-championship-edition-2": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd shrugs: 3.9/5 from 55 votes, but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/what-remains-of-edith-finch": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/table-top-racing-world-tour": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "His racers average: B- over 21"
+    },
+    "g:ps4/valiant-hearts-the-great-war": {
+      "grade": "B",
+      "confidence": 0.44,
+      "why": "12 yrs late: his late plays avg B vs B+ at launch; crowd 4.0/5"
+    },
+    "g:ps4/guacamelee-super-turbo-championship": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 76 votes"
+    },
+    "g:ps4/super-time-force-ultra": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd shrugs: 3.7/5 from 16 votes"
+    },
+    "g:ps4/titanfall-2": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Small but adoring crowd: 4.2/5 from 8 votes, but PS4/PS5 FPSes: 7 beaten, avg B-"
+    },
+    "g:ps4/battlefield-v": {
+      "grade": "C",
+      "confidence": 0.46,
+      "why": "Battlefield 1 and Battlefield 1942 both got C; crowd 4.0/5"
+    },
+    "g:ps4/apotheon": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd shrugs: 3.2/5 from 8 votes, but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/broforce": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "12 yrs late: his late plays avg B vs B+ at launch; crowd 4.0/5"
+    },
+    "g:ps4/transistor": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A, but crowd is lukewarm: 3.7/5 (6 votes)"
+    },
+    "g:ps4/galak-z": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 11 yrs late: late plays avg B, launch plays B+; crowd 4.0/5"
+    },
+    "g:ps4/heavy-rain": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Small but adoring crowd: 4.5/5 from 12 votes"
+    },
+    "g:ps4/dirt-5": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "His racers average: B- over 21; crowd 4.0/5"
+    },
+    "g:ps4/shadow-of-the-tomb-raider": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/rise-of-the-tomb-raider-20-year-celebration": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/knack": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Crowd is lukewarm: 3.3/5 (9 votes), but Sony Japan: 3 of theirs beaten, avg A"
+    },
+    "g:ps4/onrush": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Racers: 21 beaten, avg B-"
+    },
+    "g:ps4/ratchet-and-clank": {
+      "grade": "C",
+      "confidence": 0.48,
+      "why": "Ratchet & Clank Future got a C from him; crowd 3.8/5"
+    },
+    "g:ps4/resident-evil-hd-remaster": {
+      "grade": "B",
+      "confidence": 0.48,
+      "why": "Capcom: 9 of theirs beaten, avg B+"
+    },
+    "g:ps4/remnant-from-the-ashes": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd is lukewarm: 3.8/5 (74 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/greedfall": {
+      "grade": "C",
+      "confidence": 0.42,
+      "why": "Crowd is lukewarm: 3.7/5 (33 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/the-witness": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Playing it 10 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:ps4/helldivers": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd is lukewarm: 3.9/5 (32 votes), but strategy games: 27 beaten, avg B+"
+    },
+    "g:ps4/batman-arkham-knight": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.9/5 (25 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/grand-theft-auto-v": {
+      "grade": "A",
+      "confidence": 0.38,
+      "why": "Vice City got A, Grand Theft Auto III got B; crowd 4.3/5"
+    },
+    "g:ps4/assassins-creed-origins": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/nioh": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "9 yrs late: his late plays avg B vs B+ at launch; crowd 4.1/5"
+    },
+    "g:ps4/assassins-creed-odyssey": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "Crowd is lukewarm: 3.6/5 (21 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/farming-simulator-19": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.9/5 from 36 votes, but his sims average: B+ over 14"
+    },
+    "g:ps4/persona-5": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A; crowd 4.4/5"
+    },
+    "g:ps4/grow-home": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd is lukewarm: 3.9/5 (17 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/superhot": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "PS4/PS5 FPSes: 7 beaten, avg B-; crowd 4.0/5"
+    },
+    "g:ps4/lara-croft-and-the-temple-of-osiris": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd is lukewarm: 3.8/5 (45 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/oddworld-new-n-tasty": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Small but adoring crowd: 5.0/5 from 5 votes, but puzzle platformers: 11 beaten, avg C+"
+    },
+    "g:ps4/lovers-in-a-dangerous-spacetime": {
+      "grade": "C",
+      "confidence": 0.38,
+      "why": "Crowd is lukewarm: 3.9/5 (37 votes), but PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/resogun": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 13 yrs late: late plays avg B, launch plays B+; crowd 4.0/5"
+    },
+    "g:ps4/skulls-of-the-shogun": {
+      "grade": "C",
+      "confidence": 0.4,
+      "why": "Crowd shrugs: 3.1/5 from 7 votes, but his strategy games average: B+ over 27"
+    },
+    "g:ps4/styx-master-of-shadows": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd is lukewarm: 3.9/5 (34 votes), but stealth games: 11 beaten, avg A-"
+    },
+    "g:ps4/tropico-5": {
+      "grade": "C",
+      "confidence": 0.39,
+      "why": "Crowd shrugs: 3.9/5 from 22 votes"
+    },
+    "g:ps4/enter-the-gungeon": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps4/dead-star": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "10 yrs late: his late plays avg B vs B+ at launch"
+    },
+    "g:ps5/yakuza-like-a-dragon": {
+      "grade": "B",
+      "confidence": 0.47,
+      "why": "PS4/PS5 RPGs: 9 beaten, avg A, but Sega: 23 of theirs beaten, avg C+"
+    },
+    "g:ps5/assassins-creed-valhalla": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:ps5/destruction-allstars": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Racers: 21 beaten, avg B-"
+    },
+    "g:ps5/hot-wheels-unleashed": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "PS4/PS5 racers: 5 beaten, avg B+, but his racers average: B- over 21"
+    },
+    "g:ps5/slay-the-spire": {
+      "grade": "A",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 103 votes; his strategy games average: B+ over 27"
+    },
+    "g:ps5/oddworld-soulstorm": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "Crowd favorite: 4.4/5 from 26 votes; PS4/PS5 action-adventures: 20 beaten, avg B+"
+    },
+    "g:snes/world-heroes-2": {
+      "grade": "C",
+      "confidence": 0.51,
+      "why": "Crowd is lukewarm: 3.5/5 (63 votes); fighting games: 6 beaten, avg C"
+    },
+    "g:snes/pilotwings": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Retro tax: his 20+ yr-late plays avg B-, but Nintendo track record: 27 beaten, avg A-"
+    },
+    "g:snes/maui-mallard-in-cold-shadow": {
+      "grade": "C",
+      "confidence": 0.45,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:snes/super-castlevania-iv": {
+      "grade": "B",
+      "confidence": 0.43,
+      "why": "Crowd favorite: 4.4/5 from 587 votes, but Castlevania track record: 6 beaten, avg B-"
+    },
+    "g:snes/super-mario-rpg-legend-of-the-seven-stars": {
+      "grade": "A",
+      "confidence": 0.48,
+      "why": "Crowd-certified classic (4.6/5, 662 votes), but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:snes/the-legend-of-zelda-a-link-to-the-past": {
+      "grade": "A+",
+      "confidence": 0.38,
+      "why": "Zelda is 4-for-4 on A's with him; crowd-certified classic (4.7/5)"
+    },
+    "g:snes/final-fantasy-iii-vi": {
+      "grade": "A",
+      "confidence": 0.51,
+      "why": "Crowd-certified classic (4.7/5, 539 votes), but 32 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:snes/axelay": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Retro tax: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:snes/kirby-super-star": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Crowd favorite: 4.4/5 from 342 votes, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:switch/gg-aleste-3": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "M.U.S.H.A. got an A+ from him, but crowd shrugs: 3.9/5 from 22 votes"
+    },
+    "g:switch/shantae": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "24 years old: his 20+ yr-late plays avg B-, but he gave Shantae: Risky's Revenge an A"
+    },
+    "g:switch/dead-cells": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "9 yrs late: his late plays avg B vs B+ at launch; crowd 4.1/5"
+    },
+    "g:switch/hyper-light-drifter": {
+      "grade": "B",
+      "confidence": 0.4,
+      "why": "Playing it 10 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:switch/new-pokemon-snap": {
+      "grade": "B",
+      "confidence": 0.38,
+      "why": "Pokemon Shield got A, Let's Go, Pikachu! got B, but crowd is lukewarm: 3.9/5 (49 votes)"
+    },
+    "g:switch/super-smash-bros-ultimate": {
+      "grade": "A",
+      "confidence": 0.43,
+      "why": "Crowd-certified classic (4.7/5, 400 votes), but fighting games: 6 beaten, avg C"
+    },
+    "g:switch/animal-crossing-new-horizons": {
+      "grade": "A",
+      "confidence": 0.48,
+      "why": "Crowd favorite: 4.4/5 from 204 votes; Nintendo: 27 of theirs beaten, avg A-"
+    },
+    "g:switch/aleste-collection": {
+      "grade": "B",
+      "confidence": 0.39,
+      "why": "M.U.S.H.A. got an A+ from him; crowd 3.9/5"
+    },
+    "g:master-system/aleste": {
+      "grade": "C",
+      "confidence": 0.43,
+      "why": "Crowd shrugs: 3.5/5 from 81 votes, but M.U.S.H.A. got an A+ from him"
+    },
+    "g:game-gear/gg-aleste": {
+      "grade": "B",
+      "confidence": 0.44,
+      "why": "M.U.S.H.A. got an A+ from him, but retro tax: his 20+ yr-late plays avg B-"
+    },
+    "g:game-gear/gg-aleste-2": {
+      "grade": "B",
+      "confidence": 0.44,
+      "why": "M.U.S.H.A. got an A+ from him, but 33 years old: his 20+ yr-late plays avg B-"
+    },
+    "g:master-system/power-strike-ii": {
+      "grade": "B",
+      "confidence": 0.42,
+      "why": "Crowd shrugs: 3.7/5 from 69 votes, but M.U.S.H.A. got an A+ from him"
+    },
+    "g:switch/bloodstained-curse-of-the-moon-2": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Part 1 got a B ('good, not great'); crowd is cool on this one (3.3/5)"
+    },
+    "g:switch/panzer-paladin": {
+      "grade": "C",
+      "confidence": 0.44,
+      "why": "Crowd shrugs: 3.1/5 from 6 votes"
+    },
+    "g:switch/luigis-mansion-3": {
+      "grade": "A",
+      "confidence": 0.37,
+      "why": "Crowd favorite: 4.4/5 from 225 votes; action-adventures: 60 beaten, avg B"
+    },
+    "g:switch/loop-hero": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Switch RPGs: 5 beaten, avg A-"
+    },
+    "g:switch/shiren-the-wanderer-the-tower-of-fortune-and-th-dice-of-fate": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Playing it 10 yrs late: late plays avg B, launch plays B+"
+    },
+    "g:switch/castlevania-anniversary-collection": {
+      "grade": "C",
+      "confidence": 0.52,
+      "why": "He already beat CV1 and CV2 on this very collection: both C's"
+    },
+    "g:switch/ring-fit-adventure": {
+      "grade": "B",
+      "confidence": 0.49,
+      "why": "Nintendo: 27 of theirs beaten, avg A-"
+    },
+    "g:switch/valis-the-fantasm-soldier-collection": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "Few clues beyond a 4.1/5 crowd score: right down the middle"
+    },
+    "g:tg-16/valis-the-fantasm-soldier": {
+      "grade": "C",
+      "confidence": 0.41,
+      "why": "34 years old: his 20+ yr-late plays avg B-; crowd 4.0/5"
+    },
+    "g:tg-16/valis-ii": {
+      "grade": "C",
+      "confidence": 0.5,
+      "why": "Crowd shrugs: 3.7/5 from 62 votes"
+    },
+    "g:tg-16/valis-iii": {
+      "grade": "C",
+      "confidence": 0.47,
+      "why": "36 years old: his 20+ yr-late plays avg B-; crowd 3.9/5"
+    },
+    "g:wii/super-mario-galaxy": {
+      "grade": "A",
+      "confidence": 0.53,
+      "why": "Crowd-certified classic (4.7/5, 571 votes)"
+    },
+    "g:wii/new-super-mario-bros-wii": {
+      "grade": "A",
+      "confidence": 0.51,
+      "why": "Mario platformers track record: 8 beaten, avg A-; crowd 4.5/5"
+    },
+    "g:wii/wii-sports": {
+      "grade": "B",
+      "confidence": 0.48,
+      "why": "Nintendo: 27 of theirs beaten, avg A-, but sports games: 40 beaten, avg C+"
+    },
+    "g:wii/wii-sports-resort": {
+      "grade": "B",
+      "confidence": 0.48,
+      "why": "Nintendo: 27 of theirs beaten, avg A-, but sports games: 40 beaten, avg C+"
+    },
+    "g:wii/wii-play": {
+      "grade": "C",
+      "confidence": 0.54,
+      "why": "Crowd shrugs: 3.7/5 from 62 votes, but Nintendo track record: 27 beaten, avg A-"
+    },
+    "g:wii/super-monkey-ball-banana-blitz": {
+      "grade": "C",
+      "confidence": 0.49,
+      "why": "Sega: 23 of theirs beaten, avg C+; crowd 3.7/5"
+    },
+    "g:wii/shaun-white-snowboarding-road-trip": {
+      "grade": "B",
+      "confidence": 0.41,
+      "why": "His sports games average: C+ over 40; crowd 4.4/5"
+    },
+    "g:wii/tiger-woods-pga-tour-09-all-play": {
+      "grade": "C",
+      "confidence": 0.59,
+      "why": "EA Tiburon: 7 of theirs beaten, avg C; crowd 2.5/5"
+    }
+  }
+}

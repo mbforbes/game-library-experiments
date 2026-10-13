@@ -28,21 +28,55 @@ export function detectQuality(): Quality {
 
 export interface Engine {
   renderer: THREE.WebGPURenderer;
+  /** The scene currently on screen (each level owns its own Scene; see setScene). */
   scene: THREE.Scene;
+  /** Main pass MRT (output + emissive). Render targets that reuse it share the main pass's GPU pipelines. */
+  mrt: any;
   camera: THREE.PerspectiveCamera;
   pipeline: THREE.RenderPipeline;
   backend: "webgpu" | "webgl";
   quality: Quality;
   /** Post uniforms (TSL uniform nodes; set `.value`). flash = full-screen flash, fade = 0 visible .. 1 black */
-  post: Record<"bloomStrength" | "bloomRadius" | "bloomThreshold" | "vignette" | "grain" | "flash" | "fade" | "crt", any>;
+  post: Record<"bloomStrength" | "bloomRadius" | "bloomThreshold" | "vignette" | "grain" | "flash" | "fade" | "crt" | "exposure", any>;
   dpr: number;
   render(): void;
   resize(): void;
+  /** Show a different scene (level switch: just swaps what the main pass draws). */
+  setScene(scene: THREE.Scene): void;
+  /**
+   * Compile every pipeline `scene` needs for the main pass up front (all objects, on screen or
+   * not, visible or hidden), so the first time something comes into view doesn't stall the GPU
+   * on a shader compile. Yields between objects; reports 0..1 progress.
+   */
+  precompile(scene: THREE.Scene, onProgress?: (k: number) => void): Promise<void>;
+  /** A render target that matches the main pass (formats, MRT, samples) so it reuses its pipelines. */
+  matchingTarget(w: number, h: number): THREE.RenderTarget;
   /** called every frame with the frame's dt (s) to adapt pixel ratio */
   adapt(dt: number): void;
 }
 
+/**
+ * three's compileAsync yields between objects with scheduler.yield(), or a whole animation frame
+ * per object where that's missing (Safari): ~16 ms × hundreds of objects. A message-channel
+ * yield gives the same "let the browser breathe" without the frame-sized wait.
+ */
+function polyfillSchedulerYield() {
+  const g = globalThis as any;
+  if (g.scheduler?.yield) return;
+  const ch = new MessageChannel();
+  const queue: (() => void)[] = [];
+  ch.port1.onmessage = () => queue.shift()?.();
+  g.scheduler = Object.assign(g.scheduler ?? {}, {
+    yield: () =>
+      new Promise<void>((r) => {
+        queue.push(r);
+        ch.port2.postMessage(0);
+      }),
+  });
+}
+
 export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
+  polyfillSchedulerYield();
   const params = new URLSearchParams(location.search);
   const quality = detectQuality();
   const renderer = new THREE.WebGPURenderer({
@@ -69,11 +103,13 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
     flash: uniform(0),
     fade: uniform(0),
     crt: uniform(0), // 0 = picture on, 1 = CRT switched off (squashed to a line, then a dot)
+    exposure: { value: 1 }, // tone-mapping exposure (applied to the renderer by the app each frame)
   };
 
   const pipeline = new THREE.RenderPipeline(renderer);
   const scenePass = pass(scene, camera);
-  scenePass.setMRT(mrt({ output, emissive }));
+  const mainMrt = mrt({ output, emissive });
+  scenePass.setMRT(mainMrt);
   const color = scenePass.getTextureNode("output");
   const glow = scenePass.getTextureNode("emissive");
   const bloomPass = bloom(glow, post.bloomStrength as any, post.bloomRadius as any, post.bloomThreshold as any);
@@ -102,6 +138,7 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   const engine: Engine = {
     renderer,
     scene,
+    mrt: mainMrt,
     camera,
     pipeline,
     backend,
@@ -122,6 +159,99 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
       camera.updateProjectionMatrix();
     },
     adapt: makeAdaptor(),
+    setScene(s) {
+      engine.scene = s;
+      scenePass.scene = s;
+    },
+    async precompile(s, onProgress) {
+      // the pass's render target only gets its final sample count / type once the pipeline has run
+      if (!rendered) engine.render();
+      const restore: (() => void)[] = [];
+      s.traverse((o) => {
+        // (lights stay as they are: the light set is part of every lit shader)
+        if (!o.visible && !(o as THREE.Light).isLight) {
+          o.visible = true;
+          restore.push(() => (o.visible = false));
+        }
+        if (o.frustumCulled) {
+          o.frustumCulled = false;
+          restore.push(() => (o.frustumCulled = true));
+        }
+      });
+      // Shaders are built object by object (yielding between them) and read the renderer's MRT /
+      // target when they are, so those stay set until the compile finishes; frames rendered
+      // meanwhile run with a clean state (see render()). Overlapping compiles share the state.
+      if (compiling++ === 0) {
+        renderer.setRenderTarget((scenePass as any).renderTarget);
+        renderer.setMRT(mainMrt);
+      }
+      // Render objects are keyed by render context, and contexts by call depth: the scene pass
+      // renders nested inside the post quad, so compile in a context with the same depth or
+      // every object gets its nodes built a second time when it's first drawn.
+      const rc = (renderer as any)._renderContexts;
+      const get = rc.get;
+      rc.get = (rt: any, m: any, depth?: number) => get.call(rc, rt, m, depth ?? passDepth);
+      // compileAsync waits for each object's GPU pipeline before starting the next; the GPU
+      // process can compile several at once, so collect them and wait for all at the end.
+      // (Objects whose pipeline isn't ready yet are simply skipped when drawn, never stalled on.)
+      const pipes = (renderer as any)._pipelines;
+      const pending: Promise<unknown>[] = [];
+      if (!pipes.__parallel) {
+        const getForRender = pipes.getForRender;
+        pipes.getForRender = function (ro: any, promises: any[] | null = null) {
+          if (promises && pipes.__collect) return getForRender.call(pipes, ro, pipes.__collect);
+          return getForRender.call(pipes, ro, promises);
+        };
+        pipes.__parallel = true;
+      }
+      const prevCollect = pipes.__collect;
+      pipes.__collect = pending;
+      let job: Promise<void>;
+      try {
+        job = renderer.compileAsync(s, camera, null, onProgress ? (e: ProgressEvent) => onProgress(e.loaded / Math.max(1, e.total)) : null);
+      } finally {
+        // the render list was collected synchronously: visibility / culling can go back now
+        rc.get = get;
+        for (const r of restore) r();
+      }
+      await job.catch((err) => console.warn("[engine] precompile", err));
+      pipes.__collect = prevCollect;
+      await Promise.allSettled(pending);
+      if (--compiling === 0) {
+        renderer.setRenderTarget(null);
+        renderer.setMRT(null);
+      }
+    },
+    matchingTarget(w, h) {
+      // same as PassNode.setup(): renderer's sample count + output buffer type, two attachments
+      return new THREE.RenderTarget(w, h, { count: 2, type: renderer.getOutputBufferType(), samples: renderer.samples, depthBuffer: true });
+    },
+  };
+  let rendered = false;
+  let compiling = 0;
+  // learn the call depth the scene pass renders at (see precompile)
+  let passDepth = 1;
+  {
+    const rc = (renderer as any)._renderContexts;
+    const get = rc.get;
+    rc.get = (rt: any, m: any, depth?: number) => {
+      if (rt && rt === (scenePass as any).renderTarget && m === mainMrt && depth !== undefined) {
+        passDepth = depth;
+        rc.get = get;
+      }
+      return get.call(rc, rt, m, depth);
+    };
+  }
+  engine.render = () => {
+    rendered = true;
+    if (compiling) {
+      const rt = renderer.getRenderTarget(), m = renderer.getMRT();
+      renderer.setRenderTarget(null);
+      renderer.setMRT(null);
+      pipeline.render();
+      renderer.setRenderTarget(rt);
+      renderer.setMRT(m);
+    } else pipeline.render();
   };
 
   function makeAdaptor() {

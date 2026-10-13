@@ -40,7 +40,10 @@ export interface Level {
   id: string;
   name: string;
   tagline: string;
-  build(ctx: LevelCtx, progress: (msg: string) => void): Promise<void>;
+  /** Build into ctx.scene. `await progress(...)` between phases: it yields so frames keep flowing. */
+  build(ctx: LevelCtx, progress: (msg: string) => Promise<void>): Promise<void>;
+  /** Called each time the level becomes the one on screen (after the first build too). */
+  enter?(): void;
   update(dt: number, t: number): void;
   stations: Station[];
   /** Fields with pickable games (also receive filter state). */

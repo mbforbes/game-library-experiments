@@ -22,6 +22,7 @@ export interface EmitterSpec {
 
 interface Emitter extends EmitterSpec {
   running: { stop: () => void; gain: GainNode; panner?: PannerNode } | null;
+  scope: string;
 }
 
 const LS = "coopers-library-sound";
@@ -40,6 +41,13 @@ export class AudioEngine {
   private fwd = new THREE.Vector3();
   private up = new THREE.Vector3();
   onChange?: (on: boolean) => void;
+  /**
+   * Worlds stay alive in the background, so emitters and room acoustics belong to a scope (the
+   * world that was building when they were added); only the active scope's emitters play.
+   */
+  scope = "";
+  private activeScope = "";
+  private rooms = new Map<string, { seconds: number; decay: number; wet: number }>();
 
   constructor() {
     try {
@@ -72,7 +80,16 @@ export class AudioEngine {
     this.onChange?.(v);
   }
 
-  private start() {
+  /**
+   * Create the (suspended) audio graph ahead of time — creating an AudioContext takes ~150 ms,
+   * which used to land on your first click. The first gesture then only has to resume it.
+   */
+  prepare() {
+    if (this.ctx) return;
+    this.start(false);
+  }
+
+  private start(resume = true) {
     if (!this.ctx) {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       if (!AC) return;
@@ -98,12 +115,14 @@ export class AudioEngine {
       this.noise = makeNoise(ctx, 2);
       this.setRoom(this.room);
     }
-    if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+    if (resume && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
   }
 
   private room: { seconds: number; decay: number; wet: number } = { seconds: 0.8, decay: 3, wet: 0.25 };
   /** Room acoustics: impulse length, decay curve, wet level. */
   setRoom(r: { seconds: number; decay: number; wet: number }) {
+    this.rooms.set(this.scope, r);
+    if (this.scope !== this.activeScope) return;
     this.room = r;
     if (!this.ctx) return;
     this.reverb.buffer = makeImpulse(this.ctx, r.seconds, r.decay);
@@ -144,8 +163,19 @@ export class AudioEngine {
     return p;
   }
 
+  /** Make a scope (world) the audible one: its room + emitters; everything else fades out. */
+  activate(scope: string) {
+    this.activeScope = scope;
+    const prev = this.scope;
+    this.scope = scope;
+    const r = this.rooms.get(scope);
+    if (r) this.setRoom(r);
+    this.scope = prev;
+    for (const e of this.emitters) if (e.scope !== scope) this.stopEmitter(e, 0.4);
+  }
+
   addEmitter(spec: EmitterSpec) {
-    const e: Emitter = { ...spec, running: null };
+    const e: Emitter = { ...spec, running: null, scope: this.scope };
     this.emitters.push(e);
     return {
       move: (p: THREE.Vector3) => {
@@ -206,6 +236,7 @@ export class AudioEngine {
     }
     // start / stop emitters by proximity
     for (const e of this.emitters) {
+      if (e.scope !== this.activeScope) continue;
       const d = e.position.distanceTo(this.camPos);
       if (!e.running && d < e.radius && this._enabled) {
         const gain = ctx.createGain();

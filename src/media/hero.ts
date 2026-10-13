@@ -7,10 +7,11 @@
 //          carts get their real back photo or a molded-plastic cartridge back
 
 import * as THREE from "three/webgpu";
-import { attribute, texture, uv, vec2, vec3, float, select, uniform, normalView, positionViewDirection, step } from "three/tsl";
+import { attribute, texture, uv, vec2, vec3, float, select, uniform, normalView, positionViewDirection, step, mix } from "three/tsl";
 import type { Game } from "../../shared/types";
 import { platformOf, type Platform } from "../../shared/platforms";
 import type { ArtStore } from "../library/art";
+import { loadImage as decodeImage } from "../library/art";
 import { drawProceduralCover, wrap } from "../library/art";
 import { geometryFor } from "./templates";
 import { kindOf, templateOf, coverCrop, photoPad } from "./field";
@@ -18,64 +19,46 @@ import { drawSpine, fitText, GRADE_COLORS } from "./spines";
 import { SPECIAL_SHELLS, barcode, editionOf, editionStyle, esrbBox, spineDesign, wordmark } from "./branding";
 import { stickerCell, stickerLocal, stickerMaterial } from "./stickers";
 
-export class Hero {
-  readonly object = new THREE.Group();
-  readonly mesh: THREE.Mesh;
-  readonly game: Game;
-  private spineCanvas = document.createElement("canvas");
-  private backCanvas = document.createElement("canvas");
-  private disposables: THREE.Texture[] = [];
-  private coverRect = uniform(new THREE.Vector4(0, 0, 1, 1));
-  private photoPad = uniform(new THREE.Vector2(-1, -1));
-  private glowU = uniform(0);
-  private disposed = false;
+/**
+ * The hero material is built ONCE and reused for every game you pull out: textures are swapped
+ * via TextureNode.value and everything else is a uniform. (A new material per game meant a new
+ * GPU shader compile — a visible hitch — every time you opened something.)
+ */
+class HeroShared {
+  material: THREE.MeshStandardNodeMaterial;
+  front: any;
+  spine: any;
+  back: any;
+  coverRect = uniform(new THREE.Vector4(0, 0, 1, 1));
+  photoPad = uniform(new THREE.Vector2(-1, -1));
+  glow = uniform(0);
+  shell = uniform(new THREE.Color());
+  neon = uniform(new THREE.Color());
+  shellRough = uniform(0.4);
+  metal = uniform(0);
+  spineGlow = uniform(0);
+  backArt = uniform(1);
+  spineCanvas = document.createElement("canvas");
+  backCanvas = document.createElement("canvas");
+  spineTex: THREE.CanvasTexture;
+  backTex: THREE.CanvasTexture;
+  stickerMat: THREE.MeshStandardNodeMaterial;
+  private static inst: HeroShared | null = null;
+  static get(art: ArtStore) {
+    return (HeroShared.inst ??= new HeroShared(art));
+  }
 
-  constructor(game: Game, private art: ArtStore) {
-    this.game = game;
-    const t = templateOf(game, art);
-    const kind = kindOf(game, art);
-    const p = platformOf(game.platform);
-    const e = art.entry(game);
-    const isCart = !t.spine && kind !== "cabinet";
-    const photo = !!t.buildPhoto && !!e?.k;
-
-    // ---- front: atlas first (instant), hi-res when loaded
-    let frontTex: THREE.Texture;
-    const ph = photo ? art.cartPhoto(game) : null;
-    if (ph) {
-      frontTex = art.pages[ph.page];
-      this.coverRect.value.set(...ph.rect);
-      this.photoPad.value.set(...photoPad(ph.aspect, kind));
-    } else if (photo) {
-      frontTex = art.pages[0];
-      this.photoPad.value.set(0, 0);
-      this.coverRect.value.set(0, 0, 0, 0);
-    } else {
-      const crop = coverCrop(game, art, t);
-      frontTex = art.pages[crop.page];
-      this.coverRect.value.set(...crop.rect);
-    }
-
-    // ---- spine: real scan or printed
-    const [sw, sh] = t.spine ?? [0.02, 0.2];
-    const horiz = sw > sh;
-    const H = 1024;
-    this.spineCanvas.height = horiz ? Math.round(H * (sh / sw)) : H;
-    this.spineCanvas.width = horiz ? H : Math.max(16, Math.round(H * (sw / sh)));
-    drawSpine(this.spineCanvas.getContext("2d")!, 0, 0, this.spineCanvas.width, this.spineCanvas.height, game, art, horiz);
-    const spineCanvasTex = this.canvasTex(this.spineCanvas);
-
-    // ---- back: real scan, or generated in the platform's style
-    const [w, h] = t.size;
-    const bw = 900;
-    this.backCanvas.width = bw;
-    this.backCanvas.height = Math.round((bw * h) / w);
-    const bctx = this.backCanvas.getContext("2d")!;
-    const backCanvasTex = this.canvasTex(this.backCanvas);
-    const redraw = () => (backCanvasTex.needsUpdate = true);
-    if (isCart) drawCartBack(bctx, this.backCanvas.width, this.backCanvas.height, game, p);
-    else drawBack(bctx, this.backCanvas.width, this.backCanvas.height, game, art, redraw);
-
+  private constructor(art: ArtStore) {
+    const mk = (c: HTMLCanvasElement) => {
+      c.width = c.height = 4;
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.flipY = false;
+      t.anisotropy = 8;
+      return t;
+    };
+    this.spineTex = mk(this.spineCanvas);
+    this.backTex = mk(this.backCanvas);
     // Drawn after the inspect dimmer (transparent pass, high renderOrder), never hidden by shelves.
     const mat = new THREE.MeshStandardNodeMaterial({ transparent: true, depthTest: false, depthWrite: false, alphaTest: 0.5 });
     const part = attribute("part", "float");
@@ -87,33 +70,104 @@ export class Hero {
     const inside = step(0, pp.x).mul(step(pp.x, 1)).mul(step(0, pp.y)).mul(step(pp.y, 1));
     const pq = pp.clamp(0.001, 0.999);
     const frontUV = select(isPhoto, this.coverRect.xy.add(vec2(pq.x, pq.y.oneMinus()).mul(this.coverRect.zw)), this.coverRect.xy.add(vec2(u.x, u.y.oneMinus()).mul(this.coverRect.zw)));
-    const front = texture(frontTex, frontUV);
-    const spineNode = texture(spineCanvasTex, vec2(u.x, u.y.oneMinus()));
-    const backNode = texture(backCanvasTex, vec2(u.x, u.y.oneMinus()));
-    const special = SPECIAL_SHELLS[game.artKey];
-    const shellHex = special?.color ?? (kind === "bigbox" ? art.color(game) : p.shell);
-    const shell = vec3(...new THREE.Color(shellHex).convertSRGBToLinear().toArray());
-    const neon = vec3(...new THREE.Color(p.neon).convertSRGBToLinear().toArray());
-    let col: any = shell;
-    const hasBackArt = t.spine !== null || kind === "bigbox" || isCart;
-    col = select(between(2.5, 3.5), hasBackArt ? backNode.rgb : shell.mul(0.6), col);
-    col = select(between(0.5, 1.5), front.rgb, col);
-    col = select(between(1.5, 2.5), spineNode.rgb, col);
+    this.front = texture(art.pages[0] ?? this.spineTex, frontUV);
+    this.spine = texture(this.spineTex, vec2(u.x, u.y.oneMinus()));
+    this.back = texture(this.backTex, vec2(u.x, u.y.oneMinus()));
+    let col: any = this.shell;
+    col = select(between(2.5, 3.5), mix(this.shell.mul(0.6), this.back.rgb, this.backArt), col);
+    col = select(between(0.5, 1.5), this.front.rgb, col);
+    col = select(between(1.5, 2.5), this.spine.rgb, col);
     col = select(between(5.5, 6.5), vec3(0.015), col);
     col = select(between(4.5, 5.5), vec3(0.012, 0.014, 0.018), col);
     mat.colorNode = col;
-    mat.opacityNode = select(between(0.5, 1.5).and(isPhoto), front.a.mul(inside), float(1));
-    mat.roughnessNode = select(between(0.5, 1.5), float(0.25), select(between(4.5, 5.5), float(0.08), float(special?.roughness ?? t.shellRoughness)));
-    mat.metalnessNode = select(part.lessThan(0.5), float(special?.metalness ?? 0), float(0));
+    mat.opacityNode = select(between(0.5, 1.5).and(isPhoto), this.front.a.mul(inside), float(1));
+    mat.roughnessNode = select(between(0.5, 1.5), float(0.25), select(between(4.5, 5.5), float(0.08), this.shellRough));
+    mat.metalnessNode = select(part.lessThan(0.5), this.metal, float(0));
     const rim = float(1).sub(normalView.dot(positionViewDirection).abs()).pow(2.5);
-    let glow: any = neon.mul(select(between(4.5, 5.5), float(1.6), float(0)));
-    glow = glow.add(select(between(1.5, 2.5), spineNode.rgb.mul(t.spineGlow), vec3(0)));
-    glow = glow.add(neon.mul(rim.mul(this.glowU)));
+    let glow: any = this.neon.mul(select(between(4.5, 5.5), float(1.6), float(0)));
+    glow = glow.add(select(between(1.5, 2.5), this.spine.rgb.mul(this.spineGlow), vec3(0)));
+    glow = glow.add(this.neon.mul(rim.mul(this.glow)));
     // a little self-light so the box reads clearly wherever it floats in the (dark) room
     glow = glow.add(col.mul(0.22));
     mat.emissiveNode = glow;
+    this.material = mat;
+    this.stickerMat = stickerMaterial();
+    this.stickerMat.transparent = true;
+    this.stickerMat.depthTest = false;
+    this.stickerMat.depthWrite = false;
+  }
+}
 
-    this.mesh = new THREE.Mesh(geometryFor(kind, photo), mat);
+export class Hero {
+  readonly object = new THREE.Group();
+  readonly mesh: THREE.Mesh;
+  readonly game: Game;
+  private disposed = false;
+  private sh: HeroShared;
+
+  constructor(game: Game, private art: ArtStore) {
+    this.game = game;
+    const sh = (this.sh = HeroShared.get(art));
+    const t = templateOf(game, art);
+    const kind = kindOf(game, art);
+    const p = platformOf(game.platform);
+    const e = art.entry(game);
+    const isCart = !t.spine && kind !== "cabinet";
+    const photo = !!t.buildPhoto && !!e?.k;
+    const token = (Hero.token = (Hero.token ?? 0) + 1);
+    const live = () => !this.disposed && Hero.token === token;
+
+    // ---- front: atlas first (instant), hi-res when loaded
+    const ph = photo ? art.cartPhoto(game) : null;
+    if (ph) {
+      sh.front.value = art.pages[ph.page];
+      sh.coverRect.value.set(...ph.rect);
+      sh.photoPad.value.set(...photoPad(ph.aspect, kind));
+    } else if (photo) {
+      sh.front.value = art.pages[0];
+      sh.photoPad.value.set(0, 0);
+      sh.coverRect.value.set(0, 0, 0, 0);
+    } else {
+      const crop = coverCrop(game, art, t);
+      sh.front.value = art.pages[crop.page];
+      sh.coverRect.value.set(...crop.rect);
+      sh.photoPad.value.set(-1, -1);
+    }
+
+    // ---- spine: printed now, real scan when loaded
+    const [sw, shh] = t.spine ?? [0.02, 0.2];
+    const horiz = sw > shh;
+    const H = 1024;
+    sh.spineCanvas.height = horiz ? Math.round(H * (shh / sw)) : H;
+    sh.spineCanvas.width = horiz ? H : Math.max(16, Math.round(H * (sw / shh)));
+    drawSpine(sh.spineCanvas.getContext("2d")!, 0, 0, sh.spineCanvas.width, sh.spineCanvas.height, game, art, horiz);
+    sh.spineTex.dispose(); // canvas size changed: recreate the GPU texture
+    sh.spineTex.needsUpdate = true;
+    sh.spine.value = sh.spineTex;
+
+    // ---- back: generated in the platform's style now, real scan when loaded
+    const [w, h] = t.size;
+    sh.backCanvas.width = 900;
+    sh.backCanvas.height = Math.round((900 * h) / w);
+    const bctx = sh.backCanvas.getContext("2d")!;
+    const redraw = () => live() && (sh.backTex.needsUpdate = true);
+    if (isCart) drawCartBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, p);
+    else drawBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, art, redraw);
+    sh.backTex.dispose();
+    sh.backTex.needsUpdate = true;
+    sh.back.value = sh.backTex;
+
+    // ---- per-game uniforms
+    const special = SPECIAL_SHELLS[game.artKey];
+    sh.shell.value.set(special?.color ?? (kind === "bigbox" ? art.color(game) : p.shell)).convertSRGBToLinear();
+    sh.neon.value.set(p.neon).convertSRGBToLinear();
+    sh.shellRough.value = special?.roughness ?? t.shellRoughness;
+    sh.metal.value = special?.metalness ?? 0;
+    sh.spineGlow.value = t.spineGlow;
+    sh.backArt.value = t.spine !== null || kind === "bigbox" || isCart ? 1 : 0;
+    sh.glow.value = 0;
+
+    this.mesh = new THREE.Mesh(geometryFor(kind, photo), sh.material);
     // centre the mesh on the group's origin so it rotates about its middle
     this.mesh.position.y = -t.size[1] / 2;
     this.object.add(this.mesh);
@@ -123,11 +177,7 @@ export class Hero {
     if (cell >= 0 && local) {
       const geo = new THREE.PlaneGeometry(1, 1);
       geo.setAttribute("sCell", new THREE.Float32BufferAttribute([cell, cell, cell, cell], 1));
-      const sm = stickerMaterial();
-      sm.transparent = true;
-      sm.depthTest = false;
-      sm.depthWrite = false;
-      const sticker = new THREE.Mesh(geo, sm);
+      const sticker = new THREE.Mesh(geo, sh.stickerMat);
       sticker.applyMatrix4(local);
       sticker.renderOrder = 1000;
       this.mesh.add(sticker);
@@ -136,15 +186,15 @@ export class Hero {
     // ---- upgrade to hi-res / real scans as they arrive
     if (photo) {
       art.tex(e!.k).then((tex) => {
-        if (!tex || this.disposed) return;
+        if (!tex || !live()) return;
         const img = tex.image as { width: number; height: number };
-        front.value = tex;
-        this.coverRect.value.set(0, 0, 1, 1);
-        this.photoPad.value.set(...photoPad(img.width / img.height, kind));
+        sh.front.value = tex;
+        sh.coverRect.value.set(0, 0, 1, 1);
+        sh.photoPad.value.set(...photoPad(img.width / img.height, kind));
       });
     } else {
       art.hiRes(game).then((tex) => {
-        if (!tex || this.disposed) return;
+        if (!tex || !live()) return;
         const img = tex.image as { width: number; height: number };
         const aspect = img.width / img.height;
         const la = t.labelAspect;
@@ -156,26 +206,37 @@ export class Hero {
           ch = aspect / la;
           cv = (1 - ch) * t.cropY;
         }
-        front.value = tex;
-        this.coverRect.value.set(cu, cv, cw, ch);
+        sh.front.value = tex;
+        sh.coverRect.value.set(cu, cv, cw, ch);
       });
     }
-    if (e?.spc && !editionOf(game)) art.tex(e.spc).then((tex) => !this.disposed && tex && (spineNode.value = tex));
+    if (e?.spc && !editionOf(game)) art.tex(e.spc).then((tex) => live() && tex && (sh.spine.value = tex));
     const realBack = isCart ? e?.kb : e?.b;
-    if (realBack) art.tex(realBack).then((tex) => !this.disposed && tex && (backNode.value = tex));
+    if (realBack) art.tex(realBack).then((tex) => live() && tex && (sh.back.value = tex));
+  }
+
+  private static token = 0;
+
+  /**
+   * Invisible stand-ins using the shared hero + sticker materials, for precompiling a level's
+   * shaders (doesn't touch the shared uniforms, so an open hero elsewhere is unaffected).
+   */
+  static warmup(art: ArtStore): THREE.Object3D {
+    const sh = HeroShared.get(art);
+    const g = new THREE.Group();
+    const m = new THREE.Mesh(geometryFor("bigbox", false), sh.material);
+    m.renderOrder = 999;
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.setAttribute("sCell", new THREE.Float32BufferAttribute([0, 0, 0, 0], 1));
+    const st = new THREE.Mesh(geo, sh.stickerMat);
+    st.renderOrder = 1000;
+    g.add(m, st);
+    g.visible = false;
+    return g;
   }
 
   set glow(v: number) {
-    this.glowU.value = v;
-  }
-
-  private canvasTex(c: HTMLCanvasElement) {
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    t.flipY = false;
-    t.anisotropy = 8;
-    this.disposables.push(t);
-    return t;
+    this.sh.glow.value = v;
   }
 
   /** Size of the item (w, h, d) */
@@ -186,21 +247,17 @@ export class Hero {
   dispose() {
     this.disposed = true;
     this.object.removeFromParent();
-    this.object.traverse((o) => ((o as THREE.Mesh).material as THREE.Material | undefined)?.dispose());
-    for (const t of this.disposables) t.dispose();
+    // shared material/textures stay alive for the next game; only the sticker quad's geometry goes
+    this.object.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && o !== this.mesh) (o as THREE.Mesh).geometry.dispose();
+    });
   }
 }
 
 // ---------------------------------------------------------------------------------------------
 // Generated back cover in the platform's retail style (used when there's no real scan).
 
-const loadImage = (src: string) =>
-  new Promise<HTMLImageElement | null>((res) => {
-    const i = new Image();
-    i.onload = () => res(i);
-    i.onerror = () => res(null);
-    i.src = src;
-  });
+const loadImage = (src: string) => decodeImage(src).catch(() => null);
 
 export function drawBack(ctx: CanvasRenderingContext2D, W: number, H: number, g: Game, art: ArtStore, onUpdate?: () => void) {
   const p = platformOf(g.platform);
