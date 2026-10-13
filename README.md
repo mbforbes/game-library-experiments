@@ -21,41 +21,77 @@ power-on, CRT transitions between worlds, glossy reflections, pull-off-the-shelf
 hover lift + titles (desktop), particles, page turns.
 
 Debug helpers: `?debug` (FPS / draw calls / pixel ratio), `?webgl` (force the WebGL2 backend),
-`?quality=low|mid|high`, `?dpr=1.5`, `?level=showroom` (every form factor side by side).
+`?quality=low|mid|high`, `?dpr=1.5`, `?level=showroom` (every form factor side by side),
+`?no=...` (ablation flags, see Performance notes).
+
+The Lab also shows **grade forecasts** for every unplayed game (`data/forecasts.json`, made by
+`scripts/forecast`: a ridge regression on Cooper's 438 grades that gets within one grade 91% of
+the time in backtests), plus findings about how his grades compare with crowd ratings. The
+forecast also appears in each game's info panel.
 
 ## Run it
 
 ```sh
 bun install
-bun run art        # first time: resolve + download + process cover art (≈10 min, cached after)
 bun run dev        # http://localhost:5173 (Vite + the Worker running in workerd)
 ```
 
-Without `bun run art` everything still works; games just get procedural title-card covers.
+The processed art (`public/art`, ~350 MB of content-hashed webp) is committed, so a fresh clone
+runs as-is. `bun run art` rebuilds it (only needed to bake newly added games in with full scans).
 
-## Deploy (Cloudflare Workers + static assets)
+## Deploy (Cloudflare Workers + static assets, free plan)
 
-```sh
-bunx wrangler login   # once
-bun run deploy        # vite build + wrangler deploy
-```
+Live at **https://the-backlog.m-b-forbes.workers.dev**. `bun run deploy` (clean build +
+`wrangler deploy`, using the scoped token in `.env.cloudflare-deploy`, which is gitignored).
 
-- Static files (app bundle, `public/art/**`) are served from Cloudflare's edge. Content-hashed
-  files are cached forever (`public/_headers`); the art manifest revalidates every 5 minutes.
-- `GET /api/library` (the Worker) fetches the sheet's tabs, parses them and caches the JSON at
-  the edge for 5 minutes, then serves stale while refreshing in the background, so the site follows
-  the sheet without hammering Google. `?fresh` bypasses the cache. If the API is unreachable the
-  client fetches the sheet directly, and failing that uses its last copy.
-- **New games added to the sheet:** the library data is fetched live (≤5 min old), so new rows
-  appear on the next visit. Covers for games the art build hasn't seen are resolved at runtime:
-  the Worker's `GET /api/art` finds Wikipedia/Steam art (cached at the edge for 30 days) and the
-  client paints it over the placeholder title card, all automatically. Re-run `bun run art` +
-  `bun run deploy` now and then to bake new games into the atlases with full scans (spines,
-  backs, cart photos) and the faster first load.
+It's set-and-forget: nothing needs re-running when the sheet changes.
+
+- **Static files** (app bundles, art, audio) are content-hashed or versioned and served from
+  Cloudflare's edge with `immutable`, year-long caching (`public/_headers`). Static requests
+  are free and don't touch the Worker.
+- **`GET /api/library`** fetches the sheet's tabs as raw CSV (no parsing in the Worker, so it
+  stays well under the free plan's 10 ms CPU), caches them at the edge for 5 minutes, and serves
+  stale while refreshing. The browser parses the CSV. The last good copy is also kept in Workers
+  KV, so the site keeps working if Google is ever unreachable. Sheet edits show up within about
+  5 minutes.
+- **New games** (rows the art build hasn't seen) get covers at runtime: `GET /api/art` finds
+  Wikipedia/Steam art once and stores the answer in KV forever. Not-found answers are retried
+  weekly. `GET /api/img` fetches each image once and keeps the bytes in KV forever, so lookup
+  work is never redone and found art is never lost. New games get generated platform-style
+  spines and backs. Running `bun run art` + `bun run deploy` later bakes them in with full scans.
 - **Editions:** add an optional `Edition` column to the Backlog/Completed tabs (e.g. "Greatest
   Hits", "Player's Choice", "Platinum Hits", "Nintendo Selects", "Collector's") and those games
   get the matching banner on their spine/back. Iconic special cartridges (gold Zelda carts,
   coloured Pokémon carts, the banana-yellow DK64) are built in.
+
+Free-plan usage: one Worker request per visit (plus one per new-game cover), a handful of KV
+writes per day at most, everything else is static.
+
+## Performance notes
+
+- Every world is built once into its own scene and kept alive. The others are prebuilt and their
+  shaders compiled in the background after the first one appears, so switching is just the CRT
+  animation.
+- All GPU pipelines are precompiled behind the loading bar, in parallel and in the same render
+  context the frame uses. Materials share programs: constants are uniforms, one shared material
+  serves the inspected game, and two serve every close-up cover overlay. Images decode off the
+  main thread (ImageBitmap).
+- `bun scripts/test/perf.ts [--url=...] [--device=phone] [--script=switch] [--trace=out.json]`
+  drives the app on the real GPU (drag, scroll, zoom, hover, open/flip/close, stations, world
+  switches). It reports frame times per action, stalls, any shader/node builds that happen at
+  render time, and errors. Add `?no=prebuild,overlays,upgrade,audio` to the URL to ablate parts.
+
+## Sound + music
+
+Interaction sounds and ambient loops are synthesized (Web Audio), except the Den's rain, which is
+a public-domain recording ("Rain against the window", Wikimedia Commons). Each world has a very
+soft background track (credited in the in-app controls card):
+
+- Den: "Path Of The Fireflies" by AERØHEAD, CC BY-NC 3.0
+- Stacks: "Lands" by Alex Productions, CC BY 3.0
+- Lab: "Fragments" by AERØHEAD, CC BY-NC 3.0
+
+Music powered by BreakingCopyright (https://breakingcopyright.com).
 
 ## Cover art pipeline (`scripts/art`)
 
@@ -82,7 +118,7 @@ bun run deploy        # vite build + wrangler deploy
 
 ```
 shared/      data model, sheet fetch+parse, stats, platform registry (used by Worker, client, scripts)
-worker/      Cloudflare Worker: /api/library (edge-cached), /api/img proxy
+worker/      Cloudflare Worker: /api/library (raw sheet, edge-cached + KV fallback), /api/art + /api/img (KV-persisted)
 scripts/art  cover art pipeline        scripts/test  Playwright screenshots + perf (shot.ts, montage.ts)
 src/
   app.ts            wires everything: data, art, renderer, rig, input, HUD, inspect, levels
