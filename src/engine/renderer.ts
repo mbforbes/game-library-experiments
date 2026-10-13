@@ -48,7 +48,9 @@ export interface Engine {
    * not, visible or hidden), so the first time something comes into view doesn't stall the GPU
    * on a shader compile. Yields between objects; reports 0..1 progress.
    */
-  precompile(scene: THREE.Scene, onProgress?: (k: number) => void): Promise<void>;
+  precompile(scene: THREE.Scene, onProgress?: (k: number) => void, opts?: { parallel?: number; visibleOnly?: boolean }): Promise<void>;
+  /** Someone is now waiting on the compile in progress: let it use more parallelism. */
+  boostCompile(parallel?: number): void;
   /** A render target that matches the main pass (formats, MRT, samples) so it reuses its pipelines. */
   matchingTarget(w: number, h: number): THREE.RenderTarget;
   /**
@@ -168,21 +170,22 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
       engine.scene = s;
       scenePass.scene = s;
     },
-    async precompile(s, onProgress) {
+    async precompile(s, onProgress, opts = {}) {
       // the pass's render target only gets its final sample count / type once the pipeline has run
       if (!rendered) engine.render();
       const restore: (() => void)[] = [];
-      s.traverse((o) => {
-        // (lights stay as they are: the light set is part of every lit shader)
-        if (!o.visible && !(o as THREE.Light).isLight) {
-          o.visible = true;
-          restore.push(() => (o.visible = false));
-        }
-        if (o.frustumCulled) {
-          o.frustumCulled = false;
-          restore.push(() => (o.frustumCulled = true));
-        }
-      });
+      if (!opts.visibleOnly)
+        s.traverse((o) => {
+          // (lights stay as they are: the light set is part of every lit shader)
+          if (!o.visible && !(o as THREE.Light).isLight) {
+            o.visible = true;
+            restore.push(() => (o.visible = false));
+          }
+          if (o.frustumCulled) {
+            o.frustumCulled = false;
+            restore.push(() => (o.frustumCulled = true));
+          }
+        });
       // Shaders are built object by object (yielding between them) and read the renderer's MRT /
       // target when they are, so those stay set until the compile finishes; frames rendered
       // meanwhile run with a clean state (see render()). Overlapping compiles share the state.
@@ -196,21 +199,9 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
       const rc = (renderer as any)._renderContexts;
       const get = rc.get;
       rc.get = (rt: any, m: any, depth?: number) => get.call(rc, rt, m, depth ?? passDepth);
-      // compileAsync waits for each object's GPU pipeline before starting the next; the GPU
-      // process can compile several at once, so collect them and wait for all at the end.
-      // (Objects whose pipeline isn't ready yet are simply skipped when drawn, never stalled on.)
-      const pipes = (renderer as any)._pipelines;
       const pending: Promise<unknown>[] = [];
-      if (!pipes.__parallel) {
-        const getForRender = pipes.getForRender;
-        pipes.getForRender = function (ro: any, promises: any[] | null = null) {
-          if (promises && pipes.__collect) return getForRender.call(pipes, ro, pipes.__collect);
-          return getForRender.call(pipes, ro, promises);
-        };
-        pipes.__parallel = true;
-      }
       const prevCollect = pipes.__collect;
-      pipes.__collect = pending;
+      pipes.__collect = { list: pending, limit: Math.max(1, opts.parallel ?? 4) };
       let job: Promise<void>;
       try {
         job = renderer.compileAsync(s, camera, null, onProgress ? (e: ProgressEvent) => onProgress(e.loaded / Math.max(1, e.total)) : null);
@@ -226,6 +217,9 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
         renderer.setRenderTarget(null);
         renderer.setMRT(null);
       }
+    },
+    boostCompile(parallel = 4) {
+      if (pipes.__collect) pipes.__collect.limit = Math.max(pipes.__collect.limit, parallel);
     },
     matchingTarget(w, h) {
       // same as PassNode.setup(): renderer's sample count + output buffer type, one attachment
@@ -253,6 +247,31 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   };
   let rendered = false;
   let compiling = 0;
+  // GPU pipelines are never created synchronously: a pipeline the frame needs that isn't ready
+  // is requested asynchronously and its objects are simply not drawn until it is (three skips
+  // objects whose pipeline isn't ready). A cold shader cache makes each compile cost 0.2-4 s;
+  // a synchronous one froze the whole frame for that long. During precompiles up to `limit`
+  // compile at once (beyond that compileAsync waits for the newest, as it normally would):
+  // flooding Metal's compiler starves Chrome's own drawing, so background work uses 1-2.
+  const pipes = (renderer as any)._pipelines;
+  {
+    const getForRender = pipes.getForRender;
+    const inflight = new Set<Promise<unknown>>();
+    pipes.getForRender = function (ro: any, promises: any[] | null = null) {
+      const c = pipes.__collect as { list: Promise<unknown>[]; limit: number } | undefined;
+      if (!promises) return getForRender.call(pipes, ro, []); // render path: async, never stall
+      if (!c) return getForRender.call(pipes, ro, promises);
+      const mine: Promise<unknown>[] = [];
+      const r = getForRender.call(pipes, ro, mine);
+      for (const p of mine) {
+        inflight.add(p);
+        p.finally(() => inflight.delete(p));
+        c.list.push(p);
+        if (inflight.size >= c.limit) promises.push(p);
+      }
+      return r;
+    };
+  }
   // learn the call depth the scene pass renders at (see precompile)
   let passDepth = 1;
   {

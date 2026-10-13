@@ -12,7 +12,16 @@ const script = arg("script", "den")!;
 const headless = process.argv.includes("--headless");
 const tracePath = arg("trace");
 
-const browser = await chromium.launch({ headless, channel: "chrome", args: ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"] });
+// --channel=chromium uses Playwright's own Chromium (separate Metal shader cache: clear it to test
+// a first visit with nothing compiled, see --cold)
+const channel = arg("channel", "chrome")!;
+if (process.argv.includes("--cold")) {
+  const { execSync } = await import("node:child_process");
+  const dir = execSync("getconf DARWIN_USER_CACHE_DIR").toString().trim();
+  for (const id of ["com.google.chrome.for.testing", "com.google.chrome.for.testing.helper"]) execSync(`rm -rf "${dir}/${id}"`);
+  console.log("cleared Playwright Chromium's Metal shader cache");
+}
+const browser = await chromium.launch({ headless, channel: channel === "chromium" ? undefined : channel, args: ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"] });
 const ctx = await browser.newContext(device === "phone" ? { ...devices["iPhone 15 Pro"], deviceScaleFactor: 3 } : { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
 const errors: string[] = [];

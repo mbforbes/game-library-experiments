@@ -306,14 +306,20 @@ export class BoardPen {
     const x = this.pad + (opts.indent ?? 0);
     const maxW = this.inner - (opts.indent ?? 0);
     const words = s.split(/\s+/);
-    let line = "";
+    // measure each word once (re-measuring the growing line was the slow part)
+    const space = c.measureText(" ").width;
+    let line = "", lw = 0;
     const lines: string[] = [];
     for (const w of words) {
-      const t = line ? line + " " + w : w;
-      if (c.measureText(t).width > maxW && line) {
+      const ww = c.measureText(w).width;
+      if (line && lw + space + ww > maxW) {
         lines.push(line);
         line = w;
-      } else line = t;
+        lw = ww;
+      } else {
+        line = line ? line + " " + w : w;
+        lw = line === w ? ww : lw + space + ww;
+      }
     }
     if (line) lines.push(line);
     if (this.y + lines.length * size * 1.3 > this.H - 60) return false;

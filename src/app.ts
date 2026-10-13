@@ -30,6 +30,8 @@ interface Slot {
   pickables: { obj: THREE.Object3D; onTap: (hit: THREE.Intersection) => void }[];
   tickers: ((dt: number, t: number) => void)[];
   ready: Promise<void>;
+  /** everything (not just the opening view) compiled */
+  full: Promise<void>;
   compiled: boolean;
   /** building quietly in the background (yields generously between phases) */
   background: boolean;
@@ -65,16 +67,20 @@ export class App {
     try {
       this.hud.setProgress("Booting renderer…", 0.05);
       this.engine = await createEngine(canvas);
+      const tEngine = performance.now();
       this.art = new ArtStore(this.engine.quality.tier === "high" ? "hi" : "lo");
       this.hud.art = this.art;
       this.hud.setProgress("Reading Cooper's spreadsheet…", 0.15);
       const fontsReady = loadFonts();
       await Promise.all([this.store.load(), this.art.load(), fontsReady]);
+      const tData = performance.now();
       this.audio.prepare();
       this.hud.setProgress("Printing spines…", 0.75);
       await nextFrame();
       this.spines = new SpineAtlas(this.engine.quality.mobile, this.art);
       this.spines.build(this.store.games);
+      const tSpines = performance.now();
+      console.info(`[boot] renderer ${Math.round(tEngine - t0)}ms, data ${Math.round(tData - tEngine)}ms, spines ${Math.round(tSpines - tData)}ms`);
       this.kit = makeMediaKit(this.art, this.spines);
       this.inspector = new Inspector(this.engine.scene, this.engine.camera, this.art);
       this.input = new Input(canvas);
@@ -159,11 +165,25 @@ export class App {
       });
       this.audio.scope = "";
       slot.scene.add(Hero.warmup(this.art));
-      report(0.62, "Compiling shaders…");
       const tc = performance.now();
-      await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"));
+      if (slot.background) {
+        // prebuilding a world nobody is looking at yet: everything, one shader at a time
+        report(0.62, "Compiling shaders…");
+        await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 1 });
+        slot.full = Promise.resolve();
+      } else {
+        // On screen next: compile what the opening view shows (a first visit compiles every shader
+        // from scratch, which can take a while: show the room after at most ~6 s, anything still
+        // compiling pops in when ready), then the rest of the room in the background.
+        report(0.62, "Compiling shaders…");
+        slot.rig.update(0); // put the camera at this world's opening view
+        const first = this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 4, visibleOnly: true });
+        await Promise.race([first, wait(6000)]);
+        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 2 }));
+      }
       slot.compiled = true;
       console.info(`[level] ${id}: built ${Math.round(tc - tb)}ms, compiled ${Math.round(performance.now() - tc)}ms${slot.background ? " (background)" : ""}`);
+      slot.full.then(() => console.info(`[level] ${id}: all shaders ready at ${Math.round(performance.now() - tb)}ms`));
       report(1, "Ready");
     })();
     return slot;
@@ -172,6 +192,8 @@ export class App {
   /** After the first world is up, quietly build + compile the others so switching is instant. */
   private async prebuildOthers() {
     await idle(2500);
+    // the world on screen finishes compiling first
+    await this.active?.full;
     for (const id of Object.keys(LEVELS)) {
       if (LEVELS[id].hidden || this.slots.has(id)) continue;
       // wait for a quiet moment (no level switch in flight)
@@ -194,6 +216,7 @@ export class App {
       await tween(380, (k) => (post.crt.value = k * k));
     }
     const slot = this.ensureSlot(id);
+    if (slot.background) this.engine.boostCompile();
     slot.background = false;
     if (!slot.compiled) {
       const name = slot.entry.name;
@@ -495,6 +518,7 @@ function loadFonts() {
 }
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** Resolve when the browser is idle (or after `ms` at the latest). */
 const idle = (ms: number) =>
   new Promise<void>((r) => {
