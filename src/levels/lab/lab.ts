@@ -23,6 +23,7 @@ import { DotMatrix } from "../../world/kit/displays";
 import { GRADE_COLORS } from "../../media/spines";
 import type { Level, LevelCtx, Station } from "../types";
 import { LOOPS } from "../../audio/sfx";
+import { decorateLab } from "./decor";
 
 const W = 9, D = 7, H = 5.2; // chamber size
 const B_OFFSET = new THREE.Vector3(40, 0, 0); // chamber 02 lives far away; portals make them adjacent
@@ -150,8 +151,10 @@ export default function lab(): Level {
 
       // data boards: the forecast + subject profile + platforms (01), findings + crowd + decades (02)
       forecasts = await loadForecasts();
-      const boards = buildBoards(queue, results);
-      for (const b of boards) scene.add(b);
+      for (const make of buildBoards(queue, results)) {
+        scene.add(make());
+        await progress("Printing the reports…");
+      }
 
       // portals: blue in A (left wall) <-> orange in B (left wall)
       await progress("Calibrating portals…");
@@ -259,6 +262,9 @@ export default function lab(): Level {
         c.audio.play("boop", { at: cube.position });
         say(cubeLines[cubeIdx++ % cubeLines.length]);
       });
+
+      // lab equipment, test elements and signage in both chambers (one baked mesh per chamber)
+      await decorateLab(c, { W, D, H, origins: [new THREE.Vector3(), B_OFFSET] });
 
       // rails: a U around each chamber's back + side walls
       const mk = (o: THREE.Vector3) =>
@@ -463,8 +469,9 @@ export default function lab(): Level {
 
   /** The data boards on the front + right walls of both chambers. */
   function buildBoards(queue: Game[], results: Game[]) {
-    const out: THREE.Object3D[] = [];
-    const place = (m: THREE.Object3D, chamberB: boolean, wall: "front" | "right", along: number, y: number) => {
+    const out: (() => THREE.Object3D)[] = [];
+    const place = (make: () => THREE.Object3D, chamberB: boolean, wall: "front" | "right", along: number, y: number) => out.push(() => {
+      const m = make();
       const o = chamberB ? B_OFFSET : new THREE.Vector3();
       if (wall === "front") {
         m.position.copy(o).add(new THREE.Vector3(along, y, D / 2 - 0.035));
@@ -473,8 +480,8 @@ export default function lab(): Level {
         m.position.copy(o).add(new THREE.Vector3(W / 2 - 0.035, y, along));
         m.rotation.y = -Math.PI / 2;
       }
-      out.push(m);
-    };
+      return m;
+    });
     const titleOf = (id: string) => ctx.store.byId.get(id)?.title ?? id;
     const F = forecasts;
     const s = ctx.store.stats;
@@ -488,7 +495,7 @@ export default function lab(): Level {
         .sort((a, b) => GRADE_ORDER.indexOf(F.forecasts[a.id].grade) - GRADE_ORDER.indexOf(F.forecasts[b.id].grade) || F.forecasts[b.id].confidence - F.forecasts[a.id].confidence)
         .slice(0, 5);
       place(
-        dataBoard(2.5, 1.6, (b) => {
+        () => dataBoard(2.5, 1.6, (b) => {
           b.head("FORECAST", `Predicted results for ${fs.length} untested subjects`, `${Math.round(F.backtest.withinOne * 100)}%`);
           b.bars(counts.map((x) => ({ label: x.g, value: x.n, color: GRADE_COLORS[x.g] })), { labelW: 130, rowH: 80 });
           b.text("MOST PROMISING", { size: 56, font: "600", color: "#555", gap: 8 });
@@ -499,7 +506,7 @@ export default function lab(): Level {
       );
       // --- 01 front: SUBJECT PROFILE
       place(
-        dataBoard(2.0, 1.6, (b) => {
+        () => dataBoard(2.0, 1.6, (b) => {
           b.head("SUBJECT PROFILE", "Observed from 186 written reviews");
           b.text("RESPONDS WELL TO", { size: 62, font: "600", color: "#2a7a3a", gap: 6 });
           for (const l of F.context.likes.slice(0, 6)) b.text(l, { size: 59, indent: 62, bullet: "+", gap: 4 });
@@ -513,7 +520,7 @@ export default function lab(): Level {
     // --- 01 right: PLATFORMS (untested subjects by platform)
     const plat = s.platforms.filter((p) => p.backlog > 0).sort((a, b) => b.backlog - a.backlog).slice(0, 10);
     place(
-      dataBoard(2.3, 1.55, (b) => {
+      () => dataBoard(2.3, 1.55, (b) => {
         b.head("SUBJECT ORIGINS", "Untested subjects by platform", String(s.backlog));
         b.bars(plat.map((p) => ({ label: platformOf(p.platform).short, value: p.backlog, color: platformOf(p.platform).neon, text: `${p.backlog} · ${Math.round(p.pct * 100)}%` })), { labelW: 250, rowH: 82 });
         b.foot("bar = untested · % = share of that platform already tested");
@@ -524,7 +531,7 @@ export default function lab(): Level {
     if (F) {
       // --- 02 front: FINDINGS
       place(
-        dataBoard(2.5, 1.6, (b) => {
+        () => dataBoard(2.5, 1.6, (b) => {
           b.head("FINDINGS", `${F.backtest.n} results, compared with ${F.context.vsCommunity.n} crowd ratings`);
           for (const l of F.insights.slice(0, 9)) if (!b.text(l, { size: 64, indent: 64, bullet: "•", gap: 12 })) break;
         }),
@@ -535,7 +542,7 @@ export default function lab(): Level {
       const harsh = dis.filter((d) => GRADE_ORDER.indexOf(d.grade) >= 3).slice(0, 2);
       const kind = dis.filter((d) => GRADE_ORDER.indexOf(d.grade) <= 1).slice(0, 2);
       place(
-        dataBoard(2.0, 1.6, (b) => {
+        () => dataBoard(2.0, 1.6, (b) => {
           b.head("SUBJECT VS CROWD", `Harsher on ${F.context.vsCommunity.harsher} · kinder on ${F.context.vsCommunity.kinder}`);
           b.text("HARSHER THAN THE CROWD", { size: 56, font: "600", color: "#b2392b", gap: 6 });
           for (const d of harsh) b.text(`${titleOf(d.id)}: ${d.grade} vs ★${d.community.toFixed(1)}. ${d.note}`, { size: 50, indent: 53, bullet: "•", gap: 8 });
@@ -548,7 +555,7 @@ export default function lab(): Level {
       // --- 02 right: BY DECADE + PER YEAR
       const years = s.completionsByYear.slice(-7);
       place(
-        dataBoard(2.3, 1.55, (b) => {
+        () => dataBoard(2.3, 1.55, (b) => {
           b.head("RESULTS BY ERA", "Average grade by release decade");
           b.bars(F.context.byDecade.map((d) => ({ label: d.decade, value: d.avg, color: GRADE_COLORS[letterOf(d.avg)] ?? "#888", text: `${letterOf(d.avg)} · ${d.n}` })), { max: 5, labelW: 220, rowH: 76 });
           b.text("TESTS CONCLUDED PER YEAR", { size: 56, font: "600", color: "#555", gap: 6 });
