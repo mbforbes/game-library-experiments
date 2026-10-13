@@ -71,7 +71,10 @@ export class Hologram {
     // colour: the image itself, washed with cyan, scanlines in world y
     const scan = sin(positionWorld.y.mul(220).sub(time.mul(5))).mul(0.5).add(0.5);
     const flick = hash(floor(time.mul(20))).mul(0.15).add(0.85);
-    const col = mix(s.rgb, vec3(tint.r, tint.g, tint.b).mul(lum.add(0.2)), 0.45).mul(scan.mul(0.5).add(0.6)).mul(flick).mul(visible);
+    // a bright scan line sweeps up through the image every few seconds
+    const sweepY = fract(time.mul(0.22));
+    const sweep = smoothstep(0.05, 0.0, v.sub(sweepY).abs()).mul(1.8);
+    const col = mix(s.rgb, vec3(tint.r, tint.g, tint.b).mul(lum.add(0.2)), 0.45).mul(scan.mul(0.5).add(0.6)).add(vec3(tint.r, tint.g, tint.b).mul(sweep)).mul(flick).mul(visible);
     m.colorNode = vec3(0);
     m.emissiveNode = col.mul(1.6);
     m.opacityNode = visible.mul(0.9);

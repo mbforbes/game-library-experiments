@@ -5,6 +5,7 @@ import { platformOf, type Platform } from "../../shared/platforms";
 import type { Game } from "../../shared/types";
 import { libretro, steamCover, steamDetails, steamSearch, wikipedia, wikipediaPage, type Candidate } from "./sources";
 import { pmap, progress } from "./util";
+import { launchboxMatch, launchboxById, bestImage, LB_IMG } from "./launchbox";
 
 export interface Override {
   cover?: string | null; // explicit URL, or null to force "no art" (procedural cover)
@@ -12,7 +13,32 @@ export interface Override {
   steam?: number; // Steam app id
   libretro?: string; // exact libretro name (within the platform's systems)
   snaps?: string[];
+  /** LaunchBox DatabaseID to use, or null to ignore LaunchBox for this game */
+  lb?: number | null;
+  /** skip individual LaunchBox scans that are wrong ("front" | "back" | "spine" | "cart" | "disc" | "logo") */
+  lbSkip?: string[];
+  /** pin individual LaunchBox scans by file name, e.g. { "back": "4ed3…jpg" } */
+  lbPick?: Record<string, string>;
   note?: string;
+}
+
+/** Extra real-world scans + metadata from the LaunchBox DB */
+export interface LbInfo {
+  id: number;
+  name: string;
+  score: number;
+  esrb?: string;
+  publisher?: string;
+  developer?: string;
+  players?: number;
+  front?: string;
+  back?: string;
+  spine?: string;
+  cart?: string;
+  cartBack?: string;
+  disc?: string;
+  logo?: string;
+  marquee?: string;
 }
 
 export interface Resolved {
@@ -25,6 +51,7 @@ export interface Resolved {
   titleScreen?: string;
   year?: number;
   steam?: { appid: number; name: string; score: number };
+  lb?: LbInfo;
   flags: string[];
 }
 
@@ -107,6 +134,29 @@ async function resolveOne(g: Game, ov?: Override): Promise<Resolved> {
     }
   }
 
+  // LaunchBox: real backs, spines, cartridge photos, discs, logos, ESRB (and box fronts with
+  // proper platform branding, which matter most for modern console cases)
+  if (ov?.lb !== null) {
+    const forcedLb = typeof ov?.lb === "number" ? await launchboxById(ov.lb) : null;
+    const m = forcedLb ? { game: forcedLb, score: 1 } : await launchboxMatch(p.id, g.title, g.year);
+    if (m && m.score >= 0.9) {
+      const lg = m.game;
+      const short: Record<string, string> = { "Box - Front": "front", "Box - Back": "back", "Box - Spine": "spine", "Cart - Front": "cart", "Cart - Back": "cartBack", Disc: "disc", "Clear Logo": "logo", "Arcade - Marquee": "marquee" };
+      const img = (t: string) => {
+        const k = short[t];
+        if (ov?.lbSkip?.includes(k)) return undefined;
+        const f = ov?.lbPick?.[k] ?? bestImage(lg, t);
+        return f ? LB_IMG + f : undefined;
+      };
+      r.lb = {
+        id: lg.id, name: lg.name, score: +m.score.toFixed(3), esrb: lg.esrb, publisher: lg.publisher, developer: lg.developer, players: lg.players,
+        front: img("Box - Front"), back: img("Box - Back"), spine: img("Box - Spine"), cart: img("Cart - Front"), cartBack: img("Cart - Back"),
+        disc: img("Disc"), logo: img("Clear Logo"), marquee: img("Arcade - Marquee"),
+      };
+      if (r.lb.front) cands.push({ source: "launchbox", url: r.lb.front, label: `LaunchBox ${lg.id} — ${lg.name} (${lg.platform})`, score: Math.min(1, m.score), ref: String(lg.id) });
+    }
+  }
+
   // Retro gameplay: real screenshots + title screens
   if (systems.length) {
     const snap = await libretro(systems, ov?.libretro ?? g.title, "Named_Snaps");
@@ -119,9 +169,11 @@ async function resolveOne(g: Game, ov?: Override): Promise<Resolved> {
   // --- pick the cover ----------------------------------------------------------------
   const pref = (c: Candidate): number => {
     // Source preference per platform, as a small bonus on top of match confidence
-    if (c.source === "libretro") return modern ? 0.0 : 0.08;
+    if (c.source === "libretro") return modern ? 0.0 : /\bUSA\b/.test(c.label) ? 0.08 : 0.03;
     if (c.source === "steam") return p.id === "Windows" && modern ? 0.1 : -0.06;
     if (c.source === "wikipedia") return modern ? 0.05 : 0.02;
+    // real retail box scans with full platform branding: best for console cases
+    if (c.source === "launchbox") return isPC ? (modern ? -0.04 : 0.05) : modern ? 0.12 : 0.06;
     return 0;
   };
   cands.sort((a, b) => b.score + pref(b) - (a.score + pref(a)));

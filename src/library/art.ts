@@ -5,9 +5,10 @@ import * as THREE from "three/webgpu";
 import type { Game } from "../../shared/types";
 import { platformOf } from "../../shared/platforms";
 
+type Rect5 = [number, number, number, number, number];
 export interface ArtEntry {
-  a?: [number, number, number, number, number];
-  c?: string;
+  a?: Rect5; // box front in the cover atlas
+  c?: string; // hi-res box front
   w?: number;
   h?: number;
   col?: string;
@@ -16,10 +17,22 @@ export interface ArtEntry {
   px?: 1;
   y?: number;
   src?: string;
+  ka?: Rect5; // cartridge photo in the cover atlas
+  k?: string; // hi-res cartridge photo
+  kb?: string; // cartridge back
+  sp?: Rect5; // real spine in the spine atlas
+  spc?: string; // hi-res spine
+  b?: string; // back cover
+  l?: string; // clear logo
+  d?: string; // disc
+  r?: string; // ESRB short code
+  pub?: string;
+  pl?: number;
 }
 interface Manifest {
   version: string;
   atlas: { hi: string[]; lo: string[]; size: number };
+  spines?: { hi: string[]; lo: string[]; size: number };
   games: Record<string, ArtEntry>;
 }
 
@@ -35,6 +48,9 @@ const FB_SIZE = 2048, FB_W = 128, FB_H = 176;
 export class ArtStore {
   manifest: Manifest = { version: "none", atlas: { hi: [], lo: [], size: 4096 }, games: {} };
   pages: THREE.Texture[] = [];
+  /** real spine scans (build-time atlas); shader page index = i + 1 (0 = runtime spine canvas) */
+  spinePages: THREE.Texture[] = [];
+  private texCache = new Map<string, Promise<THREE.Texture | null>>();
   private fallbackCanvas = document.createElement("canvas");
   private fallbackTex!: THREE.CanvasTexture;
   private fallbackSlots = new Map<string, CoverRef>();
@@ -56,19 +72,23 @@ export class ArtStore {
     // so shelves look complete); the light atlases stream in and swap into place. Desktop later
     // upgrades to the sharp atlases the same way.
     const files = this.manifest.atlas.lo;
-    this.pages = files.map(() => {
+    const spineFiles = this.manifest.spines?.lo ?? [];
+    const mk = () => {
       const t = new THREE.Texture(placeholder());
       this.prep(t);
       return t;
-    });
+    };
+    this.pages = files.map(mk);
+    this.spinePages = spineFiles.map(mk);
     let done = 0;
+    const all = [...files.map((f, i) => [f, this.pages[i]] as const), ...spineFiles.map((f, i) => [f, this.spinePages[i]] as const)];
     this.ready = Promise.all(
-      files.map(async (f, i) => {
+      all.map(async ([f, tex]) => {
         try {
           const img = await new THREE.ImageLoader().loadAsync(ART + f);
-          swapImage(this.pages[i], img);
+          swapImage(tex, img);
         } catch {}
-        onProgress?.(++done / files.length);
+        onProgress?.(++done / all.length);
       }),
     ).then(() => {});
     this.fallbackCanvas.width = this.fallbackCanvas.height = FB_SIZE;
@@ -83,11 +103,11 @@ export class ArtStore {
   /** Desktop: replace the lo atlases with hi-res ones once the scene is up. */
   async upgrade() {
     if (this.tier !== "hi") return;
-    const hi = this.manifest.atlas.hi;
-    for (let i = 0; i < hi.length; i++) {
+    const jobs = [...this.manifest.atlas.hi.map((f, i) => [f, this.pages[i]] as const), ...(this.manifest.spines?.hi ?? []).map((f, i) => [f, this.spinePages[i]] as const)];
+    for (const [f, tex] of jobs) {
       try {
-        const img = await new THREE.ImageLoader().loadAsync(ART + hi[i]);
-        swapImage(this.pages[i], img);
+        const img = await new THREE.ImageLoader().loadAsync(ART + f);
+        swapImage(tex, img);
       } catch {}
     }
   }
@@ -144,16 +164,117 @@ export class ArtStore {
     this.fallbackTex.needsUpdate = true;
     const ref: CoverRef = { page: this.fallbackPage, rect: [x / FB_SIZE, y / FB_SIZE, FB_W / FB_SIZE, FB_H / FB_SIZE], aspect: FB_W / FB_H };
     this.fallbackSlots.set(g.artKey, ref);
+    // a game the art build hasn't seen yet (new sheet row): ask the Worker for real art
+    if (!this.entry(g)) this.queueRuntime(g, x, y);
     return ref;
+  }
+
+  // ---- runtime art for new sheet rows ------------------------------------------------------
+  private runtime = new Map<string, string>(); // artKey -> proxied cover URL
+  private queue: (() => Promise<void>)[] = [];
+  private active = 0;
+  private queueRuntime(g: Game, x: number, y: number) {
+    this.queue.push(async () => {
+      const LS = "coopers-library-runtime-art";
+      let known: Record<string, string | null> = {};
+      try {
+        known = JSON.parse(localStorage.getItem(LS) ?? "{}");
+      } catch {}
+      let cover = known[g.artKey];
+      if (cover === undefined) {
+        try {
+          const q = new URLSearchParams({ platform: g.platform, title: g.title, ...(g.year ? { year: String(g.year) } : {}) });
+          const r = await fetch(`/api/art?${q}`);
+          cover = r.ok ? ((await r.json()).cover ?? null) : null;
+          known[g.artKey] = cover ?? null;
+          localStorage.setItem(LS, JSON.stringify(known));
+        } catch {
+          return;
+        }
+      }
+      if (!cover) return;
+      const proxied = `/api/img?u=${encodeURIComponent(cover)}`;
+      const img = await new Promise<HTMLImageElement | null>((res) => {
+        const i = new Image();
+        i.crossOrigin = "anonymous";
+        i.onload = () => res(i);
+        i.onerror = () => res(null);
+        i.src = proxied;
+      });
+      if (!img) return;
+      this.runtime.set(g.artKey, proxied);
+      const ctx = this.fallbackCanvas.getContext("2d")!;
+      const s = Math.max(FB_W / img.width, FB_H / img.height);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, FB_W, FB_H);
+      ctx.clip();
+      ctx.drawImage(img, x + (FB_W - img.width * s) / 2, y + (FB_H - img.height * s) / 2, img.width * s, img.height * s);
+      ctx.restore();
+      this.fallbackTex.needsUpdate = true;
+    });
+    this.pump();
+  }
+  private pump() {
+    while (this.active < 3 && this.queue.length) {
+      const job = this.queue.shift()!;
+      this.active++;
+      job().finally(() => {
+        this.active--;
+        this.pump();
+      });
+    }
+  }
+
+  /** Cartridge photo (alpha cut-out) in the cover atlas, if we have one. */
+  cartPhoto(g: Game): CoverRef | null {
+    const e = this.entry(g);
+    if (!e?.ka || e.ka[0] >= this.pages.length - 1) return null;
+    const [page, u, v, w, h] = e.ka;
+    return { page, rect: [u, v, w, h], aspect: w / h };
+  }
+
+  /** Real spine scan in the spine atlas: shader page index (1-based) + rect. */
+  realSpine(g: Game): { page: number; rect: [number, number, number, number] } | null {
+    const e = this.entry(g);
+    if (!e?.sp || e.sp[0] >= this.spinePages.length) return null;
+    const [page, u, v, w, h] = e.sp;
+    return { page: page + 1, rect: [u, v, w, h] };
+  }
+
+  esrb(g: Game) {
+    return this.entry(g)?.r;
+  }
+  publisher(g: Game) {
+    return this.entry(g)?.pub;
+  }
+
+  /** Any processed image under /art (backs, spines, carts, logos, discs), cached. */
+  tex(path: string | undefined): Promise<THREE.Texture | null> {
+    if (!path) return Promise.resolve(null);
+    let p = this.texCache.get(path);
+    if (!p) {
+      p = this.loader.loadAsync(ART + path).then(
+        (t) => {
+          this.prep(t);
+          return t;
+        },
+        () => null,
+      );
+      this.texCache.set(path, p);
+      this.trim(this.texCache, 50);
+    }
+    return p;
   }
 
   /** Hi-res cover texture for close-ups (null if the game has no art). */
   hiRes(g: Game): Promise<THREE.Texture | null> {
     const e = this.entry(g);
-    if (!e?.c) return Promise.resolve(null);
+    const src = e?.c ? ART + e.c : this.runtime.get(g.artKey);
+    if (!src) return Promise.resolve(null);
     let p = this.hiCache.get(g.artKey);
     if (!p) {
-      p = this.loader.loadAsync(ART + e.c).then(
+      p = this.loader.loadAsync(src).then(
         (t) => {
           this.prep(t);
           return t;

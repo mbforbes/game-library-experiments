@@ -33,14 +33,14 @@ export class GeoBuilder {
     }
   }
 
-  tri(a: V3, b: V3, c: V3, part: number) {
+  tri(a: V3, b: V3, c: V3, part: number, uvs?: [number, number, number, number, number, number]) {
     const n = new THREE.Vector3(b[0] - a[0], b[1] - a[1], b[2] - a[2]).cross(new THREE.Vector3(c[0] - a[0], c[1] - a[1], c[2] - a[2])).normalize();
-    for (const p of [a, b, c]) {
+    [a, b, c].forEach((p, k) => {
       this.pos.push(...p);
       this.nrm.push(n.x, n.y, n.z);
-      this.uv.push(0, 0);
+      this.uv.push(uvs ? uvs[k * 2] : 0, uvs ? uvs[k * 2 + 1] : 0);
       this.part.push(part);
-    }
+    });
   }
 
   /**
@@ -95,10 +95,14 @@ export class GeoBuilder {
     const shape = new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x, y)));
     const tris = THREE.ShapeUtils.triangulateShape(shape.getPoints(), []);
     const pts = shape.getPoints();
+    // cap UVs span the outline's bounding box (back cap mirrored so it reads correctly from behind)
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const bx0 = Math.min(...xs), bx1 = Math.max(...xs), by0 = Math.min(...ys), by1 = Math.max(...ys);
+    const fu = (x: number) => (x - bx0) / (bx1 - bx0 || 1), fv = (y: number) => (y - by0) / (by1 - by0 || 1);
     for (const [a, b, c] of tris) {
       const A = pts[a], B = pts[b], C = pts[c];
-      this.tri([A.x, A.y, z1], [B.x, B.y, z1], [C.x, C.y, z1], front);
-      this.tri([A.x, A.y, z0], [C.x, C.y, z0], [B.x, B.y, z0], back);
+      this.tri([A.x, A.y, z1], [B.x, B.y, z1], [C.x, C.y, z1], front, [fu(A.x), fv(A.y), fu(B.x), fv(B.y), fu(C.x), fv(C.y)]);
+      this.tri([A.x, A.y, z0], [C.x, C.y, z0], [B.x, B.y, z0], back, [1 - fu(A.x), fv(A.y), 1 - fu(C.x), fv(C.y), 1 - fu(B.x), fv(B.y)]);
     }
     for (let i = 0; i < outline.length; i++) {
       const [ax, ay] = outline[i], [bx, by] = outline[(i + 1) % outline.length];

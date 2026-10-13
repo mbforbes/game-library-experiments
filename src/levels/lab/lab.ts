@@ -15,12 +15,13 @@ import { platformOf } from "../../../shared/platforms";
 import { wallRail, type Rail } from "../../engine/rail";
 import { MediaField, templateOf, type Placement } from "../../media/field";
 import { faceOut } from "../../world/shelving";
-import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames } from "../../world/kit/lab";
+import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx } from "../../world/kit/lab";
 import { boxes, neonMaterial, neonSign } from "../../world/kit/common";
 import { neonEnvironment } from "../../world/kit/env";
 import { DotMatrix } from "../../world/kit/displays";
 import { GRADE_COLORS } from "../../media/spines";
 import type { Level, LevelCtx, Station } from "../types";
+import { LOOPS } from "../../audio/sfx";
 
 const W = 9, D = 7, H = 5.2; // chamber size
 const B_OFFSET = new THREE.Vector3(40, 0, 0); // chamber 02 lives far away; portals make them adjacent
@@ -69,8 +70,12 @@ export default function lab(): Level {
         0x8a9098,
       );
       scene.environmentIntensity = 0.8;
+      // tiled rooms: bright medium reverb, fluorescent hum everywhere
+      c.audio.setRoom({ seconds: 1.8, decay: 2.6, wet: 0.3 });
+      c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.55, build: LOOPS.fluorescent });
 
       progress("Pressurizing test chambers…");
+      labFx.since.value = 0;
       const owned = store.games.filter((g) => g.status !== "wishlist");
       const queue = owned
         .filter((g) => g.status !== "completed")
@@ -143,6 +148,7 @@ export default function lab(): Level {
       portalB.group.rotation.y = Math.PI / 2;
       portalA.link(portalB);
       scene.add(portalA.group, portalB.group);
+      for (const pt of [portalA, portalB]) c.audio.addEmitter({ position: pt.group.position.clone(), radius: 3.4, volume: 0.8, build: LOOPS.portalHum });
       c.pickable(portalA.surface, () => stepThrough(true));
       c.pickable(portalB.surface, () => stepThrough(false));
       let portalOpen = 0;
@@ -213,6 +219,7 @@ export default function lab(): Level {
         tb.position.set(x, 0, D / 2 - 0.5);
         scene.add(tb);
       }
+      c.audio.addEmitter({ position: new THREE.Vector3(tubeX[1], 1.6, D / 2 - 0.5), radius: 3.6, volume: 0.8, build: LOOPS.tubes });
       const perTube = 9;
       const items = wish.slice(0, perTube * tubeX.length).map((g, i) => ({ game: g, tube: i % tubeX.length, phase: Math.floor(i / tubeX.length) / perTube }));
       // solid specimens (additive holograms vanish against white walls)
@@ -238,7 +245,10 @@ export default function lab(): Level {
       scene.add(ped, cube);
       const cubeLines = ["The cube does not want to be in your backlog either.", "It has been with you through every test. It will not be playing any of them.", "Please do not attempt to transfer your feelings to the backlog."];
       let cubeIdx = 0;
-      c.pickable(cube, () => say(cubeLines[cubeIdx++ % cubeLines.length]));
+      c.pickable(cube, () => {
+        c.audio.play("boop", { at: cube.position });
+        say(cubeLines[cubeIdx++ % cubeLines.length]);
+      });
 
       // rails: a U around each chamber's back + side walls
       const mk = (o: THREE.Vector3) =>
@@ -278,6 +288,7 @@ export default function lab(): Level {
     },
 
     update(dt, t) {
+      labFx.since.value += dt;
       for (const fn of tickers) fn(dt, t);
       if (tubeField) {
         const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3();
@@ -332,6 +343,7 @@ export default function lab(): Level {
   }
 
   function stepThrough(fromA: boolean) {
+    ctx.audio.play("portal");
     switchTo(fromA);
     const r = fromA ? railB : railA;
     const p = (fromA ? portalB : portalA).group.position;
@@ -344,6 +356,7 @@ export default function lab(): Level {
     (level as any)._sayTo?.(text.toUpperCase());
     if (talk) {
       archivist.mood.value = 1;
+      ctx.audio.play("chatter", { at: archivist.group.position, pitch: 0.9 + Math.random() * 0.2 });
       ctx.toast(`🤖 ${text}`, 4200);
     }
   }

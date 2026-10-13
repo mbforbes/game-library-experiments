@@ -21,6 +21,7 @@ import { GRADE_COLORS } from "../../media/spines";
 import { boxes } from "../../world/kit/common";
 import type { Level, LevelCtx, Station } from "../types";
 import { texture, vec3 } from "three/tsl";
+import { LOOPS } from "../../audio/sfx";
 
 const R = 2.1; // radius of the shelf fronts
 const DEPTH = 0.32;
@@ -65,6 +66,10 @@ export default function stacks(): Level {
       scene.background = new THREE.Color(0x07080d);
       scene.fog = new THREE.FogExp2(0x0a0705, 0.07);
       scene.environment = null;
+      // a tall stone tower: long, dark reverb; wind and candle crackle everywhere
+      c.audio.setRoom({ seconds: 4.5, decay: 2.2, wet: 0.42 });
+      c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.6, build: LOOPS.wind });
+      c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.45, build: LOOPS.candles });
 
       progress("Ordering the ages…");
       const owned = store.games.filter((g) => g.status !== "wishlist");
@@ -171,10 +176,12 @@ export default function stacks(): Level {
       progress("Opening the Codex…");
       codex = new Codex(1.5);
       scene.add(codex.group);
+      const drone = c.audio.addEmitter({ position: new THREE.Vector3(), radius: 3.2, volume: 0.8, ref: 1.2, build: LOOPS.drone });
+      tickers.push(() => drone.move(codex.group.position));
       showChronicle();
       const codexTarget = new THREE.Vector3();
       tickers.push((dt, t) => {
-        codex.update(t);
+        codex.update(t, dt);
         // floats at the axis, at the viewer's height, turning to face them
         const cam = c.camera.position;
         // hovers at the axis at the viewer's height, but never closer than ~1.2 m to them
@@ -204,6 +211,7 @@ export default function stacks(): Level {
       scene.add(wf.group);
       fields.push(wf);
       flock = { field: wf, orbits };
+      c.audio.addEmitter({ position: new THREE.Vector3(0, yWish + 1.5, 0), radius: 5, volume: 0.7, build: LOOPS.flutter });
 
       // ---- rail: a helix hugging the shelf fronts ----
       const pts: THREE.Vector3[] = [], nrm: THREE.Vector3[] = [];
@@ -278,6 +286,7 @@ export default function stacks(): Level {
     },
 
     onSelect(g) {
+      ctx.audio.play("page", { at: codex.group.position, delay: 0.2 });
       if (!g) {
         showChronicle();
         return;

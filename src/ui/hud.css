@@ -166,3 +166,14 @@ dd { margin: 0; }
   .panel h2 { font-size: 22px; }
   .logo { font-size: 9px; }
 }
+
+/* ---------- hover tooltip (desktop) ---------- */
+.tip {
+  position: fixed; left: 0; top: 0; pointer-events: none; opacity: 0; transition: opacity 0.12s;
+  padding: 7px 10px; border-radius: 8px; background: #0b0c12e6; border: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 2px; max-width: 250px;
+}
+.tip.show { opacity: 1; }
+.tip b { font: 500 13px Inter, sans-serif; color: #fff; }
+.tip span { font: 11px "Silkscreen", monospace; color: var(--c); }
+@media (pointer: coarse) { .tip { display: none; } }

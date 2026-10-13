@@ -12,6 +12,14 @@ Three worlds so far (switch from the title button, or `?level=`):
 | `stacks` | **The Infinite Stacks**: a stone tower where the library spirals upward through time (1971 at the bottom, today at the top). Endless tomes above and below, the wishlist circling overhead as flying books, the Codex showing reviews in calligraphy. |
 | `lab` | **Backlog Science**: clinical test chambers. The queue wall (by priority), the results wall (sorted by grade, so the lights form a bar chart), live portals between chambers, and a deadpan AI with opinions. |
 
+Everywhere: every game is its real-world object with full retail branding: real box fronts,
+real spine scans, real back covers (flip a game over), real cartridge photos (gold Zelda carts
+included), Cooper's grade stickers on every spine, and generated platform-style spines/backs where
+no scan exists. Synthesized sound throughout (interaction SFX + positional ambience: arcade
+chiptunes, rain, neon hum, candles, portal drones…; mute button top-right). Effects: neon
+power-on, CRT transitions between worlds, glossy reflections, pull-off-the-shelf animation,
+hover lift + titles (desktop), particles, page turns.
+
 Debug helpers: `?debug` (FPS / draw calls / pixel ratio), `?webgl` (force the WebGL2 backend),
 `?quality=low|mid|high`, `?dpr=1.5`, `?level=showroom` (every form factor side by side).
 
@@ -38,24 +46,37 @@ bun run deploy        # vite build + wrangler deploy
   the edge for 5 minutes, then serves stale while refreshing in the background, so the site follows
   the sheet without hammering Google. `?fresh` bypasses the cache. If the API is unreachable the
   client fetches the sheet directly, and failing that uses its last copy.
-- New games added to the sheet appear immediately (with a procedural cover); run `bun run art`
-  and redeploy to give them real art.
+- **New games added to the sheet:** the library data is fetched live (≤5 min old), so new rows
+  appear on the next visit. Covers for games the art build hasn't seen are resolved at runtime:
+  the Worker's `GET /api/art` finds Wikipedia/Steam art (cached at the edge for 30 days) and the
+  client paints it over the placeholder title card, all automatically. Re-run `bun run art` +
+  `bun run deploy` now and then to bake new games into the atlases with full scans (spines,
+  backs, cart photos) and the faster first load.
+- **Editions:** add an optional `Edition` column to the Backlog/Completed tabs (e.g. "Greatest
+  Hits", "Player's Choice", "Platinum Hits", "Nintendo Selects", "Collector's") and those games
+  get the matching banner on their spine/back. Iconic special cartridges (gold Zelda carts,
+  coloured Pokémon carts, the banana-yellow DK64) are built in.
 
 ## Cover art pipeline (`scripts/art`)
 
 1. **Resolve**: each (platform, title) is matched against libretro-thumbnails (retro box scans +
-   real gameplay screenshots + title screens), Wikipedia (infobox covers) and Steam (portrait
-   library art + screenshots). Fuzzy title matching is number-aware (sequels don't match),
+   real gameplay screenshots + title screens), Wikipedia (infobox covers), Steam (portrait
+   library art + screenshots) and the LaunchBox Games DB (real NA retail scans: box fronts,
+   spines, backs, cartridge photos, discs, clear logos, plus ESRB ratings and publishers; the
+   ~110 MB metadata dump is downloaded once into `.cache/`). Fuzzy title matching is number-aware (sequels don't match),
    region-aware (USA boxes preferred) and rejects banners, logos and placeholder art. Results go
    to `art/resolved.json` (committed: the record of which image belongs to which game).
-2. **Overrides**: `art/overrides.json` pins a specific `cover` URL, Wikipedia page, Steam app or
-   libretro name for anything the matcher gets wrong. Every one of the 1,304 covers was reviewed
+2. **Overrides**: `art/overrides.json` pins a specific `cover` URL, Wikipedia page, Steam app,
+   libretro name or LaunchBox entry (`lb: <id>`, or `lb: null` to skip LaunchBox) for anything
+   the matcher gets wrong. Every one of the 1,304 covers was reviewed
    by eye from contact sheets; 107 are pinned here.
-3. **Process**: downloads (cached in `.cache/`), then writes web-ready `covers/*.webp` (640px),
-   `snaps/*.webp`, and packs every cover into atlases at two tiers (2048² for phones / first paint,
-   4096² for desktop). Writes `public/art/manifest.json`.
+3. **Process**: downloads (cached in `.cache/`), then writes web-ready covers, backs, spines,
+   cartridge photos, logos, discs and snaps (webp), and packs every cover + cart photo into
+   atlases and every real spine into a spine atlas, each at two tiers (2048² for phones / first
+   paint, 4096² for desktop). Writes `public/art/manifest.json`.
 4. **Review**: `bun run art:review` renders `art/review/sheet-NN.jpg` contact sheets (title,
-   platform, source, confidence; red frame = flagged). `--flagged` or `--keys=file` narrows it.
+   platform, source, confidence; red frame = flagged). `--flagged` or `--keys=file` narrows it;
+   `--lb` shows front | spine | back | cart side by side to check LaunchBox matches.
 
 ## Code map
 
@@ -67,14 +88,17 @@ src/
   app.ts            wires everything: data, art, renderer, rig, input, HUD, inspect, levels
   engine/           WebGPU renderer + bloom/post + adaptive resolution, Rail + CameraRig, input, inspect mode
   library/          client data store (filters, search, selection), art store (atlases, hi-res LRU)
+  audio/            Web Audio engine (positional emitters, room reverb) + synthesized SFX/loops
   media/            ★ the reusable core: game → 3D object
     templates.ts      real-world form factors (NES/SNES/N64/GB/GBA/GG/MSX carts, HuCards, Genesis
                       clamshells, CD jewel cases, DVD/Blu-ray/Switch/DS cases, PC big boxes, digital
                       slabs, mini arcade cabinets)
     field.ts          MediaField: any set of placed games, ~1 draw call per form factor, per-game
                       cover crop / spine / glow / highlight / dim, fast picking, hi-res overlays up close
-    spines.ts         runtime-printed spines (platform band, title, grade sticker / now-playing marker)
-    hero.ts           the inspected game: hi-res cover + generated back cover with Cooper's review
+    spines.ts         spines: real scans, or printed in each platform's retail style
+    branding.ts       platform wordmarks, ESRB boxes, edition banners, special cartridge shells
+    stickers.ts       Cooper's grade / now-playing stickers (decals on spines and cart corners)
+    hero.ts           the inspected game: real front/spine/back scans (or branded generated ones)
   world/            reusable world-building: shelf packing, furniture, neon, displays (dot-matrix,
                     split-flap, LED panels), CRT screens, hologram, vending machine, medieval + lab kits
   levels/           one folder per world; each implements the Level interface (levels/types.ts)

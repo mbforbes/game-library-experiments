@@ -31,6 +31,7 @@ if (!args.has("--process-only")) {
   console.log(`resolved ${vals.length}: covers by source`, bySrc, `| no-cover ${count("no-cover")} | low-confidence ${count("low-confidence")} | with snaps ${vals.filter((r) => r.snaps.length).length}`);
 }
 if (!args.has("--resolve-only")) {
-  const m = await processAll(resolved);
+  const owned = new Set(lib.games.filter((g) => g.status !== "wishlist").map((g) => g.artKey));
+  const m = await processAll(resolved, owned);
   console.log(`manifest ${m.version}: ${Object.keys(m.games).length} games, ${m.atlas.hi.length} atlas pages`);
 }

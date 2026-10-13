@@ -141,7 +141,7 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
     const h = bl.header;
     const title = col(h, "Title"), consoleC = col(h, "Console"), genre = col(h, "Genre"), dev = col(h, "Developer"),
       rel = col(h, "Release Date"), hrs = col(h, "Avg Completion Time", "Avg Completion"), pri = col(h, "Priority"),
-      inProg = col(h, "In Progress"), done = col(h, "Completed");
+      inProg = col(h, "In Progress"), done = col(h, "Completed"), edition = col(h, "Edition");
     bl.body.forEach((r, row) => {
       const t = title(r);
       if (!t) return;
@@ -149,7 +149,7 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
       const status: Status = yes(done(r)) ? "completed" : yes(inProg(r)) ? "playing" : "backlog";
       add({
         title: t, platform: consoleC(r), genre: genre(r), developer: dev(r), released, year: released ? +released.slice(0, 4) : undefined,
-        status, row, priority: num(pri(r)), hours: num(hrs(r)),
+        status, row, priority: num(pri(r)), hours: num(hrs(r)), edition: edition(r) || undefined,
       });
     });
   }
@@ -165,7 +165,7 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
     const h = cp.header;
     const title = col(h, "Title"), consoleC = col(h, "Console"), genre = col(h, "Genre"), dev = col(h, "Developer"),
       rel = col(h, "Release Date"), doneOn = col(h, "Date of Completion"), gr = col(h, "Grade"),
-      phys = col(h, "Own Physical Copy"), val = col(h, "Value"), notes = col(h, "Notes");
+      phys = col(h, "Own Physical Copy"), val = col(h, "Value"), notes = col(h, "Notes"), edition = col(h, "Edition");
     cp.body.forEach((r, row) => {
       const t = title(r);
       if (!t) return;
@@ -173,7 +173,7 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
       add({
         title: t, platform: consoleC(r), genre: genre(r), developer: dev(r), released, year: released ? +released.slice(0, 4) : undefined,
         status: "completed", row, completedOn: parseDate(doneOn(r)), grade: grade(gr(r)), ownPhysical: yes(phys(r)),
-        value: num(val(r)), review: notes(r) || undefined,
+        value: num(val(r)), review: notes(r) || undefined, edition: edition(r) || undefined,
       });
     });
   }

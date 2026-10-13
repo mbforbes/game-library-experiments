@@ -150,6 +150,8 @@ export class Codex {
   private ctx: CanvasRenderingContext2D;
   private tex: THREE.CanvasTexture;
   private glow = uniform(0.12);
+  private leaf: THREE.Mesh;
+  private turnT = -1;
 
   constructor(width = 1.4) {
     [this.c, this.ctx] = canvas(2048, 1400);
@@ -179,6 +181,25 @@ export class Codex {
     const cover = new THREE.Mesh(new THREE.BoxGeometry(width * 1.06, h * 1.05, 0.03), new THREE.MeshStandardNodeMaterial({ color: 0x3a1410, roughness: 0.6 }));
     cover.position.z = -0.06;
     this.group.add(cover);
+    // a loose leaf that turns over whenever the book shows something new
+    const [lc, lctx] = canvas(256, 350);
+    lctx.fillStyle = "#e8d9b4";
+    lctx.fillRect(0, 0, 256, 350);
+    lctx.fillStyle = "rgba(60,40,20,0.25)";
+    for (let y = 40; y < 320; y += 14) lctx.fillRect(24, y, 160 + Math.random() * 50, 3);
+    const leafGeo = new THREE.PlaneGeometry(width / 2, h, 16, 1);
+    const lp = leafGeo.getAttribute("position");
+    for (let k = 0; k < lp.count; k++) {
+      const x = lp.getX(k) + width / 4; // hinge at x = 0
+      lp.setX(k, x);
+      lp.setZ(k, Math.sin((x / (width / 2)) * Math.PI) * 0.04 + 0.01);
+    }
+    leafGeo.computeVertexNormals();
+    const leafMat = new THREE.MeshStandardNodeMaterial({ roughness: 0.85, side: THREE.DoubleSide });
+    leafMat.colorNode = texture(canvasTexture(lc)).rgb;
+    this.leaf = new THREE.Mesh(leafGeo, leafMat);
+    this.leaf.visible = false;
+    this.group.add(this.leaf);
     this.drawStats(["The Chronicle"], []);
   }
 
@@ -217,6 +238,7 @@ export class Codex {
 
   /** Left page: a heading + lines; right page: paragraphs of body text. */
   draw(opts: { title: string; subtitle?: string; facts?: string[]; body: string; badge?: { text: string; color: string } }) {
+    this.turnT = 0;
     const ctx = this.ctx;
     this.page(0);
     this.page(1);
@@ -286,8 +308,17 @@ export class Codex {
     this.draw({ title: title.join(" "), body: lines.join("  "), facts: [] });
   }
 
-  update(t: number) {
+  update(t: number, dt = 1 / 60) {
     this.glow.value = 0.12 + Math.sin(t * 1.3) * 0.02;
+    if (this.turnT >= 0) {
+      this.turnT += dt / 0.7;
+      const k = Math.min(1, this.turnT);
+      const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      this.leaf.visible = k < 1;
+      this.leaf.rotation.y = -Math.PI * e;
+      this.leaf.position.z = Math.sin(e * Math.PI) * 0.05;
+      if (k >= 1) this.turnT = -1;
+    }
   }
 }
 

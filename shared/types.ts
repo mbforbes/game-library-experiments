@@ -18,6 +18,8 @@ export interface Game {
   status: Status;
   /** Row position in its source tab (0 = top). Backlog/Completed put newest entries at the top. */
   row: number;
+  /** Optional "Edition" column (Greatest Hits, Player's Choice, Collector's...) */
+  edition?: string;
 
   // Backlog
   priority?: number; // 1 = highest, 5 = lowest

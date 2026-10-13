@@ -193,10 +193,12 @@ export class CameraRig {
     this.pos.copy(railPos).lerp(this.free.pos, ease);
     this.target.copy(railTarget).lerp(this.free.target, ease);
 
-    // parallax look offsets
+    // parallax look offsets + a slow, barely-there breathing sway
     const lk = 1 - Math.exp(-dt * 4);
-    this.look.yaw += (this.look.yawGoal - this.look.yaw) * lk;
-    this.look.pitch += (this.look.pitchGoal - this.look.pitch) * lk;
+    const now = performance.now() / 1000;
+    const sway = this.dragging || this.flight ? 0 : 1;
+    this.look.yaw += (this.look.yawGoal + Math.sin(now * 0.37) * 0.0045 * sway - this.look.yaw) * lk;
+    this.look.pitch += (this.look.pitchGoal + Math.sin(now * 0.29 + 1.3) * 0.003 * sway - this.look.pitch) * lk;
     const fwd = tmpV.copy(this.target).sub(this.pos);
     const dist = fwd.length();
     fwd.normalize();

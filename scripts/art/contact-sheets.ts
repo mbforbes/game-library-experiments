@@ -12,7 +12,8 @@ import { ensureDir, ROOT } from "./util";
 const args = process.argv.slice(2);
 const onlyFlagged = args.includes("--flagged");
 const plat = args.find((a) => a.startsWith("--platform="))?.split("=")[1];
-const COLS = 8, ROWS = 5, TW = 170, TH = 200, CAP = 64, PAD = 8;
+const lbMode = args.includes("--lb");
+const COLS = lbMode ? 4 : 8, ROWS = lbMode ? 4 : 5, TW = lbMode ? 420 : 170, TH = 200, CAP = 64, PAD = 8;
 
 const resolved: Record<string, Resolved> = await Bun.file(join(ROOT, "art/resolved.json")).json();
 const manifest: Manifest = await Bun.file(join(ROOT, "public/art/manifest.json")).json();
@@ -40,13 +41,25 @@ for (let s = 0; s * per < items.length; s++) {
     const x = PAD + (i % COLS) * (TW + PAD), y = PAD + Math.floor(i / COLS) * (TH + CAP + PAD);
     const e = manifest.games[r.key];
     const flagged = r.flags.length > 0 || !e?.c;
-    if (e?.c) {
+    if (lbMode) {
+      // front | spine | back | cart, side by side
+      const files = [e?.c, (e as any)?.spc, (e as any)?.b, (e as any)?.k];
+      const widths = [120, 30, 150, 110];
+      let ox = x;
+      for (const [j, f] of files.entries()) {
+        if (f) {
+          const img = await sharp(join(ROOT, "public/art", f)).resize(widths[j], TH, { fit: "contain", background: "#222" }).flatten({ background: "#335" }).toBuffer();
+          comps.push({ input: img, left: ox, top: y });
+        }
+        ox += widths[j] + 3;
+      }
+    } else if (e?.c) {
       const img = await sharp(join(ROOT, "public/art", e.c)).resize(TW, TH, { fit: "contain", background: "#222" }).toBuffer();
       comps.push({ input: img, left: x, top: y });
     }
     const n = s * per + i;
     const title = r.title.length > 26 ? [r.title.slice(0, 26), r.title.slice(26, 52)] : [r.title, ""];
-    const src = r.cover ? `${r.cover.source} ${r.cover.score.toFixed(2)}` : "NO COVER";
+    const src = (r.cover ? `${r.cover.source} ${r.cover.score.toFixed(2)}` : "NO COVER") + (lbMode && r.lb ? `  LB:${r.lb.name.slice(0, 34)} ${r.lb.score}` : "");
     const svg = `<svg width="${TW}" height="${TH + CAP}" xmlns="http://www.w3.org/2000/svg">
       ${flagged ? `<rect x="1" y="1" width="${TW - 2}" height="${TH - 2}" fill="none" stroke="#ff2040" stroke-width="4"/>` : ""}
       <rect x="0" y="0" width="34" height="16" fill="#000" opacity="0.8"/><text x="3" y="12" font-family="Helvetica" font-size="11" fill="#ff0">${n}</text>

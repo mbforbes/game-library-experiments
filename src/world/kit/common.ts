@@ -7,7 +7,15 @@ import { uniform, vec3, float, sin, time, positionWorld, mix, hash, floor, textu
 export const neonFx = {
   rainbow: uniform(0), // 0..1 blend to hue-cycling
   boost: uniform(1), // global neon brightness
+  since: uniform(99), // seconds since the level appeared (drives the power-on sequence)
 };
+
+/** Neon tubes don't just appear: each one stutters on after its own delay. */
+function powerOn(delay: number, seed: number) {
+  const s = neonFx.since.sub(delay);
+  const sputter = hash(floor(neonFx.since.mul(26)).add(seed)).greaterThan(0.45).select(float(1), float(0.06));
+  return s.lessThan(0).select(float(0.015), s.lessThan(0.5).select(sputter, float(1)));
+}
 
 export function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement("canvas");
@@ -33,7 +41,7 @@ export function canvasTexture(c: HTMLCanvasElement, opts: { nearest?: boolean; s
 export const lin = (hex: string | number) => new THREE.Color(hex).convertSRGBToLinear();
 
 /** Emissive "neon tube" material. Colour is hex; intensity scales the bloom. Supports flicker + rainbow. */
-export function neonMaterial(hex: string | number, intensity = 4, opts: { flicker?: number; seed?: number } = {}) {
+export function neonMaterial(hex: string | number, intensity = 4, opts: { flicker?: number; seed?: number; delay?: number } = {}) {
   const m = new THREE.MeshStandardNodeMaterial({ color: 0x000000, roughness: 0.4 });
   const c = lin(hex);
   const base = vec3(c.r, c.g, c.b);
@@ -45,8 +53,9 @@ export function neonMaterial(hex: string | number, intensity = 4, opts: { flicke
     const dip = n.greaterThan(1 - opts.flicker).select(float(0.15), float(1));
     col = col.mul(dip);
   }
+  const on = powerOn(opts.delay ?? 0.2 + Math.random() * 1.4, opts.seed ?? Math.random() * 100);
   m.colorNode = col.mul(0.2);
-  m.emissiveNode = col.mul(intensity).mul(neonFx.boost);
+  m.emissiveNode = col.mul(intensity).mul(neonFx.boost).mul(on);
   return m;
 }
 
@@ -111,7 +120,7 @@ export function glowText(text: string, opts: { font: string; size: number; color
 }
 
 /** A flat neon sign plane (emissive, transparent) of given height in metres. */
-export function neonSign(text: string, opts: { font: string; height: number; color: string; intensity?: number; flicker?: number }) {
+export function neonSign(text: string, opts: { font: string; height: number; color: string; intensity?: number; flicker?: number; delay?: number }) {
   const { canvas: c, aspect } = glowText(text, { font: opts.font, size: 120, color: opts.color });
   const tex = canvasTexture(c);
   const m = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false });
@@ -125,7 +134,7 @@ export function neonSign(text: string, opts: { font: string; height: number; col
     const n = hash(floor(time.mul(12)).add(float(text.length * 7.13)));
     rgb = rgb.mul(n.greaterThan(1 - opts.flicker).select(float(0.12), float(1)));
   }
-  const k = float(opts.intensity ?? 3).mul(neonFx.boost);
+  const k = float(opts.intensity ?? 3).mul(neonFx.boost).mul(powerOn(opts.delay ?? 0.3 + Math.random() * 1.6, text.length * 3.7));
   // unlit: emissive only (it is what blooms)
   m.colorNode = vec3(0);
   m.opacityNode = s.a;

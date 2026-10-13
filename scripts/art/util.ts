@@ -20,6 +20,7 @@ const hostNext = new Map<string, number>();
 const HOST_GAP: Record<string, number> = {
   "store.steampowered.com": 700,
   "api.steampowered.com": 250,
+  "images.launchbox-app.com": 25,
   "en.wikipedia.org": 60,
   "thumbnails.libretro.com": 40,
 };

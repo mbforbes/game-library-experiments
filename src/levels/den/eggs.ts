@@ -24,13 +24,14 @@ export class DenEggs {
   private lightningT = -1;
   private cat: Cat;
   private ship: VicViper;
-  private modeTarget = 0;
+  modeTarget = 0;
 
   constructor(private ctx: LevelCtx, private o: { holo: Hologram; tv: CrtScreen; outside: { group: THREE.Group }; flashTarget: { flash: any }; catPath: { y: number; z: number; x0: number; x1: number } }) {
     this.cat = new Cat(o.catPath);
     ctx.scene.add(this.cat.mesh);
     ctx.pickable(this.cat.mesh, () => {
       this.cat.meow();
+      ctx.audio.play("meow", { at: this.cat.mesh.position, pitch: 0.9 + Math.random() * 0.25 });
       ctx.toast("🐈 mrrp.");
     });
     this.ship = new VicViper();
@@ -62,6 +63,7 @@ export class DenEggs {
   konami() {
     this.rainbowT = 16;
     this.ctx.toast("↑↑↓↓←→←→BA  ·  +30 LIVES", 4000);
+    this.ctx.audio.play("jingle");
     this.ship.launch();
     this.o.tv.burst(0.8);
   }
@@ -83,6 +85,7 @@ export class DenEggs {
     if (this.nextLightning <= 0 && this.modeTarget === 0) {
       this.nextLightning = 25 + Math.random() * 40;
       this.lightningT = 0;
+      this.ctx.audio.play("thunder", { delay: 0.6 + Math.random() * 1.2, volume: 0.8 });
     }
     if (this.lightningT >= 0) {
       this.lightningT += dt;

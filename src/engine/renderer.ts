@@ -2,7 +2,7 @@
 // vignette, grain) + adaptive resolution that keeps frame time on budget.
 
 import * as THREE from "three/webgpu";
-import { pass, mrt, output, emissive, uniform, vec4, screenUV, float, time, vec2, mix, fract, sin, dot } from "three/tsl";
+import { pass, mrt, output, emissive, uniform, vec4, vec3, screenUV, float, time, vec2, mix, fract, sin, dot, step, smoothstep } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
 
 export interface Quality {
@@ -34,7 +34,7 @@ export interface Engine {
   backend: "webgpu" | "webgl";
   quality: Quality;
   /** Post uniforms (TSL uniform nodes; set `.value`). flash = full-screen flash, fade = 0 visible .. 1 black */
-  post: Record<"bloomStrength" | "bloomRadius" | "bloomThreshold" | "vignette" | "grain" | "flash" | "fade", any>;
+  post: Record<"bloomStrength" | "bloomRadius" | "bloomThreshold" | "vignette" | "grain" | "flash" | "fade" | "crt", any>;
   dpr: number;
   render(): void;
   resize(): void;
@@ -68,6 +68,7 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
     grain: uniform(0.035),
     flash: uniform(0),
     fade: uniform(0),
+    crt: uniform(0), // 0 = picture on, 1 = CRT switched off (squashed to a line, then a dot)
   };
 
   const pipeline = new THREE.RenderPipeline(renderer);
@@ -78,13 +79,24 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   const bloomPass = bloom(glow, post.bloomStrength as any, post.bloomRadius as any, post.bloomThreshold as any);
   if (quality.mobile) bloomPass.setResolutionScale(0.35);
 
+  // CRT power-off between worlds: the picture squashes to a bright line, then to a dot
+  const k1 = post.crt.div(0.55).clamp(0, 1);
+  const k2 = post.crt.sub(0.55).div(0.45).clamp(0, 1);
+  const sy = mix(float(1), float(0.004), k1.pow(0.6));
+  const sx = mix(float(1), float(0.006), k2.pow(0.8));
+  const q = screenUV.sub(0.5).div(vec2(sx, sy)).add(0.5);
+  const inside = step(0, q.x).mul(step(q.x, 1)).mul(step(0, q.y)).mul(step(q.y, 1));
+  const sceneC = color.sample(q);
+  const bloomC = (bloomPass as any).getTextureNode().sample(q);
   // Vignette + film grain + flash/fade, applied in linear space before tone mapping
   const d = screenUV.sub(0.5).length();
   const vig = float(1).sub(d.mul(d).mul(post.vignette).mul(2.2)).clamp(0, 1);
   const g = fract(sin(dot(screenUV.add(fract(time.mul(0.37))), vec2(12.9898, 78.233))).mul(43758.5453)).sub(0.5).mul(post.grain);
-  const composed = color.add(bloomPass).mul(vig).add(g);
+  const glowLine = float(1).add(post.crt.mul(6));
+  const dotGlow = smoothstep(0.06, 0.0, screenUV.sub(0.5).mul(vec2(1.6, 1)).length()).mul(k2).mul(float(1).sub(k2.pow(4))).mul(2);
+  const composed = sceneC.add(bloomC).mul(vig).mul(glowLine).mul(inside).add(g).add(vec3(dotGlow));
   const flashed = composed.add(post.flash);
-  pipeline.outputNode = vec4(mix(flashed.rgb, vec4(0, 0, 0, 1).rgb, post.fade), 1);
+  pipeline.outputNode = vec4(mix(flashed.rgb, vec4(0, 0, 0, 1).rgb, post.fade.max(post.crt.greaterThan(0.995).select(float(1), float(0)))), 1);
 
   let dpr = quality.maxDpr;
   const engine: Engine = {

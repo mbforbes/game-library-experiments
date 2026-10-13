@@ -8,6 +8,7 @@ import type { CameraRig } from "../engine/rig";
 import type { LibraryStore } from "../library/store";
 import type { ArtStore } from "../library/art";
 import type { MediaField, MediaKit } from "../media/field";
+import type { AudioEngine } from "../audio/audio";
 
 export interface LevelCtx {
   engine: Engine;
@@ -17,6 +18,8 @@ export interface LevelCtx {
   store: LibraryStore;
   art: ArtStore;
   kit: MediaKit;
+  /** Sound: one-shots (`audio.play`) and positional ambient loops (`audio.addEmitter`). */
+  audio: AudioEngine;
   /** Register an object that reacts to taps (props, buttons, easter eggs). */
   pickable(obj: THREE.Object3D, onTap: (hit: THREE.Intersection) => void): void;
   /** Ask the app to inspect a game (as if it was tapped). */

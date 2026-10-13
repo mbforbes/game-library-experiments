@@ -12,6 +12,9 @@ import { SpineAtlas } from "./media/spines";
 import { makeMediaKit, type MediaField, type MediaKit } from "./media/field";
 import { Hud } from "./ui/hud";
 import { LEVELS, DEFAULT_LEVEL } from "./levels";
+import { AudioEngine } from "./audio/audio";
+import { neonFx } from "./world/kit/common";
+import { Bursts } from "./world/kit/particles";
 import type { Level, LevelCtx } from "./levels/types";
 
 export class App {
@@ -19,6 +22,7 @@ export class App {
   rig!: CameraRig;
   input!: Input;
   store = new LibraryStore();
+  audio = new AudioEngine();
   art!: ArtStore;
   spines!: SpineAtlas;
   kit!: MediaKit;
@@ -45,8 +49,8 @@ export class App {
       await Promise.all([this.store.load(), this.art.load(), fontsReady]);
       this.hud.setProgress("Printing spines…", 0.75);
       await nextFrame();
-      this.spines = new SpineAtlas(this.engine.quality.mobile);
-      this.spines.build(this.store.games, this.art);
+      this.spines = new SpineAtlas(this.engine.quality.mobile, this.art);
+      this.spines.build(this.store.games);
       this.kit = makeMediaKit(this.art, this.spines);
       this.rig = new CameraRig(this.engine.camera);
       this.inspector = new Inspector(this.engine.scene, this.engine.camera, this.art);
@@ -77,6 +81,7 @@ export class App {
       store: this.store,
       art: this.art,
       kit: this.kit,
+      audio: this.audio,
       pickable: (obj, onTap) => this.pickables.push({ obj, onTap }),
       inspect: (g) => this.openGame(g),
       toast: (t, ms) => this.hud.toast(t, ms),
@@ -90,7 +95,9 @@ export class App {
     const post = this.engine.post;
     // fade out
     if (this.level) {
-      await tween(300, (k) => (post.fade.value = k));
+      this.audio.play("crtoff");
+      this.audio.clearEmitters();
+      await tween(420, (k) => (post.crt.value = k * k));
       this.closeGame(true);
       this.level.dispose();
       this.pickables = [];
@@ -102,6 +109,8 @@ export class App {
     const level = (await factory.load())();
     this.level = level;
     await level.build(this.ctx(), (m) => this.hud.setProgress(m));
+    this.engine.scene.add(this.bursts.mesh);
+    this.burstColor = factory.accent;
     this.hud.setLevel(level.name, factory.accent, level.stations);
     this.applyFilter();
     const url = new URL(location.href);
@@ -109,7 +118,12 @@ export class App {
     history.replaceState(null, "", url);
     // compile shaders before showing the frame to avoid hitches
     await this.engine.renderer.compileAsync(this.engine.scene, this.engine.camera).catch(() => {});
-    await tween(450, (k) => (post.fade.value = 1 - k));
+    post.crt.value = 1;
+    post.fade.value = 0;
+    this.levelStart = performance.now();
+    if (this.level && this.loaded) this.audio.play("crton");
+    this.loaded = true;
+    await tween(520, (k) => (post.crt.value = (1 - k) * (1 - k)));
     this.loadingLevel = false;
   }
 
@@ -121,8 +135,14 @@ export class App {
       },
       onFilter: (f: any) => this.store.setFilter(f),
       onLevel: (id: string) => this.loadLevel(id),
+      onSound: () => (this.audio.enabled = !this.audio.enabled),
+      soundOn: () => this.audio.enabled,
+      onUi: (kind: "tick" | "travel") => this.audio.play(kind, { volume: kind === "tick" ? 0.7 : 0.8 }),
       onClose: () => this.closeGame(),
-      onFlip: () => this.inspector.flip(),
+      onFlip: () => {
+        this.audio.play("flip");
+        this.inspector.flip();
+      },
       onSpine: () => this.inspector.showSpine(),
       onPrev: () => this.step(-1),
       onNext: () => this.step(1),
@@ -138,8 +158,13 @@ export class App {
   }
 
   openGame(g: Game) {
+    this.unhover();
     this.inspector.layout = this.hud.isSide ? "side" : "top";
-    this.inspector.open(g, this.fieldOf(g));
+    const field = this.fieldOf(g);
+    const at = field?.centerOf(g.id) ?? undefined;
+    this.audio.play("pull", { at, pitch: 0.9 + Math.random() * 0.2 });
+    if (at) this.bursts.emit(at, this.burstColor, 22, 0.14, 0.2);
+    this.inspector.open(g, field);
     this.store.select(g);
     this.hud.showGame(g);
     this.level?.onSelect?.(g);
@@ -147,6 +172,11 @@ export class App {
 
   closeGame(immediate = false) {
     if (!this.inspector.active) return;
+    if (!immediate) {
+      const g = this.inspector.hero?.game;
+      const at = g ? this.fieldOf(g)?.centerOf(g.id) ?? undefined : undefined;
+      this.audio.play("putback", { at, delay: 0.45, pitch: 0.9 + Math.random() * 0.2 });
+    }
     this.inspector.close(immediate);
     this.store.select(null);
     this.hud.showGame(null);
@@ -197,6 +227,7 @@ export class App {
       hover: (x, y) => {
         this.rig.look.yawGoal = -(x / window.innerWidth - 0.5) * 0.05;
         this.rig.look.pitchGoal = -(y / window.innerHeight - 0.5) * 0.035;
+        this.hoverAt(x, y);
       },
       key: (e) => {
         if (this.level?.onKey?.(e)) return;
@@ -216,14 +247,66 @@ export class App {
     };
   }
 
+  // ---- desktop hover: lift the game under the pointer + show its title ----------------------
+  private hovered: { id: string; field: MediaField; base: THREE.Matrix4 } | null = null;
+  private hoverT = 0;
+  private hoverAt(x: number, y: number) {
+    const now = performance.now();
+    if (now - this.hoverT < 50 || this.inspector.active) return;
+    this.hoverT = now;
+    const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.engine.camera);
+    let best: { d: number; game: Game; field: MediaField } | null = null;
+    for (const f of this.level?.fields ?? []) {
+      if (f.holo && f.group.parent === null) continue;
+      const hit = f.raycast(this.raycaster.ray);
+      if (hit && hit.distance < 6 && (!best || hit.distance < best.d)) best = { d: hit.distance, game: hit.game, field: f };
+    }
+    const id = best?.game.id;
+    if (id === this.hovered?.id) {
+      this.hud.tooltip(best ? best.game : null, x, y);
+      return;
+    }
+    this.unhover();
+    if (best) {
+      const m = best.field.matrixOf(best.game.id)!;
+      const local = best.field.group.matrixWorld.clone().invert().multiply(m);
+      this.hovered = { id: best.game.id, field: best.field, base: local };
+      // nudge it 1.5 cm towards the viewer
+      const q = new THREE.Quaternion().setFromRotationMatrix(m);
+      const pos = new THREE.Vector3().setFromMatrixPosition(m);
+      const toCam = this.engine.camera.position.clone().sub(pos).normalize();
+      const axes = [new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, 1)].map((a) => a.applyQuaternion(q));
+      const out = axes.reduce((b, a) => (a.dot(toCam) > b.dot(toCam) ? a : b));
+      const nudge = new THREE.Matrix4().makeTranslation(out.x * 0.015, 0.003, out.z * 0.015);
+      best.field.setMatrix(best.game.id, local.clone().premultiply(nudge));
+      best.field.setState(best.game.id, { highlight: 0.7 });
+      this.engine.renderer.domElement.style.cursor = "pointer";
+      this.audio.play("hover", { volume: 0.6 });
+    }
+    this.hud.tooltip(best ? best.game : null, x, y);
+  }
+  private unhover() {
+    if (!this.hovered) return;
+    const { id, field, base } = this.hovered;
+    field.setMatrix(id, base);
+    field.setState(id, { highlight: this.store.filtering && this.store.matches(this.store.byId.get(id)!) ? 0.35 : 0 });
+    this.hovered = null;
+    this.engine.renderer.domElement.style.cursor = "";
+  }
+
   private tap(x: number, y: number) {
+    this.unhover();
+    this.hud.tooltip(null, 0, 0);
     if (this.inspector.active) {
       // tapping the hero flips it; tapping elsewhere closes
       const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
       this.raycaster.setFromCamera(ndc, this.engine.camera);
       const hero = this.inspector.hero!;
-      if (this.raycaster.intersectObject(hero.mesh, false).length) this.inspector.flip();
-      else this.closeGame();
+      if (this.raycaster.intersectObject(hero.mesh, false).length) {
+        this.audio.play("flip");
+        this.inspector.flip();
+      } else this.closeGame();
       return;
     }
     const ndc = new THREE.Vector2((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
@@ -242,11 +325,16 @@ export class App {
   }
 
   private last = performance.now();
+  private levelStart = performance.now();
+  private loaded = false;
+  private bursts = new Bursts();
+  private burstColor = "#ffffff";
   private frame = () => {
     const now = performance.now();
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
     const t = now / 1000;
+    neonFx.since.value = (now - this.levelStart) / 1000;
     if (this.rig.idle > 75 && !this.inspector.active) this.rig.scroll(dt * 22); // attract-mode drift
     this.rig.update(dt);
     this.level?.update(dt, t);
@@ -256,6 +344,8 @@ export class App {
     }
     for (const fn of this.tickers) fn(dt, t);
     this.inspector.update(dt, t);
+    this.bursts.update(dt);
+    this.audio.update(this.engine.camera);
     this.engine.render();
     this.engine.adapt(dt);
     if (this.debug) this.debugStats(dt);

@@ -26,8 +26,8 @@
     "note": "verified correct (was flagged low-confidence)"
   },
   "genesis/g-loc-air-battle": {
-    "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/G-LOC%20-%20Air%20Battle%20(World).png",
-    "note": "real box; Sega Channel variant is a placeholder with a screenshot"
+    "cover": "https://images.launchbox-app.com/076188c1-5ab4-4623-9dc3-52b0b214b017.jpg",
+    "note": "US Genesis box (LaunchBox NA front); libretro (World) box is the PAL Mega Drive one and the Sega Channel variant is a placeholder"
   },
   "genesis/ghouls-n-ghosts": {
     "cover": "https://thumbnails.libretro.com/Sega%20-%20Mega%20Drive%20-%20Genesis/Named_Boxarts/Ghouls'n%20Ghosts%20(Japan%2C%20USA)%20(En).png",
@@ -66,6 +66,10 @@
     "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%2064/Named_Boxarts/Paperboy%20(USA).png",
     "note": "verified correct (was flagged low-confidence); the N64 game is titled Paperboy"
   },
+  "n64/wave-race-64": {
+    "cover": "https://images.launchbox-app.com/df20e48c-6a56-40ae-bc7a-ad77671bbb7c.jpg",
+    "note": "original US box instead of the Player's Choice reprint"
+  },
   "nes/3d-world-runner": {
     "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/3-D%20WorldRunner%20(USA).png",
     "libretro": "3-D WorldRunner (USA)"
@@ -74,6 +78,10 @@
     "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/Kid%20Dracula%20(World)%20(Castlevania%20Anniversary%20Collection).png",
     "libretro": "Kid Dracula (World) (Castlevania Anniversary Collection)",
     "note": "Famicom-only release (Akumajou Special: Boku Dracula-kun); Japanese box"
+  },
+  "nes/donkey-kong-jr": {
+    "cover": "https://images.launchbox-app.com/ecf29e47-ebc3-421d-ae4e-082ea9ae8240.jpg",
+    "note": "US Arcade Classics box (matches the US cart); libretro (USA) e-Reader art is the PAL \"European Version\" box"
   },
   "nes/gargoyles-quest-ii-the-demon-darkness": {
     "cover": "https://thumbnails.libretro.com/Nintendo%20-%20Nintendo%20Entertainment%20System/Named_Boxarts/Gargoyle's%20Quest%20II%20(USA).png",
@@ -87,6 +95,11 @@
     "cover": "https://upload.wikimedia.org/wikipedia/en/4/4c/S.C.A.T._-_Special_Cybernetic_Attack_Team_%28game_box_art%29.jpg",
     "note": "verified correct (was flagged low-confidence)"
   },
+  "ps1/chrono-trigger": {
+    "cover": "https://images.launchbox-app.com/31035568-42bf-4e40-94b0-53b91fc41c06.jpg",
+    "lb": 163456,
+    "note": "Chrono Trigger PS1 only came out in NA inside Final Fantasy Chronicles; libretro had the Japanese box"
+  },
   "ps2/ace-combat-4-shattered-skies": {
     "cover": "https://thumbnails.libretro.com/Sony%20-%20PlayStation%202/Named_Boxarts/Ace%20Combat%2004%20-%20Shattered%20Skies%20(USA).png",
     "libretro": "Ace Combat 04 - Shattered Skies (USA)",
@@ -96,10 +109,24 @@
     "cover": "https://thumbnails.libretro.com/Sony%20-%20PlayStation%202/Named_Boxarts/007%20-%20From%20Russia%20with%20Love%20(USA).png",
     "note": "verified correct (was flagged low-confidence)"
   },
+  "ps2/metal-slug-4": {
+    "cover": "https://images.launchbox-app.com/41c5755b-ca2b-413d-bd0a-fcea21e2c530.png",
+    "lb": 165776,
+    "note": "only NA PS2 release is the Metal Slug 4 & 5 double pack; libretro \"(USA)\" art and LB MS4 entry are PAL/Japan"
+  },
+  "ps2/metal-slug-5": {
+    "cover": "https://images.launchbox-app.com/41c5755b-ca2b-413d-bd0a-fcea21e2c530.png",
+    "lb": 165776,
+    "note": "only NA PS2 release is the Metal Slug 4 & 5 double pack; libretro \"(USA)\" art is the PAL box"
+  },
   "ps3/metal-gear-solid-peacewalker": {
     "cover": "https://upload.wikimedia.org/wikipedia/en/8/86/Metal_Gear_Solid_Peace_Walker_Cover_Art.jpg",
     "wiki": "Metal Gear Solid: Peace Walker",
     "note": "title typo (Peacewalker)"
+  },
+  "ps3/uncharted-2-among-thieves": {
+    "cover": "https://images.launchbox-app.com/cbfc0edb-730a-48ed-8fd7-e6b3e2e9107b.jpg",
+    "note": "standard US box instead of the Greatest Hits GOTY edition (LB back is the standard one)"
   },
   "ps3/zone-of-the-enders-hd-collection": {
     "cover": "https://images.launchbox-app.com/r2_a584c19f-8ef4-4fa2-b3f6-8eaf9528cb55.jpg",
@@ -114,10 +141,27 @@
     "steam": 332200,
     "note": "Steam portrait; Wikipedia image is a wide banner"
   },
+  "ps4/battlefield-1": {
+    "cover": "https://images.launchbox-app.com/51d309f3-3da6-405a-bd66-699b492bdd6f.jpg",
+    "note": "standard US box instead of the Early Enlister Deluxe Edition (LB back is still the deluxe one)"
+  },
+  "ps4/contrast": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/224460/library_600x900_2x.jpg",
+    "note": "Steam portrait art; LB front is a wide banner, not a box"
+  },
+  "ps4/crash-bandicoot-4-its-about-time": {
+    "cover": "https://images.launchbox-app.com/84262da6-d813-4a84-a604-ca846b403f4b.jpg",
+    "lb": null,
+    "note": "LB front is fine, but its only \"North America\" back is the Dutch/French PEGI one"
+  },
   "ps4/dead-star": {
     "cover": "https://images.launchbox-app.com/e0034d50-75ac-485a-88ef-6d035c5a352d.jpg",
     "snaps": [],
     "note": "PS4 box (LaunchBox); Steam search matched the unrelated Dead Star Prison (its screenshots dropped)"
+  },
+  "ps4/doom-2016": {
+    "cover": "https://images.launchbox-app.com/4c400425-bf5c-4313-9484-629972300bf6.jpg",
+    "note": "standard US box instead of PlayStation Hits"
   },
   "ps4/horizon-chase-turbo": {
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/389140/library_600x900_2x.jpg",
@@ -127,6 +171,10 @@
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/365660/library_600x900_2x.jpg",
     "steam": 365660,
     "note": "OlliOlli2 (title typo \"Olli Olli\")"
+  },
+  "ps4/ratchet-and-clank": {
+    "cover": "https://images.launchbox-app.com/336ad522-a2ec-4359-aad0-449d1ebf0cd2.jpg",
+    "note": "standard US box instead of PlayStation Hits (LB spine/back are standard)"
   },
   "ps4/resident-evil-hd-remaster": {
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/304240/library_600x900_2x.jpg",
@@ -162,6 +210,10 @@
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/946030/library_600x900_2x.jpg",
     "steam": 946030,
     "note": "Steam portrait; Wikipedia image is a wide banner"
+  },
+  "ps5/death-stranding-2-on-the-beach": {
+    "cover": "https://images.launchbox-app.com/r2_458fa392-6068-4afd-b5e4-241f50bd1463.jpg",
+    "note": "clean US box scan instead of the photo with case edges and black border"
   },
   "ps5/earthion": {
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/3597580/067756dee6b3109921a27213050e9fb9a132af7a/library_600x900_2x.jpg",
@@ -226,6 +278,15 @@
     "steam": 1018010,
     "note": "Switch box (LaunchBox); Steam has no real library art (auto portrait.png only)"
   },
+  "switch/devil-engine": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/891790/library_600x900_2x.jpg",
+    "note": "Steam portrait art; LB NA front is the eShop icon with its orange frame"
+  },
+  "switch/diablo-ii-resurrected": {
+    "cover": "https://images.launchbox-app.com/58b5e8b8-a283-4820-891d-514ddb0f9982.jpg",
+    "lb": null,
+    "note": "LB \"North America\" back is a French/PEGI/CE one; dropping LB loses the (correct) US cart too"
+  },
   "switch/diablo-iii-eternal-collection": {
     "cover": "https://images.launchbox-app.com/6dcd1253-b9cc-4f94-8cc8-b5ce8b111758.jpg",
     "note": "Switch box (LaunchBox)"
@@ -233,6 +294,10 @@
   "switch/final-fantasy-i-vi-collection": {
     "cover": "https://images.launchbox-app.com/04552b31-787a-4c8f-80b2-2e46d0efddc0.jpg",
     "note": "Pixel Remaster collection Switch box (LaunchBox)"
+  },
+  "switch/foregone": {
+    "cover": "https://images.launchbox-app.com/9806d646-fe68-4b95-b99e-4237ac907c43.jpg",
+    "note": "real Switch box (LB World front) instead of the square US eShop icon"
   },
   "switch/gradius-origins": {
     "cover": "https://images.launchbox-app.com/37ee7d7f-d23b-44f5-89db-1bb2b09d6367.jpg",
@@ -287,6 +352,10 @@
     "cover": "https://images.launchbox-app.com/0be66a78-ae3b-4280-aa4e-8d6005373f15.jpg",
     "note": "Switch remake box (LaunchBox); Wikipedia redirect gave the 1996 SNES box"
   },
+  "windows/age-of-empires-ii-age-of-kings": {
+    "cover": "https://images.launchbox-app.com/23890b55-c10f-45b0-acb2-7ef9c9a4ce72.jpg",
+    "note": "original box instead of the Game of the Year re-release"
+  },
   "windows/age-of-empires-ii-de-return-of-rome": {
     "cover": "https://store-images.s-microsoft.com/image/apps.41274.13647148900592351.64160af8-019d-4257-8588-364814951e17.c41afa38-2aed-4473-a8df-4585e62b7b19",
     "note": "Microsoft Store poster (DLC has no Steam library art)"
@@ -303,6 +372,10 @@
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/221380/library_600x900_2x.jpg",
     "steam": 221380,
     "note": "Steam \"Age of Empires II (Retired)\" = the 2013 HD Edition"
+  },
+  "windows/age-of-empires-the-rise-of-rome": {
+    "cover": "https://upload.wikimedia.org/wikipedia/en/c/c6/AOE_Rise_of_Rome_Cover.jpg",
+    "note": "original 1998 box (Wikipedia) instead of the later Games for Windows re-release"
   },
   "windows/another-metroid-2-remake": {
     "cover": "https://images.launchbox-app.com/r2_781401bf-b8ec-4108-9187-a9bd5ab74cc9.jpg",
@@ -400,6 +473,10 @@
     "steam": 323580,
     "note": "Jotun: Valhalla Edition"
   },
+  "windows/kentucky-route-zero": {
+    "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/231200/library_600x900_2x.jpg",
+    "note": "Steam PC Edition portrait; LB front is square key art"
+  },
   "windows/lunar-flight": {
     "cover": "https://images.launchbox-app.com/ff3f4a5c-bdbd-44fd-8de0-50435d13a0ab.jpg",
     "steam": 208600,
@@ -417,6 +494,11 @@
   "windows/minecraft": {
     "cover": "https://images.launchbox-app.com/943dc5df-6f98-49cd-981a-0cd9b2166360.jpg",
     "note": "Java Edition key art (LaunchBox); Wikipedia image is a logo"
+  },
+  "windows/pharaoh": {
+    "cover": "https://images.launchbox-app.com/4ed30713-595b-4193-ab9f-f2370221038e.jpg",
+    "lb": null,
+    "note": "LB NA front is fine, but the NA \"back\" picked is a Sierra catalog ad page"
   },
   "windows/rv-there-yet": {
     "cover": "https://shared.steamstatic.com/store_item_assets/steam/apps/3949040/701632e4a84f8378c23fdf18ae127cb6a0f3f904/library_capsule_2x.jpg",

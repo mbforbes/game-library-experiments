@@ -21,12 +21,32 @@ export interface Template {
   /** objects of this kind usually stand face-out on displays (carts) rather than spine-out */
   faceOut: boolean;
   build(): THREE.BufferGeometry;
+  /** carts only: shell + a full-front quad that carries a real cartridge photo (alpha cut-out) */
+  buildPhoto?(): THREE.BufferGeometry;
 }
 
-const T = (t: Omit<Template, "build">, build: (t: Omit<Template, "build">) => GeoBuilder): Template => ({ ...t, build: () => build(t).build() });
+type TData = Omit<Template, "build" | "buildPhoto">;
+const T = (t: TData, build: (t: TData) => GeoBuilder, photo?: (t: TData) => GeoBuilder): Template => ({
+  ...t,
+  build: () => build(t).build(),
+  buildPhoto: photo ? () => photo(t).build() : undefined,
+});
+
+const OUTLINES = new Map<MediaKind, [number, number][]>();
+
+/** Cartridge for photo mode: the shell, with the photo laid over the whole front (slightly oversized). */
+function cartPhotoGeo(t: TData, outline: [number, number][]) {
+  const [w, h, d] = t.size;
+  const g = new GeoBuilder();
+  g.extrude(outline, -d / 2, d / 2, PART.shell, PART.back);
+  const zf = d / 2 + 0.0006;
+  const ox = w * 0.015, oy = h * 0.015;
+  g.quad([-w / 2 - ox, -oy, zf], [w / 2 + ox, -oy, zf], [w / 2 + ox, h + oy, zf], [-w / 2 - ox, h + oy, zf], PART.cover);
+  return g;
+}
 
 /** Keep case / clamshell: chamfered shell, cover inset under the sleeve, printed spine. */
-function caseGeo(t: Omit<Template, "build">, opts: { coverInset?: number; chamfer?: number; backPart?: number } = {}) {
+function caseGeo(t: TData, opts: { coverInset?: number; chamfer?: number; backPart?: number } = {}) {
   const [w, h, d] = t.size;
   const g = new GeoBuilder();
   const c = opts.chamfer ?? 0.0018;
@@ -42,7 +62,7 @@ function caseGeo(t: Omit<Template, "build">, opts: { coverInset?: number; chamfe
 }
 
 /** CD jewel case: dark tray at the back, clear lid with the cover booklet, printed spine insert. */
-function jewelGeo(t: Omit<Template, "build">) {
+function jewelGeo(t: TData) {
   const [w, h, d] = t.size;
   const g = new GeoBuilder();
   g.box(0, h / 2, 0, w, h, d, [PART.shell, null, PART.shell, PART.shell, null, PART.back], 0.0008);
@@ -55,11 +75,11 @@ function jewelGeo(t: Omit<Template, "build">) {
   return g;
 }
 
-/** Cardboard big box (90s PC): sharp edges, cover front, spine, art-coloured top. */
-function bigboxGeo(t: Omit<Template, "build">) {
+/** Cardboard big box (90s PC): sharp edges, cover front, the spine printed on both sides, art-coloured top. */
+function bigboxGeo(t: TData) {
   const [w, h, d] = t.size;
   const g = new GeoBuilder();
-  g.box(0, h / 2, 0, w, h, d, [PART.shell, null, PART.shell, PART.shell, null, PART.back], 0.0008);
+  g.box(0, h / 2, 0, w, h, d, [PART.spine, null, PART.shell, PART.shell, null, PART.back], 0.0008);
   const zf = d / 2 + 0.0001;
   g.quad([-w / 2, 0, zf], [w / 2, 0, zf], [w / 2, h, zf], [-w / 2, h, zf], PART.cover);
   const xs = -w / 2 - 0.0001;
@@ -68,7 +88,7 @@ function bigboxGeo(t: Omit<Template, "build">) {
 }
 
 /** Digital game "glass slab": dark glass with the art inside and glowing edges. */
-function slabGeo(t: Omit<Template, "build">) {
+function slabGeo(t: TData) {
   const [w, h, d] = t.size;
   const g = new GeoBuilder();
   const e = 0.0016; // glow edge thickness on the front
@@ -82,12 +102,13 @@ function slabGeo(t: Omit<Template, "build">) {
 
 /** Cartridge: extruded outline + recessed label + optional grip ridges. */
 function cartGeo(
-  t: Omit<Template, "build">,
+  t: TData,
   outline: [number, number][],
   label: [number, number, number, number], // x0, y0, x1, y1
   ridges: { y0: number; y1: number; n: number; x0: number; x1: number } | null,
 ) {
   const [, , d] = t.size;
+  OUTLINES.set(t.kind, outline);
   const g = new GeoBuilder();
   g.extrude(outline, -d / 2, d / 2, PART.shell, PART.back);
   const zf = d / 2 + 0.0003;
@@ -104,7 +125,7 @@ function cartGeo(
 }
 
 /** Mini arcade cabinet (side profile extruded across X); screen shows the flyer art. */
-function cabinetGeo(t: Omit<Template, "build">) {
+function cabinetGeo(t: TData) {
   const [w, h, d] = t.size;
   const g = new GeoBuilder();
   // side profile in (z, y): front at +z
@@ -220,14 +241,32 @@ export const TEMPLATES: Record<MediaKind, Template> = {
   cabinet: T({ kind: "cabinet", size: [0.11, 0.24, 0.13], labelAspect: 0.85, cropY: 0.3, spine: [0.102, 0.038], shellRoughness: 0.45, spineGlow: 2.2, faceOut: true }, cabinetGeo),
 };
 
-const geoCache = new Map<MediaKind, THREE.BufferGeometry>();
-export function geometryFor(kind: MediaKind): THREE.BufferGeometry {
-  let g = geoCache.get(kind);
+// carts + HuCards can carry a real cartridge photo over their whole front
+for (const t of Object.values(TEMPLATES)) {
+  if (!t.kind.endsWith("-cart") && t.kind !== "hucard") continue;
+  t.buildPhoto = () => {
+    if (!OUTLINES.has(t.kind)) t.build();
+    return cartPhotoGeo(t, OUTLINES.get(t.kind)!).build();
+  };
+}
+
+const geoCache = new Map<string, THREE.BufferGeometry>();
+export function geometryFor(kind: MediaKind, photo = false): THREE.BufferGeometry {
+  const key = photo ? kind + "+photo" : kind;
+  let g = geoCache.get(key);
   if (!g) {
-    g = TEMPLATES[kind].build();
-    geoCache.set(kind, g);
+    const t = TEMPLATES[kind];
+    g = photo && t.buildPhoto ? t.buildPhoto() : t.build();
+    geoCache.set(key, g);
   }
   return g;
+}
+
+/** Front-face rect used for cartridge photos: [x0, y0, x1, y1, z] (matches cartPhotoGeo). */
+export function photoRect(kind: MediaKind): [number, number, number, number, number] {
+  const [w, h, d] = TEMPLATES[kind].size;
+  const ox = w * 0.015, oy = h * 0.015;
+  return [-w / 2 - ox, -oy, w / 2 + ox, h + oy, d / 2 + 0.0009];
 }
 
 /**

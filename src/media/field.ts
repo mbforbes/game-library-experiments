@@ -5,8 +5,10 @@
 import * as THREE from "three/webgpu";
 import type { Game } from "../../shared/types";
 import { mediaFor, platformOf, type MediaKind } from "../../shared/platforms";
-import { TEMPLATES, geometryFor, coverRect, type Template } from "./templates";
-import { texture, uv, vec2, uniform } from "three/tsl";
+import { TEMPLATES, geometryFor, coverRect, photoRect, type Template } from "./templates";
+import { SPECIAL_SHELLS } from "./branding";
+import { stickerCell, stickerLocal, stickerMaterial } from "./stickers";
+import { texture, uv, vec2, uniform, step } from "three/tsl";
 import type { ArtStore } from "../library/art";
 import type { SpineAtlas } from "./spines";
 import { makeHoloMaterial, makeMediaMaterial } from "./material";
@@ -28,11 +30,12 @@ export interface MediaKit {
 }
 
 export function makeMediaKit(art: ArtStore, spines: SpineAtlas): MediaKit {
-  return { art, spines, solid: makeMediaMaterial(art.pages, spines.texture), holo: makeHoloMaterial(art.pages) };
+  return { art, spines, solid: makeMediaMaterial(art.pages, spines.texture, art.spinePages), holo: makeHoloMaterial(art.pages) };
 }
 
 interface Batch {
   kind: MediaKind;
+  photo: boolean;
   t: Template;
   mesh: THREE.InstancedMesh;
   games: Game[];
@@ -42,6 +45,7 @@ interface Batch {
   color: THREE.InterleavedBufferAttribute;
   glow: THREE.InterleavedBufferAttribute;
   state: THREE.InterleavedBufferAttribute;
+  extra: THREE.InterleavedBufferAttribute;
   inv: THREE.Matrix4[];
   base: THREE.Matrix4[];
 }
@@ -63,6 +67,13 @@ export function kindOf(g: Game, art: ArtStore): MediaKind {
 
 export function templateOf(g: Game, art: ArtStore): Template {
   return TEMPLATES[kindOf(g, art)];
+}
+
+/** Contain-fit padding for a cartridge photo inside the template's front quad. */
+export function photoPad(photoAspect: number, kind: MediaKind): [number, number] {
+  const [x0, y0, x1, y1] = photoRect(kind);
+  const fa = (x1 - x0) / (y1 - y0);
+  return photoAspect > fa ? [0, (1 - fa / photoAspect) / 2] : [(1 - photoAspect / fa) / 2, 0];
 }
 
 /** Atlas crop so the art fills the template's label without stretching. */
@@ -96,36 +107,42 @@ export class MediaField {
     this.holo = !!opts.holo;
     this.order = placements.map((p) => p.game);
     this.group.name = opts.name ?? "media";
-    const byKind = new Map<MediaKind, Placement[]>();
+    // batch per form factor (+ a separate batch for carts shown as real photos)
+    const byKind = new Map<string, Placement[]>();
     for (const p of placements) {
       const k = p.kind ?? kindOf(p.game, kit.art);
-      if (!byKind.has(k)) byKind.set(k, []);
-      byKind.get(k)!.push(p);
+      const photo = !!TEMPLATES[k].buildPhoto && !!kit.art.cartPhoto(p.game);
+      const key = photo ? k + "+photo" : k;
+      if (!byKind.has(key)) byKind.set(key, []);
+      byKind.get(key)!.push(p);
     }
-    for (const [kind, ps] of byKind) this.batches.push(this.makeBatch(kind, ps));
+    for (const [key, ps] of byKind) this.batches.push(this.makeBatch(key.replace("+photo", "") as MediaKind, key.endsWith("+photo"), ps));
+    if (!this.holo) this.makeStickers();
   }
 
-  private makeBatch(kind: MediaKind, ps: Placement[]): Batch {
+  private makeBatch(kind: MediaKind, photo: boolean, ps: Placement[]): Batch {
     const t = TEMPLATES[kind];
     const n = ps.length;
-    const geo = geometryFor(kind).clone();
+    const geo = geometryFor(kind, photo).clone();
     // All per-instance data lives in ONE interleaved buffer (WebGPU allows only 8 vertex buffers)
-    const buf = new THREE.InstancedInterleavedBuffer(new Float32Array(n * 20), 20, 1);
+    const buf = new THREE.InstancedInterleavedBuffer(new Float32Array(n * 24), 24, 1);
     buf.setUsage(THREE.DynamicDrawUsage);
     const cover = new THREE.InterleavedBufferAttribute(buf, 4, 0);
     const spine = new THREE.InterleavedBufferAttribute(buf, 4, 4);
     const color = new THREE.InterleavedBufferAttribute(buf, 4, 8);
     const glow = new THREE.InterleavedBufferAttribute(buf, 4, 12);
     const state = new THREE.InterleavedBufferAttribute(buf, 4, 16);
+    const extra = new THREE.InterleavedBufferAttribute(buf, 4, 20);
+    geo.setAttribute("iExtra", extra);
     geo.setAttribute("iCover", cover);
     geo.setAttribute("iSpine", spine);
     geo.setAttribute("iColor", color);
     geo.setAttribute("iGlow", glow);
     geo.setAttribute("iState", state);
     const mesh = new THREE.InstancedMesh(geo, this.holo ? this.kit.holo : this.kit.solid, n);
-    mesh.name = `${this.group.name}:${kind}`;
+    mesh.name = `${this.group.name}:${kind}${photo ? "+photo" : ""}`;
     mesh.frustumCulled = false; // instances are spread around; bounding sphere is computed below
-    const b: Batch = { kind, t, mesh, games: [], buf, cover, spine, color, glow, state, inv: [], base: [] };
+    const b: Batch = { kind, photo, t, mesh, games: [], buf, cover, spine, color, glow, state, extra, inv: [], base: [] };
     const c = new THREE.Color();
     ps.forEach((p, i) => {
       const g = p.game;
@@ -134,16 +151,37 @@ export class MediaField {
       mesh.setMatrixAt(i, m);
       b.base.push(m);
       b.inv.push(m.clone().invert());
-      const crop = coverCrop(g, this.kit.art, t);
-      cover.setXYZW(i, ...crop.rect);
-      const sr = this.kit.spines.rects.get(g.id);
-      if (sr) spine.setXYZW(i, ...sr);
+      // front: real cartridge photo (contain-fit, alpha) or cover art cropped to the label
+      let page: number;
+      let pad: [number, number] = [-1, -1];
+      const ph = photo ? this.kit.art.cartPhoto(g) : null;
+      if (ph) {
+        cover.setXYZW(i, ...ph.rect);
+        page = ph.page;
+        pad = photoPad(ph.aspect, kind);
+      } else {
+        const crop = coverCrop(g, this.kit.art, t);
+        cover.setXYZW(i, ...crop.rect);
+        page = crop.page;
+      }
+      // spine: real scan if we have one, else the runtime-printed one
+      const real = this.kit.spines.usesReal(g) ? this.kit.art.realSpine(g) : null;
+      let spinePage = 0;
+      if (real) {
+        spine.setXYZW(i, ...real.rect);
+        spinePage = real.page;
+      } else {
+        const sr = this.kit.spines.rects.get(g.id);
+        if (sr) spine.setXYZW(i, ...sr);
+      }
       const plat = platformOf(g.platform);
-      c.set(kind === "bigbox" ? this.kit.art.color(g) : plat.shell).convertSRGBToLinear();
-      color.setXYZW(i, c.r, c.g, c.b, crop.page);
+      const special = SPECIAL_SHELLS[g.artKey];
+      c.set(special?.color ?? (kind === "bigbox" ? this.kit.art.color(g) : plat.shell)).convertSRGBToLinear();
+      color.setXYZW(i, c.r, c.g, c.b, page);
       c.set(this.holo ? "#4fd8ff" : plat.neon).convertSRGBToLinear();
       glow.setXYZW(i, c.r, c.g, c.b, kind === "slab" ? 1 : 0);
-      state.setXYZW(i, t.shellRoughness, 0, 0, t.spineGlow);
+      state.setXYZW(i, special?.roughness ?? t.shellRoughness, 0, 0, t.spineGlow);
+      extra.setXYZW(i, spinePage, pad[0], pad[1], special?.metalness ?? 0);
       this.where.set(g.id, { b, i });
     });
     mesh.instanceMatrix.needsUpdate = true;
@@ -151,6 +189,44 @@ export class MediaField {
     mesh.frustumCulled = true;
     this.group.add(mesh);
     return b;
+  }
+
+  // ---- Cooper's grade / now-playing stickers (decals) -----------------------------------------
+  private stickers: THREE.InstancedMesh | null = null;
+  private stickerIdx = new Map<string, { i: number; local: THREE.Matrix4 }>();
+  private static stickerMat: THREE.MeshStandardNodeMaterial | null = null;
+
+  private makeStickers() {
+    const items: { id: string; m: THREE.Matrix4; local: THREE.Matrix4; cell: number }[] = [];
+    for (const b of this.batches) {
+      const local = stickerLocal(b.t, b.photo);
+      if (!local) continue;
+      b.games.forEach((g, i) => {
+        const cell = stickerCell(g);
+        if (cell >= 0) items.push({ id: g.id, m: b.base[i].clone().multiply(local), local, cell });
+      });
+    }
+    if (!items.length) return;
+    const geo = new THREE.PlaneGeometry(1, 1);
+    const cells = new THREE.InstancedBufferAttribute(new Float32Array(items.map((x) => x.cell)), 1);
+    geo.setAttribute("sCell", cells);
+    MediaField.stickerMat ??= stickerMaterial();
+    const mesh = new THREE.InstancedMesh(geo, MediaField.stickerMat, items.length);
+    items.forEach((it, i) => {
+      mesh.setMatrixAt(i, it.m);
+      this.stickerIdx.set(it.id, { i, local: it.local });
+    });
+    mesh.computeBoundingSphere();
+    mesh.name = `${this.group.name}:stickers`;
+    this.stickers = mesh;
+    this.group.add(mesh);
+  }
+
+  private syncSticker(id: string, m: THREE.Matrix4 | null) {
+    const s = this.stickerIdx.get(id);
+    if (!s || !this.stickers) return;
+    this.stickers.setMatrixAt(s.i, m ? m.clone().multiply(s.local) : ZERO);
+    this.stickers.instanceMatrix.needsUpdate = true;
   }
 
   get games(): Game[] {
@@ -185,6 +261,7 @@ export class MediaField {
     w.b.inv[w.i].copy(m).invert();
     w.b.mesh.setMatrixAt(w.i, m);
     w.b.mesh.instanceMatrix.needsUpdate = true;
+    this.syncSticker(id, m);
   }
 
   hide(id: string, hidden: boolean) {
@@ -196,6 +273,7 @@ export class MediaField {
     if (o) o.mesh.visible = !hidden;
     w.b.mesh.setMatrixAt(w.i, hidden ? ZERO : w.b.base[w.i]);
     w.b.mesh.instanceMatrix.needsUpdate = true;
+    this.syncSticker(id, hidden ? null : w.b.base[w.i]);
   }
 
   /** Glow colour (sRGB hex) + intensity for edges / highlight rim. */
@@ -258,7 +336,7 @@ export class MediaField {
     const ctr = new THREE.Vector3();
     const mw = new THREE.Matrix4();
     for (const b of this.batches) {
-      const rect = coverRect(b.kind);
+      const rect = b.photo ? photoRect(b.kind) : coverRect(b.kind);
       if (!rect) continue;
       for (let i = 0; i < b.games.length; i++) {
         const g = b.games[i];
@@ -284,13 +362,16 @@ export class MediaField {
     for (const c of cands.slice(0, maxN)) {
       if (this.overlays.has(c.id)) continue;
       const g = c.b.games[c.i];
-      const rect = coverRect(c.b.kind)!;
+      const photo = c.b.photo;
+      const rect = (photo ? photoRect(c.b.kind) : coverRect(c.b.kind))!;
       const mat = new THREE.MeshStandardNodeMaterial({ roughness: 0.3, transparent: true, polygonOffset: true, polygonOffsetFactor: -2 });
       const crop = uniform(new THREE.Vector4(0, 0, 1, 1));
       const fade = uniform(0);
-      const t = texture(this.kit.art.pages[0], crop.xy.add(vec2(uv().x, uv().y.oneMinus()).mul(crop.zw)));
+      // photo mode: contain-fit; crop.xy = pad, crop.zw = 1 - 2*pad
+      const pu = uv().sub(crop.xy).div(crop.zw);
+      const t = photo ? texture(this.kit.art.pages[0], vec2(pu.x, pu.y.oneMinus())) : texture(this.kit.art.pages[0], crop.xy.add(vec2(uv().x, uv().y.oneMinus()).mul(crop.zw)));
       mat.colorNode = t.rgb;
-      mat.opacityNode = fade;
+      mat.opacityNode = photo ? fade.mul(t.a).mul(step(0, pu.x).mul(step(pu.x, 1)).mul(step(0, pu.y)).mul(step(pu.y, 1))) : fade;
       const w = rect[2] - rect[0], h = rect[3] - rect[1];
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
       mesh.matrixAutoUpdate = false;
@@ -299,11 +380,14 @@ export class MediaField {
       this.group.add(mesh);
       this.overlays.set(c.id, { mesh, mat });
       const la = c.b.t.labelAspect, cy = c.b.t.cropY;
-      this.kit.art.hiRes(g).then((tex) => {
+      (photo ? this.kit.art.tex(this.kit.art.entry(g)?.k) : this.kit.art.hiRes(g)).then((tex) => {
         if (!tex || !this.overlays.has(c.id)) return;
         const img = tex.image as { width: number; height: number };
         const a = img.width / img.height;
-        if (a > la) crop.value.set((1 - la / a) / 2, 0, la / a, 1);
+        if (photo) {
+          const [px, py] = photoPad(a, c.b.kind);
+          crop.value.set(px, py, 1 - 2 * px, 1 - 2 * py);
+        } else if (a > la) crop.value.set((1 - la / a) / 2, 0, la / a, 1);
         else crop.value.set(0, (1 - a / la) * cy, 1, a / la);
         t.value = tex;
         mesh.visible = true;

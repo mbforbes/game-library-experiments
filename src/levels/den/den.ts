@@ -10,7 +10,7 @@
 // Everything that holds games is sized from the data, so the room grows with the backlog.
 
 import * as THREE from "three/webgpu";
-import { texture, vec3, uv, fract, step, length, vec2, float, mix, positionWorld, hash, floor } from "three/tsl";
+import { texture, vec3, uv, fract, step, length, vec2, float, mix, positionWorld, hash, floor, reflector } from "three/tsl";
 import type { Game } from "../../../shared/types";
 import { platformOf, type MediaKind } from "../../../shared/platforms";
 import { wallRail, type Rail } from "../../engine/rail";
@@ -28,6 +28,8 @@ import { poster } from "../../world/kit/decor";
 import { GRADE_COLORS } from "../../media/spines";
 import type { Level, LevelCtx, Station } from "../types";
 import { DenEggs } from "./eggs";
+import { dust } from "../../world/kit/medieval";
+import { LOOPS } from "../../audio/sfx";
 
 const X0 = -4, X1 = 4, Z0 = -3, Z1 = 3, CEIL = 3.0;
 const INSET = 0.35; // rail runs this far in front of the walls (bookcase fronts)
@@ -77,6 +79,9 @@ export default function den(): Level {
 
       buildRoom(scene);
       buildLights(scene);
+      c.audio.setRoom({ seconds: 0.9, decay: 3.5, wet: 0.22 });
+      const emit = (pos: THREE.Vector3, build: (typeof LOOPS)[keyof typeof LOOPS] | ReturnType<typeof LOOPS.arcade>, radius: number, volume = 1, ref = 1) =>
+        c.audio.addEmitter({ position: pos.clone(), radius, volume, ref, build: build as any });
 
       // ---------------- data partitions ----------------
       const owned = store.games.filter((g) => g.status !== "wishlist");
@@ -156,14 +161,17 @@ export default function den(): Level {
       c.pickable(tvSet.group, () => {
         tv.burst(0.5);
         (tv as any).timer = tv.interval; // next channel
+        c.audio.play("channel", { at: tvSet.group.position.clone().setY(0.8) });
         c.toast("📺 Channel up");
       });
+      emit(new THREE.Vector3(nookX, 0.8, Z0 + 0.5), LOOPS.tv, 3.2, 0.55);
       const press = neonSign("PRESS START", { font: `"Tilt Neon", "Monoton", sans-serif`, height: 0.22, color: "#4fd8ff", flicker: 0.02 });
       press.position.set(nookX, 1.95, Z0 + 0.02);
       scene.add(press);
       const den = neonSign("Game Den", { font: `"Monoton", sans-serif`, height: 0.42, color: "#ff3d9a", flicker: 0.006 });
       den.position.set(nookX, 2.45, Z0 + 0.02);
       scene.add(den);
+      emit(den.position, LOOPS.neonHum, 2.6, 0.7);
       c.pickable(den, () => eggs.tapTable());
 
       // ---------------- left wall: PC ----------------
@@ -215,6 +223,7 @@ export default function den(): Level {
       pcScreen.setPlaylist(pc.filter((g) => g.status !== "backlog").slice(0, 80));
       pcScreen.interval = 5;
       tickers.push((dt) => pcScreen.update(dt));
+      emit(new THREE.Vector3(X0 + 0.4, 0.5, deskZ), LOOPS.pc, 2.2, 0.8);
       c.pickable(mon, () => pcScreen.current && c.inspect(pcScreen.current));
 
       // ---------------- right wall: cartridge wall ----------------
@@ -268,9 +277,11 @@ export default function den(): Level {
         tickers.push((dt) => cab.screen.update(dt));
         c.pickable(cab.group, () => {
           c.toast("🪙 INSERT COIN");
+          c.audio.play("coin", { at: cab.group.position.clone().setY(1.0) });
           cab.screen.burst(0.6);
           setTimeout(() => c.inspect(g), 500);
         });
+        emit(cab.group.position.clone().setY(1.3), LOOPS.arcade(i + 3), 3.6, 0.55);
       });
       const arcSign = neonSign("ARCADE", { font: `"Monoton", sans-serif`, height: 0.24, color: "#ffd23f", flicker: 0.015 });
       arcSign.position.set(-2.72, 2.55, Z1 - 0.02);
@@ -282,8 +293,20 @@ export default function den(): Level {
       vending.group.position.set(2.75, 0, Z1 - 0.5);
       vending.group.rotation.y = Math.PI;
       scene.add(vending.group);
-      c.pickable(vending.buttons.next, () => vending.setPage(vending.page + 1));
-      c.pickable(vending.buttons.prev, () => vending.setPage(vending.page - 1));
+      const vendAt = new THREE.Vector3(2.75, 1.2, Z1 - 0.5);
+      const vendSfx = () => {
+        c.audio.play("coin", { at: vendAt, volume: 0.6 });
+        c.audio.play("vend", { at: vendAt, delay: 0.15 });
+      };
+      c.pickable(vending.buttons.next, () => {
+        vendSfx();
+        vending.setPage(vending.page + 1);
+      });
+      c.pickable(vending.buttons.prev, () => {
+        vendSfx();
+        vending.setPage(vending.page - 1);
+      });
+      emit(vendAt, LOOPS.compressor, 2.6, 0.7);
       tickers.push((dt) => vending.update(dt));
 
       // the window + the world outside
@@ -294,6 +317,8 @@ export default function den(): Level {
         if (m) (m as any).fog = false;
       });
       scene.add(outside.group);
+      const rainAt = new THREE.Vector3(0, 1.5, Z1 - 0.2);
+      let rain = emit(rainAt, LOOPS.rain, 5.5, 0.8, 2);
       const boards = [billboard(3.2, 4.4), billboard(2.6, 3.6)];
       boards[0].mesh.position.set(-4.5, 4.2, Z1 + 21);
       boards[1].mesh.position.set(6.5, 2.4, Z1 + 12);
@@ -323,7 +348,13 @@ export default function den(): Level {
       windowGlass.position.set(0, 1.5, Z1 - 0.01);
       windowGlass.rotation.y = Math.PI;
       scene.add(windowGlass);
-      c.pickable(windowGlass, () => eggs.cycleWindow());
+      c.pickable(windowGlass, () => {
+        eggs.cycleWindow();
+        c.audio.play("zap", { at: rainAt });
+        // it only rains in the city
+        rain.remove();
+        if ((eggs as any).modeTarget === 0) rain = emit(rainAt, LOOPS.rain, 5.5, 0.8, 2);
+      });
 
       // NOW PLAYING split-flap board above the window
       const flap = new SplitFlap(26, 6, 2.2);
@@ -337,6 +368,7 @@ export default function den(): Level {
         flapT += dt;
         if (flapT > 7 && playList.length) {
           flapT = 0;
+          c.audio.play("flap", { at: flap.mesh.position, volume: 0.7 });
           flap.setRow(0, `NOW PLAYING ${String(flapPage * 5 + 1).padStart(3)}-${Math.min(playList.length, flapPage * 5 + 5)} OF ${playList.length}`, "#ffb000");
           for (let r = 0; r < 5; r++) {
             const g = playList[flapPage * 5 + r];
@@ -365,6 +397,7 @@ export default function den(): Level {
       holo = new Hologram(art, { size: 0.62, res: engine.quality.mobile ? 44 : 60 });
       holo.group.position.set(0, 0.46, 0.2);
       scene.add(holo.group);
+      emit(new THREE.Vector3(0, 0.9, 0.2), LOOPS.holo, 2.4, 0.6);
       const hallOfFame = owned.filter((g) => g.grade === "A+");
       let fameIdx = 0, fameT = 0;
       holo.show(hallOfFame[0] ?? null);
@@ -462,6 +495,7 @@ export default function den(): Level {
     onSelect(g) {
       if (g) {
         holo.show(g);
+        ctx.audio.play("materialize", { at: holo.group.position, delay: 0.35, volume: 0.6 });
         if (g.status !== "wishlist") tv.show(g);
       }
     },
@@ -543,6 +577,18 @@ export default function den(): Level {
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
+    // polished floor: real (blurred, distorted) reflections of the neon on desktop
+    if (!ctx.engine.quality.mobile) {
+      const refl = reflector({ resolutionScale: 0.35 });
+      refl.target.rotateX(-Math.PI / 2);
+      scene.add(refl.target);
+      const wob = vec2(hash(floor_uvSeed()).sub(0.5), 0).mul(0.004);
+      refl.uvNode = refl.uvNode!.add(wob);
+      floorMat.emissiveNode = refl.rgb.mul(0.32).mul(float(1).sub((floorMat as any).userData.seam ?? float(0)));
+    }
+    // dust drifting through the neon light
+    const motes = dust(ctx.engine.quality.mobile ? 110 : 240, 3.4, 0.2, CEIL - 0.2, "#ffb3e0");
+    scene.add(motes);
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), ceilMat);
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = CEIL;
@@ -645,6 +691,10 @@ function shelfLabel(text: string, color: string) {
 }
 
 
+function floor_uvSeed() {
+  return floor(positionWorld.xz.mul(80)).dot(vec2(1, 157));
+}
+
 function floorMaterial() {
   // dark polished floor with large tiles and a little grit; reflections come from the env map
   const m = new THREE.MeshStandardNodeMaterial({ metalness: 0.15 });
@@ -655,6 +705,7 @@ function floorMaterial() {
   const base = vec3(0.012, 0.01, 0.018).add(grit.mul(0.006));
   m.colorNode = mix(base, vec3(0.003), seam);
   m.roughnessNode = mix(float(0.18).add(grit.mul(0.1)), float(0.6), seam);
+  m.userData.seam = seam;
   return m;
 }
 

@@ -9,6 +9,9 @@ import {
 } from "three/tsl";
 import { boxes, canvas, canvasTexture, lin } from "./common";
 
+/** Lab-wide animation clock (seconds since the level appeared). */
+export const labFx = { since: uniform(99) };
+
 /** White wall panels (world-space grid) with occasional dark "non-conductive" panels. */
 export function panelMaterial(opts: { size?: number; dark?: number; axis?: "xy" | "zy" | "xz" } = {}) {
   const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.55 });
@@ -242,10 +245,18 @@ export function cellFrames(cells: { pos: THREE.Vector3; quat: THREE.Quaternion; 
   const lightGeo = new THREE.BoxGeometry(0.8, 0.035, 0.02).translate(0, -0.44, 0.02);
   const colAttr = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
   lightGeo.setAttribute("aColor", colAttr);
+  const delayAttr = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
+  lightGeo.setAttribute("aDelay", delayAttr);
+  const xs = cells.map((c) => c.pos.x), ys = cells.map((c) => c.pos.y);
+  const x0 = Math.min(...xs), y1 = Math.max(...ys);
   const lm = new THREE.MeshBasicNodeMaterial();
   const ac = attribute("aColor", "vec3");
+  // power-up wave: each light switches on after a delay that sweeps across the wall
+  const delay = attribute("aDelay", "float");
+  const since = labFx.since.sub(delay);
+  const on = since.lessThan(0).select(float(0.03), since.lessThan(0.12).select(float(2.4), float(1)));
   lm.colorNode = vec3(0);
-  lm.emissiveNode = ac.mul(sin(time.mul(1.5).add(float(instanceIndex).mul(0.37))).mul(0.15).add(1.6));
+  lm.emissiveNode = ac.mul(sin(time.mul(1.5).add(float(instanceIndex).mul(0.37))).mul(0.15).add(1.6)).mul(on);
   const light = new THREE.InstancedMesh(lightGeo, lm, n);
   const m = new THREE.Matrix4();
   cells.forEach((cl, i) => {
@@ -253,6 +264,7 @@ export function cellFrames(cells: { pos: THREE.Vector3; quat: THREE.Quaternion; 
     frame.setMatrixAt(i, m);
     light.setMatrixAt(i, m);
     colAttr.setXYZ(i, cl.color.r, cl.color.g, cl.color.b);
+    delayAttr.setX(i, 0.4 + (cl.pos.x - x0) * 0.16 + (y1 - cl.pos.y) * 0.22 + Math.random() * 0.08);
   });
   frame.computeBoundingSphere();
   light.computeBoundingSphere();

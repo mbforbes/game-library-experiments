@@ -1,12 +1,15 @@
-// Runtime spine atlas: every case/box gets a printed spine (platform band, title, and a
-// little sticker showing Cooper's grade or a "now playing" marker). Drawn into one canvas
-// texture sized to fit everything on the device's budget.
+// Spines. Real spine scans (LaunchBox) come from a build-time atlas; everything else gets a
+// spine printed here at runtime in its platform's retail design: band + wordmark, title,
+// publisher, ESRB box, and edition banners (Greatest Hits, Player's Choice...).
+// Cooper's grade stickers are separate 3D decals (see stickers in field.ts), so they appear on
+// real and printed spines alike.
 
 import * as THREE from "three/webgpu";
 import type { Game } from "../../shared/types";
 import { mediaFor, platformOf } from "../../shared/platforms";
 import { TEMPLATES } from "./templates";
 import type { ArtStore } from "../library/art";
+import { editionOf, editionStyle, esrbBox, spineDesign, wordmark } from "./branding";
 
 export const GRADE_COLORS: Record<string, string> = { "A+": "#ffd23f", A: "#3ddc84", B: "#38b6ff", C: "#c9c9c9", D: "#ff9f1c", F: "#ff3b3b" };
 
@@ -16,7 +19,7 @@ export class SpineAtlas {
   rects = new Map<string, [number, number, number, number]>();
   readonly size: number;
 
-  constructor(mobile: boolean) {
+  constructor(mobile: boolean, private art: ArtStore) {
     this.size = mobile ? 2048 : 4096;
     this.canvas.width = this.canvas.height = this.size;
     this.texture = new THREE.CanvasTexture(this.canvas);
@@ -27,19 +30,26 @@ export class SpineAtlas {
     this.texture.minFilter = THREE.LinearMipmapLinearFilter;
   }
 
-  build(games: Game[], art: ArtStore) {
+  /** Real scan available and no special edition to show (scans are standard releases). */
+  usesReal(g: Game): boolean {
+    return !!this.art.realSpine(g) && !editionOf(g);
+  }
+
+  build(games: Game[]) {
+    const art = this.art;
     const items: { g: Game; w: number; h: number; horiz: boolean }[] = [];
     const ctx = this.canvas.getContext("2d")!;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, this.size, this.size);
     const specs = games
+      .filter((g) => !this.usesReal(g))
       .map((g) => ({ g, t: TEMPLATES[mediaFor(platformOf(g.platform), art.year(g))] }))
       .filter((x) => x.t.spine);
     // choose spine pixel height so the whole set fits one page (~82% packing efficiency)
     let area = 0;
     for (const { t } of specs) {
       const [sw, sh] = t.spine!;
-      area += sh >= sw ? (sw / sh) : sh / sw; // relative area at unit height
+      area += sh >= sw ? sw / sh : sh / sw;
     }
     const H = Math.min(512, Math.floor(Math.sqrt((this.size * this.size * 0.82) / Math.max(1, area))));
     for (const { g, t } of specs) {
@@ -49,7 +59,6 @@ export class SpineAtlas {
       const w = horiz ? H : Math.max(6, Math.round(H * (sw / sh)));
       items.push({ g, w, h, horiz });
     }
-    // shelf packing, tallest first
     items.sort((a, b) => b.h - a.h);
     let x = 0, y = 0, rowH = 0;
     for (const it of items) {
@@ -58,7 +67,7 @@ export class SpineAtlas {
         y += rowH + 1;
         rowH = 0;
       }
-      if (y + it.h > this.size) break; // out of room: remaining spines use the shell colour
+      if (y + it.h > this.size) break;
       drawSpine(ctx, x, y, it.w, it.h, it.g, art, it.horiz);
       this.rects.set(it.g.id, [x / this.size, y / this.size, it.w / this.size, it.h / this.size]);
       x += it.w + 1;
@@ -77,7 +86,8 @@ function luminance(hex: string) {
 export function drawSpine(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, g: Game, art: ArtStore, horiz = false) {
   const p = platformOf(g.platform);
   const kind = mediaFor(p, art.year(g));
-  let bg = p.spine, fg = p.spineText;
+  const d = spineDesign(p);
+  let bg = d.bg, fg = d.fg;
   if (kind === "bigbox") {
     bg = art.color(g);
     fg = luminance(bg) > 0.45 ? "#111" : "#fff";
@@ -103,57 +113,74 @@ export function drawSpine(ctx: CanvasRenderingContext2D, x: number, y: number, w
     return;
   }
 
-  const band = Math.round(Math.min(h * 0.13, w * 2.4));
-  if (kind !== "slab") {
-    ctx.fillStyle = p.band;
-    ctx.fillRect(x, y, w, band);
-  } else {
+  if (d.pattern === "grid") {
+    ctx.strokeStyle = "rgba(255,255,255,0.07)";
+    ctx.lineWidth = Math.max(1, w * 0.03);
+    for (let gy = y; gy < y + h; gy += w * 0.5) {
+      ctx.beginPath();
+      ctx.moveTo(x, gy);
+      ctx.lineTo(x + w, gy);
+      ctx.stroke();
+    }
+  }
+
+  // platform band with a rotated wordmark (reads along the spine)
+  const edition = editionOf(g);
+  const band = Math.round(Math.min(h * 0.17, w * 3.2));
+  if (kind === "slab") {
     ctx.fillStyle = p.neon;
     ctx.globalAlpha = 0.85;
     ctx.fillRect(x, y + band - Math.max(1, w * 0.06), w, Math.max(1, w * 0.06));
     ctx.globalAlpha = 1;
+  } else {
+    ctx.fillStyle = d.band;
+    ctx.fillRect(x, y, w, band);
   }
-  // platform label in the band (horizontal, tiny) — or rotated when the spine is very thin
-  ctx.fillStyle = kind === "slab" ? p.neon : p.bandText;
   ctx.save();
   ctx.translate(x + w / 2, y + band / 2);
   ctx.rotate(Math.PI / 2);
-  fitText(ctx, p.short, 0, 0, band * 0.86, w * 0.62, `"Barlow Condensed", "Oswald", sans-serif`, "center", 700);
+  wordmark(ctx, p, -band * 0.46, -w * 0.42, band * 0.92, w * 0.84, kind === "slab" ? p.neon : d.bandFg);
   ctx.restore();
 
-  // status sticker at the bottom
-  const sticker = Math.round(Math.min(w * 0.9, h * 0.09));
-  let bottom = y + h - Math.round(w * 0.25);
-  if (g.status === "completed" && g.grade) {
-    const cy = bottom - sticker / 2;
-    ctx.fillStyle = GRADE_COLORS[g.grade];
-    ctx.beginPath();
-    ctx.arc(x + w / 2, cy, sticker / 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#111";
+  let top = y + band + w * 0.35;
+  let bottom = y + h - w * 0.3;
+  // edition banner under the platform band (Greatest Hits etc.)
+  if (edition) {
+    const es = editionStyle(edition, p);
+    const eb = Math.round(Math.min(h * 0.14, w * 2.6));
+    ctx.fillStyle = es.bg;
+    ctx.fillRect(x, y + band, w, eb);
+    ctx.fillStyle = es.fg;
     ctx.save();
-    ctx.translate(x + w / 2, cy);
+    ctx.translate(x + w / 2, y + band + eb / 2);
     ctx.rotate(Math.PI / 2);
-    fitText(ctx, g.grade, 0, 0, sticker * 0.8, sticker * 0.62, `"Oswald", sans-serif`, "center", 700);
+    fitText(ctx, es.text, 0, 0, eb * 0.9, w * 0.5, `"Barlow Condensed", sans-serif`, "center", 700);
     ctx.restore();
-    bottom -= sticker + w * 0.3;
-  } else if (g.status === "playing") {
-    ctx.fillStyle = "#ffb000";
-    const sh = sticker * 1.6;
-    ctx.fillRect(x + w * 0.18, bottom - sh, w * 0.64, sh);
-    ctx.fillStyle = "#111";
-    ctx.beginPath();
-    const cx = x + w / 2, cy = bottom - sh / 2, r = Math.min(w * 0.22, sh * 0.3);
-    ctx.moveTo(cx - r * 0.8, cy - r);
-    ctx.lineTo(cx + r * 0.8, cy - r);
-    ctx.lineTo(cx, cy + r);
-    ctx.closePath();
-    ctx.fill();
-    bottom -= sh + w * 0.3;
+    top += eb;
+  }
+  // bottom: ESRB box + publisher (only on spines wide enough to read)
+  const rating = art.esrb(g);
+  if (rating && kind !== "slab" && kind !== "bigbox") {
+    // upright, like the little rating icon at the foot of real spines
+    const eh = Math.min((w * 0.78) / 0.68, h * 0.09);
+    esrbBox(ctx, rating, x + (w - eh * 0.68) / 2, bottom - eh, eh);
+    bottom -= eh + w * 0.25;
+  }
+  const pub = art.publisher(g);
+  if (pub && kind !== "slab") {
+    const len = Math.min(h * 0.18, (bottom - top) * 0.3);
+    ctx.fillStyle = fg;
+    ctx.globalAlpha = 0.75;
+    ctx.save();
+    ctx.translate(x + w / 2, bottom - len);
+    ctx.rotate(Math.PI / 2);
+    fitText(ctx, pub.toUpperCase(), 0, 0, len, w * 0.34, `"Barlow Condensed", sans-serif`, "left", 600);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    bottom -= len + w * 0.3;
   }
 
   // title, rotated to read top-to-bottom
-  const top = y + band + w * 0.35;
   const len = bottom - top;
   ctx.fillStyle = fg;
   if (kind === "slab") {
@@ -163,7 +190,7 @@ export function drawSpine(ctx: CanvasRenderingContext2D, x: number, y: number, w
   ctx.save();
   ctx.translate(x + w / 2, top);
   ctx.rotate(Math.PI / 2);
-  fitText(ctx, g.title, 0, 0, len, w * 0.66, `"Oswald", "Barlow Condensed", sans-serif`, "left", 500);
+  fitText(ctx, g.title, 0, 0, len, w * 0.62, `"Oswald", "Barlow Condensed", sans-serif`, "left", 500);
   ctx.restore();
   ctx.restore();
 }
@@ -188,3 +215,5 @@ export function fitText(ctx: CanvasRenderingContext2D, text: string, x: number, 
   ctx.fillText(text, 0, size * 0.04);
   ctx.restore();
 }
+
+export { luminance };
