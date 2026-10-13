@@ -22,7 +22,8 @@ export function detectQuality(): Quality {
     tier,
     mobile,
     maxDpr: Math.min(native, tier === "low" ? 1 : tier === "mid" ? 2 : 2),
-    minDpr: Math.min(native, tier === "low" ? 0.6 : 0.75),
+    // adaptive resolution never goes below this: lower looked blurry ("fuzzy")
+    minDpr: Math.min(native, tier === "low" ? 0.6 : tier === "mid" ? 1.0 : 1.2),
   };
 }
 
