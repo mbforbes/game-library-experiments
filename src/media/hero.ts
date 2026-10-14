@@ -84,7 +84,7 @@ class HeroShared {
     mat.roughnessNode = select(between(0.5, 1.5), float(0.25), select(between(4.5, 5.5), float(0.08), this.shellRough));
     mat.metalnessNode = select(part.lessThan(0.5), this.metal, float(0));
     const rim = float(1).sub(normalView.dot(positionViewDirection).abs()).pow(2.5);
-    let glow: any = this.neon.mul(select(between(4.5, 5.5), float(1.6), float(0)));
+    let glow: any = vec3(0);
     glow = glow.add(select(between(1.5, 2.5), this.spine.rgb.mul(this.spineGlow), vec3(0)));
     glow = glow.add(this.neon.mul(rim.mul(this.glow)));
     // a little self-light so the box reads clearly wherever it floats in the (dark) room

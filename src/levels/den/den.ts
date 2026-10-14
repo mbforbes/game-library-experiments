@@ -30,7 +30,6 @@ import type { Level, LevelCtx, Station } from "../types";
 import { DenEggs } from "./eggs";
 import { decorateDen } from "./decor";
 import { dust } from "../../world/kit/medieval";
-import { LOOPS } from "../../audio/sfx";
 
 const X0 = -4, X1 = 4, Z0 = -3, Z1 = 3, CEIL = 3.0;
 const INSET = 0.35; // rail runs this far in front of the walls (bookcase fronts)
@@ -81,8 +80,7 @@ export default function den(): Level {
       buildRoom(scene);
       buildLights(scene);
       c.audio.setRoom({ seconds: 0.9, decay: 3.5, wet: 0.22 });
-      const emit = (pos: THREE.Vector3, build: (typeof LOOPS)[keyof typeof LOOPS] | ReturnType<typeof LOOPS.arcade>, radius: number, volume = 1, ref = 1) =>
-        c.audio.addEmitter({ position: pos.clone(), radius, volume, ref, build: build as any });
+      // (no ambient loops in the den: rain, hums and fans all read as static. Music + SFX only.)
 
       // ---------------- data partitions ----------------
       const owned = store.games.filter((g) => g.status !== "wishlist");
@@ -165,14 +163,12 @@ export default function den(): Level {
         c.audio.play("channel", { at: tvSet.group.position.clone().setY(0.8) });
         c.toast("📺 Channel up");
       });
-      emit(new THREE.Vector3(nookX, 0.8, Z0 + 0.5), LOOPS.tv, 3.2, 0.55);
       const press = neonSign("PRESS START", { font: `"Tilt Neon", "Monoton", sans-serif`, height: 0.22, color: "#4fd8ff", flicker: 0.02 });
       press.position.set(nookX, 1.95, Z0 + 0.02);
       scene.add(press);
       const den = neonSign("Game Den", { font: `"Monoton", sans-serif`, height: 0.42, color: "#ff3d9a", flicker: 0.006 });
       den.position.set(nookX, 2.45, Z0 + 0.02);
       scene.add(den);
-      emit(den.position, LOOPS.neonHum, 2.6, 0.7);
       c.pickable(den, () => eggs.tapTable());
 
       // ---------------- left wall: PC ----------------
@@ -224,7 +220,6 @@ export default function den(): Level {
       pcScreen.setPlaylist(pc.filter((g) => g.status !== "backlog").slice(0, 80));
       pcScreen.interval = 5;
       tickers.push((dt) => pcScreen.update(dt));
-      emit(new THREE.Vector3(X0 + 0.4, 0.5, deskZ), LOOPS.pc, 2.2, 0.8);
       c.pickable(mon, () => pcScreen.current && c.inspect(pcScreen.current));
 
       // ---------------- right wall: cartridge wall ----------------
@@ -282,7 +277,6 @@ export default function den(): Level {
           cab.screen.burst(0.6);
           setTimeout(() => c.inspect(g), 500);
         });
-        emit(cab.group.position.clone().setY(1.3), LOOPS.arcade(i + 3), 3.6, 0.55);
       });
       const arcSign = neonSign("ARCADE", { font: `"Monoton", sans-serif`, height: 0.24, color: "#ffd23f", flicker: 0.015 });
       arcSign.position.set(-2.72, 2.55, Z1 - 0.02);
@@ -307,7 +301,6 @@ export default function den(): Level {
         vendSfx();
         vending.setPage(vending.page - 1);
       });
-      emit(vendAt, LOOPS.compressor, 2.6, 0.7);
       tickers.push((dt) => vending.update(dt));
 
       // the window + the world outside
@@ -319,7 +312,6 @@ export default function den(): Level {
       });
       scene.add(outside.group);
       const rainAt = new THREE.Vector3(0, 1.5, Z1 - 0.2);
-      let rain = emit(rainAt, LOOPS.rain, 5.5, 0.8, 2);
       const boards = [billboard(3.2, 4.4), billboard(2.6, 3.6)];
       boards[0].mesh.position.set(-4.5, 4.2, Z1 + 21);
       boards[1].mesh.position.set(6.5, 2.4, Z1 + 12);
@@ -352,9 +344,6 @@ export default function den(): Level {
       c.pickable(windowGlass, () => {
         eggs.cycleWindow();
         c.audio.play("zap", { at: rainAt });
-        // it only rains in the city
-        rain.remove();
-        if ((eggs as any).modeTarget === 0) rain = emit(rainAt, LOOPS.rain, 5.5, 0.8, 2);
       });
 
       // NOW PLAYING split-flap board above the window
@@ -398,7 +387,6 @@ export default function den(): Level {
       holo = new Hologram(art, { size: 0.62, res: engine.quality.mobile ? 44 : 60 });
       holo.group.position.set(0, 0.46, 0.2);
       scene.add(holo.group);
-      emit(new THREE.Vector3(0, 0.9, 0.2), LOOPS.holo, 2.4, 0.6);
       const hallOfFame = owned.filter((g) => g.grade === "A+");
       let fameIdx = 0, fameT = 0;
       holo.show(hallOfFame[0] ?? null);
@@ -528,12 +516,7 @@ export default function den(): Level {
     const f = new MediaField(ctx.kit, placements, { name });
     ctx.scene.add(f.group);
     fields.push(f);
-    // status glows: amber for "now playing", gold rim for A+
-    for (const p of placements) {
-      if (p.game.status === "playing") f.setGlow(p.game.id, "#ffb000", 0.6);
-      else if (p.game.grade === "A+") f.setGlow(p.game.id, "#ffd23f", 0.6);
-      else f.setGlow(p.game.id, platformOf(p.game.platform).neon, kindOf(p.game, ctx.art) === "slab" ? 1 : 0);
-    }
+    // (no status glows: with 100+ games in progress the shelves were mostly glowing)
     return f;
   }
 

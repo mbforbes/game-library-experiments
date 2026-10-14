@@ -259,7 +259,11 @@ export class App {
         setTimeout(() => this.openGame(g), 650);
       },
       onFilter: (f: any) => this.store.setFilter(f),
-      onLevel: (id: string) => this.loadLevel(id),
+      onLevel: (id: string) => {
+        // (inside the tap: the one moment iOS lets us restart sound that it had stopped)
+        this.audio.revive();
+        this.loadLevel(id);
+      },
       onSound: () => (this.audio.enabled = !this.audio.enabled),
       soundOn: () => this.audio.enabled,
       onUi: (kind: "tick" | "travel") => this.audio.play(kind, { volume: kind === "tick" ? 0.7 : 0.8 }),
@@ -324,6 +328,7 @@ export class App {
     let dragHero = false;
     const handlers: Input["handlers"] = {
       pan: (dx, dy, dt) => {
+        if (!this.inspector.active && this.level?.onGesture?.({ type: "pan", dx, dy })) return;
         if (this.inspector.active) {
           dragHero = true;
           this.inspector.drag(dx, dy);
@@ -332,6 +337,7 @@ export class App {
         this.rig.pan(dx, dy, dt);
       },
       panEnd: () => {
+        if (!dragHero && this.level?.onGesture?.({ type: "panEnd" })) return;
         if (dragHero) {
           this.inspector.release();
           dragHero = false;
@@ -339,9 +345,11 @@ export class App {
         this.rig.endPan();
       },
       zoom: (f) => {
-        if (!this.inspector.active) this.rig.zoom(f);
+        if (this.inspector.active || this.level?.onGesture?.({ type: "zoom", factor: f })) return;
+        this.rig.zoom(f);
       },
       scroll: (dx, dy) => {
+        if (!this.inspector.active && this.level?.onGesture?.({ type: "scroll", dx, dy })) return;
         if (this.inspector.active) {
           this.inspector.drag(-dy * 0.3, 0);
           return;

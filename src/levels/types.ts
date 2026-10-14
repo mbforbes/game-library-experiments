@@ -54,7 +54,15 @@ export interface Level {
   onSelect?(game: Game | null): void;
   /** Keyboard hook for easter eggs; return true if handled */
   onKey?(e: KeyboardEvent): boolean;
+  /** Gesture hook (e.g. a close-up mode that uses drags itself); return true if handled. */
+  onGesture?(g: Gesture): boolean;
   dispose(): void;
 }
+
+export type Gesture =
+  | { type: "pan"; dx: number; dy: number }
+  | { type: "panEnd" }
+  | { type: "zoom"; factor: number }
+  | { type: "scroll"; dx: number; dy: number };
 
 export type LevelFactory = () => Level;

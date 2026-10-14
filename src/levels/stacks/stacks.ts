@@ -21,7 +21,6 @@ import { GRADE_COLORS } from "../../media/spines";
 import { boxes } from "../../world/kit/common";
 import type { Level, LevelCtx, Station } from "../types";
 import { texture, vec3 } from "three/tsl";
-import { LOOPS } from "../../audio/sfx";
 import { decorateStacks } from "./decor";
 
 const R = 3.0; // radius of the shelf fronts (roomy: zooming out keeps you clear of the light shafts)
@@ -69,8 +68,7 @@ export default function stacks(): Level {
       scene.environment = null;
       // a tall stone tower: long, dark reverb; wind and candle crackle everywhere
       c.audio.setRoom({ seconds: 4.5, decay: 2.2, wet: 0.42 });
-      c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.6, build: LOOPS.wind });
-      c.audio.addEmitter({ position: new THREE.Vector3(), radius: 1e6, ambient: true, volume: 0.45, build: LOOPS.candles });
+      // (no ambient loops in the stacks: wind and crackle read as static. Music + SFX only.)
 
       await progress("Ordering the ages…");
       const owned = store.games.filter((g) => g.status !== "wishlist");
@@ -136,10 +134,6 @@ export default function stacks(): Level {
       const field = new MediaField(c.kit, placements, { name: "stacks" });
       scene.add(field.group);
       fields.push(field);
-      for (const p of placements) {
-        if (p.game.status === "playing") field.setGlow(p.game.id, "#ffb000", 0.5);
-        else if (p.game.grade === "A+") field.setGlow(p.game.id, "#ffd23f", 0.7);
-      }
       console.info(`[stacks] ${owned.length} games in ${bays.length} bays (fill ${(pack.fill * 100).toFixed(0)}%) over ${((thetaEnd - theta0) / (Math.PI * 2)).toFixed(2)} turns`);
 
       // ---- architecture ----
@@ -177,8 +171,6 @@ export default function stacks(): Level {
       await progress("Opening the Codex…");
       codex = new Codex(1.5);
       scene.add(codex.group);
-      const drone = c.audio.addEmitter({ position: new THREE.Vector3(), radius: 3.2, volume: 0.8, ref: 1.2, build: LOOPS.drone });
-      tickers.push(() => drone.move(codex.group.position));
       showChronicle();
       const codexTarget = new THREE.Vector3();
       tickers.push((dt, t) => {
@@ -186,7 +178,8 @@ export default function stacks(): Level {
         // floats on the tower's axis at the viewer's height, turning to face them (the camera
         // never crosses the axis, so it's behind you while you browse the shelves)
         const cam = c.camera.position;
-        codexTarget.set(0, cam.y - 0.15 + Math.sin(t * 0.7) * 0.05, 0);
+        updateCodexView(dt);
+        codexTarget.set(0, (codexView ? codexView.y : cam.y) - 0.15 + Math.sin(t * 0.7) * 0.05, 0);
         codex.group.position.lerp(codexTarget, Math.min(1, dt * 2));
         const want = Math.atan2(cam.x - codex.group.position.x, cam.z - codex.group.position.z);
         let d = want - codex.group.rotation.y;
@@ -208,7 +201,6 @@ export default function stacks(): Level {
       scene.add(wf.group);
       fields.push(wf);
       flock = { field: wf, orbits };
-      c.audio.addEmitter({ position: new THREE.Vector3(0, yWish + 1.5, 0), radius: 5, volume: 0.7, build: LOOPS.flutter });
 
       // ---- rail: a helix hugging the shelf fronts ----
       const pts: THREE.Vector3[] = [], nrm: THREE.Vector3[] = [];
@@ -237,15 +229,8 @@ export default function stacks(): Level {
         {
           id: "codex",
           label: "The Codex",
-          go: () => {
-            // turn around from wherever you are on the stair and face the book on the axis
-            const cam = c.camera.position;
-            const dir = new THREE.Vector3(cam.x, 0, cam.z);
-            if (dir.lengthSq() < 1e-4) dir.set(1, 0, 0);
-            dir.normalize();
-            const at = new THREE.Vector3(0, cam.y - 0.1, 0);
-            c.rig.goFree(at.clone().addScaledVector(dir, 1.35).add(new THREE.Vector3(0, 0.25, 0)), at);
-          },
+          // turn around from wherever you are on the stair and face the book on the axis
+          go: () => enterCodex(),
         },
         {
           id: "wishes",
@@ -254,6 +239,15 @@ export default function stacks(): Level {
         },
         { id: "future", label: "The Unwritten", go: () => c.rig.goTo({ s: sOf(thetaEnd + Math.PI * 1.2), h: BAND * 0.5, d: 1.6 }, 2.4) },
       );
+      // any other station leaves the Codex close-up
+      for (const st of stations) {
+        if (st.id === "codex") continue;
+        const go = st.go;
+        st.go = () => {
+          leaveCodex();
+          go();
+        };
+      }
 
       // ---- furnishings: candles, curios, arches, the gallery, the vault (see decor.ts) ----
       await decorateStacks(c, { R, DEPTH, BAND, PITCH, bays, a0: theta0 - before, a1: thetaEnd + after, libEnd: thetaEnd }, progress);
@@ -265,7 +259,10 @@ export default function stacks(): Level {
       if (lantern) {
         const cam = ctx.camera;
         const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
-        lantern.position.copy(cam.position).addScaledVector(fwd, 0.5).add(new THREE.Vector3(0, 0.35, 0));
+        // carried a little ahead of you, but never past the shelf fronts when you lean in close
+        // (it used to end up behind the spines and light them from the back: all dark)
+        const ahead = codexView ? 0.5 : Math.min(0.5, ctx.rig.state.d * 0.4);
+        lantern.position.copy(cam.position).addScaledVector(fwd, ahead).add(new THREE.Vector3(0, 0.35, 0));
         lantern.intensity = 9 + Math.sin(t * 9) * 0.25 + Math.sin(t * 23) * 0.15;
       }
       // the wishlist flock circles
@@ -283,6 +280,7 @@ export default function stacks(): Level {
     },
 
     focusGame(g) {
+      leaveCodex();
       for (const f of fields) {
         const p = f.centerOf(g.id);
         if (!p) continue;
@@ -303,6 +301,84 @@ export default function stacks(): Level {
         showChronicle();
         return;
       }
+      drawPage(g);
+    },
+
+    onGesture(gs) {
+      if (!codexView) return false;
+      const v = codexView;
+      if (gs.type === "pan") {
+        // sideways: turn pages (game by game, in shelf order); up/down: look along the page
+        v.acc += gs.dx;
+        if (Math.abs(v.acc) > 70) {
+          turnPage(v.acc < 0 ? 1 : -1);
+          v.acc = 0;
+        }
+        v.dy = Math.max(-0.35, Math.min(0.35, v.dy + gs.dy * 0.0025));
+      } else if (gs.type === "panEnd") v.acc = 0;
+      else if (gs.type === "zoom") v.zoom = Math.max(0.4, Math.min(1, v.zoom * gs.factor));
+      else if (gs.type === "scroll") {
+        v.acc += Math.abs(gs.dx) > Math.abs(gs.dy) ? -gs.dx : -gs.dy;
+        if (Math.abs(v.acc) > 120) {
+          turnPage(v.acc < 0 ? 1 : -1);
+          v.acc = 0;
+        }
+      }
+      return true;
+    },
+
+    dispose() {
+      for (const f of fields) f.dispose();
+      neonFx.rainbow.value = 0;
+    },
+  };
+
+  // ---- the Codex close-up -----------------------------------------------------------------
+  // Framed to fit the whole open book on any screen (backing up as far as the tower allows and
+  // shrinking the book if a narrow phone needs more); drags/pinches/wheel read the book
+  // instead of leaving it; any other station leaves.
+  let codexView: { angle: number; y: number; zoom: number; dy: number; acc: number; page: number } | null = null;
+  const BOOK_W = 1.5, BOOK_H = (1.5 / 2) * (1400 / 1024);
+
+  function codexFit() {
+    const cam = ctx.camera;
+    const tv = Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2);
+    const need = Math.max((BOOK_H / 2 + 0.08) / (tv * 0.8), (BOOK_W / 2 + 0.06) / (tv * cam.aspect * 0.96));
+    const maxD = R - 0.4;
+    return { dist: Math.min(need, maxD), scale: Math.min(1, maxD / need) };
+  }
+
+  function enterCodex() {
+    const cam = ctx.camera.position;
+    codexView = { angle: Math.atan2(cam.z, cam.x), y: cam.y, zoom: 1, dy: 0, acc: 0, page: -1 };
+  }
+
+  function leaveCodex() {
+    codexView = null;
+  }
+
+  function updateCodexView(dt: number) {
+    const fit = codexFit();
+    const want = codexView ? fit.scale : 1;
+    const sc = codex.group.scale.x + (want - codex.group.scale.x) * Math.min(1, dt * 4);
+    codex.group.scale.setScalar(sc);
+    if (!codexView) return;
+    const v = codexView;
+    const d = Math.max(0.55, fit.dist * v.zoom);
+    const yc = v.y - 0.15 + v.dy * sc;
+    ctx.rig.goFree(new THREE.Vector3(Math.cos(v.angle) * d, yc + 0.12, Math.sin(v.angle) * d), new THREE.Vector3(0, yc, 0));
+  }
+
+  function turnPage(dir: number) {
+    const v = codexView!;
+    const order = fields[0]?.order ?? [];
+    if (!order.length) return;
+    v.page = v.page < 0 ? (dir > 0 ? 0 : order.length - 1) : (v.page + dir + order.length) % order.length;
+    ctx.audio.play("page", { at: codex.group.position });
+    drawPage(order[v.page]);
+  }
+
+  function drawPage(g: Game) {
       const p = platformOf(g.platform);
       const year = ctx.art.year(g);
       const facts = [
@@ -319,13 +395,7 @@ export default function stacks(): Level {
         body: g.review ?? (g.status === "wishlist" ? "A wish, not yet granted. The scribes keep watch for a fair price." : "These pages remain blank. The tale is yet to be written."),
         badge: g.grade ? { text: g.grade, color: GRADE_COLORS[g.grade] } : undefined,
       });
-    },
-
-    dispose() {
-      for (const f of fields) f.dispose();
-      neonFx.rainbow.value = 0;
-    },
-  };
+  }
 
   function showChronicle(full = false) {
     const s = ctx.store.stats;

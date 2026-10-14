@@ -270,13 +270,13 @@ export default function lab(): Level {
       const mk = (o: THREE.Vector3) =>
         wallRail(
           [
-            [o.x + W / 2 - 0.4, o.z + D / 2 - 0.6],
+            [o.x + W / 2 - 0.4, o.z + D / 2 - 0.4],
             [o.x + W / 2 - 0.4, o.z - D / 2 + 0.4],
             [o.x - W / 2 + 0.4, o.z - D / 2 + 0.4],
             [o.x - W / 2 + 0.4, o.z + D / 2 - 0.4],
-            [o.x + W / 2 - 0.4, o.z + D / 2 - 0.4],
           ],
-          { closed: false, h: [0.4, 4.4], d: [0.4, 5.6], h0: 1.6, d0: 2.6, lift: 0.12, round: 1.0 },
+          // a closed loop round all four walls: browsing wraps instead of stopping in a corner
+          { closed: true, h: [0.4, 4.4], d: [0.4, 5.6], h0: 1.6, d0: 2.6, lift: 0.12, round: 1.0 },
         );
       railA = mk(new THREE.Vector3());
       railB = mk(B_OFFSET);
@@ -437,7 +437,7 @@ export default function lab(): Level {
     const p = platformOf(g.platform).short;
     const year = ctx.art.year(g);
     const age = year ? new Date().getFullYear() - year : 0;
-    if (g.status === "wishlist") return `${g.title}: not yet acquired. Estimated cost $${g.looseValue ?? "?"}. You do not need it. You will buy it.`;
+    if (g.status === "wishlist") return `${g.title}: not yet acquired. Estimated cost $${g.looseValue ?? "?"}.`;
     if (g.status === "playing") return `${g.title} (${p}): test in progress. Please continue. Eventually.`;
     const fc = forecasts?.forecasts[g.id];
     if (fc && g.status === "backlog" && Math.random() < 0.6) {

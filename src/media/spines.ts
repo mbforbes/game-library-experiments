@@ -93,8 +93,9 @@ export function drawSpine(ctx: CanvasRenderingContext2D, x: number, y: number, w
     fg = luminance(bg) > 0.45 ? "#111" : "#fff";
   }
   if (kind === "slab") {
-    bg = "#05070a";
-    fg = p.neon;
+    // digital copies: a slate spine with light type (they used to glow; too much on a big wall)
+    bg = "#262b34";
+    fg = "#e9edf3";
   }
   ctx.save();
   ctx.beginPath();
@@ -183,10 +184,6 @@ export function drawSpine(ctx: CanvasRenderingContext2D, x: number, y: number, w
   // title, rotated to read top-to-bottom
   const len = bottom - top;
   ctx.fillStyle = fg;
-  if (kind === "slab") {
-    ctx.shadowColor = p.neon;
-    ctx.shadowBlur = w * 0.25;
-  }
   ctx.save();
   ctx.translate(x + w / 2, top);
   ctx.rotate(Math.PI / 2);

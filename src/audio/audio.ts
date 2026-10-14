@@ -57,29 +57,47 @@ export class AudioEngine {
     try {
       this._enabled = localStorage.getItem(LS) !== "off";
     } catch {}
-    const unlock = () => {
-      this.start();
-      this.startMusic();
-      if (this.ctx?.state === "running") {
-        window.removeEventListener("pointerup", unlock);
-        window.removeEventListener("keydown", unlock);
-        window.removeEventListener("touchend", unlock);
-      }
+    // Browsers (iOS especially) suspend or interrupt audio when the page is hidden, the phone is
+    // locked, or another app takes the audio session, and only let it resume inside a user
+    // gesture. So every tap / key checks (cheaply) whether sound has stalled and revives it.
+    const onGesture = () => {
+      if (this.stalled) this.revive();
     };
-    window.addEventListener("pointerup", unlock);
-    window.addEventListener("keydown", unlock);
-    window.addEventListener("touchend", unlock);
-    // hush when the tab is hidden
-    document.addEventListener("visibilitychange", () => {
-      if (!this.ctx) return;
+    for (const ev of ["pointerdown", "pointerup", "touchend", "keydown"]) window.addEventListener(ev, onGesture, { passive: true });
+    // hush when the tab is hidden; try to come back when shown (the next tap finishes the job)
+    const onShow = () => {
       if (document.hidden) {
         this.musicEl?.pause();
-        this.ctx.suspend().catch(() => {});
-      } else if (this._enabled) {
-        this.ctx.resume().catch(() => {});
-        if (this.musicEl) this.playMusic();
-      }
-    });
+        this.ctx?.suspend().catch(() => {});
+      } else if (this._enabled && this.ctx) this.revive();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    window.addEventListener("pageshow", onShow);
+  }
+
+  /** Sound should be playing but isn't (context suspended/interrupted/closed, or music stopped). */
+  get stalled() {
+    if (!this._enabled || document.hidden) return false;
+    if (!this.ctx || this.ctx.state !== "running") return true;
+    return !!this.musicUrl && (!this.musicEl || this.musicEl.paused);
+  }
+
+  /** Bring sound back after the browser stopped it. Safe to call any time (best inside a gesture). */
+  revive() {
+    if (!this._enabled) return;
+    if (this.ctx && (this.ctx.state as string) === "closed") {
+      // a closed context can't be resumed: start over (the music element belongs to the old one)
+      this.musicEl?.pause();
+      this.musicEl = null;
+      this.ctx = null;
+    }
+    this.start();
+    const el = this.musicEl;
+    if (el && el.error && this.musicUrl) {
+      el.src = this.musicUrl;
+      el.load();
+    }
+    this.startMusic();
   }
 
   get enabled() {
@@ -137,7 +155,8 @@ export class AudioEngine {
       this.noise = makeNoise(ctx, 2);
       this.setRoom(this.room);
     }
-    if (resume && this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+    // ("interrupted" on iOS after calls / lock screen / other apps: resume works the same way)
+    if (resume && this.ctx.state !== "running") this.ctx.resume().catch(() => {});
   }
 
   private room: { seconds: number; decay: number; wet: number } = { seconds: 0.8, decay: 3, wet: 0.25 };
@@ -192,9 +211,10 @@ export class AudioEngine {
   music(url: string | null) {
     if (url === this.musicUrl) return;
     this.musicUrl = url;
-    if (!this.musicEl) return; // starts on the first gesture (startMusic)
+    if (!this.musicEl || !this.ctx) return; // starts on the first gesture (startMusic)
+    if (this.ctx.state !== "running") this.ctx.resume().catch(() => {});
     const swap = ++this.musicSwap;
-    const ctx = this.ctx!;
+    const ctx = this.ctx;
     this.musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.35);
     setTimeout(() => {
       if (swap !== this.musicSwap || !this.musicEl) return;
@@ -223,9 +243,9 @@ export class AudioEngine {
   private playMusic() {
     const el = this.musicEl!;
     if (!this._enabled || document.hidden) return;
-    el.play()
-      .then(() => this.musicBus.gain.setTargetAtTime(AudioEngine.MUSIC_LEVEL, this.ctx!.currentTime, 1.2))
-      .catch(() => {});
+    const up = () => this.ctx && this.musicBus.gain.setTargetAtTime(AudioEngine.MUSIC_LEVEL, this.ctx.currentTime, 1.2);
+    if (!el.paused) return up();
+    el.play().then(up).catch(() => {});
   }
 
   /** Make a scope (world) the audible one: its room + emitters; everything else fades out. */

@@ -214,7 +214,7 @@ export class MediaField {
       c.set(special?.color ?? (kind === "bigbox" ? this.kit.art.color(g) : plat.shell)).convertSRGBToLinear();
       color.setXYZW(i, c.r, c.g, c.b, page);
       c.set(this.holo ? "#4fd8ff" : plat.neon).convertSRGBToLinear();
-      glow.setXYZW(i, c.r, c.g, c.b, kind === "slab" ? 1 : 0);
+      glow.setXYZW(i, c.r, c.g, c.b, 0);
       state.setXYZW(i, special?.roughness ?? t.shellRoughness, 0, 0, t.spineGlow);
       extra.setXYZW(i, spinePage, pad[0], pad[1], special?.metalness ?? 0);
       this.where.set(g.id, { b, i });

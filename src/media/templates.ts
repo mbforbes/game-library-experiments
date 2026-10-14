@@ -173,7 +173,7 @@ export const TEMPLATES: Record<MediaKind, Template> = {
   "genesis-case": T({ kind: "genesis-case", size: [0.134, 0.185, 0.024], labelAspect: 0.72, cropY: 0.5, spine: [0.024, 0.185], shellRoughness: 0.38, spineGlow: 0, faceOut: false }, (t) => caseGeo(t, { chamfer: 0.0025 })),
   jewel: T({ kind: "jewel", size: [0.142, 0.125, 0.0104], labelAspect: 1.07, cropY: 0.5, spine: [0.0104, 0.125], shellRoughness: 0.15, spineGlow: 0, faceOut: false }, jewelGeo),
   bigbox: T({ kind: "bigbox", size: [0.19, 0.235, 0.05], labelAspect: 0.81, cropY: 0.5, spine: [0.05, 0.235], shellRoughness: 0.75, spineGlow: 0, faceOut: false }, bigboxGeo),
-  slab: T({ kind: "slab", size: [0.12, 0.18, 0.012], labelAspect: 0.66, cropY: 0.5, spine: [0.012, 0.18], shellRoughness: 0.06, spineGlow: 1.6, faceOut: false }, slabGeo),
+  slab: T({ kind: "slab", size: [0.12, 0.18, 0.012], labelAspect: 0.66, cropY: 0.5, spine: [0.012, 0.18], shellRoughness: 0.06, spineGlow: 0, faceOut: false }, slabGeo),
   "nes-cart": T({ kind: "nes-cart", size: [0.12, 0.133, 0.018], labelAspect: 1.25, cropY: 0.3, spine: null, shellRoughness: 0.55, spineGlow: 0, faceOut: true }, (t) =>
     cartGeo(t, roundedRect(-0.06, 0, 0.06, 0.133, [0.002, 0.002, 0.003, 0.003]), [-0.05, 0.048, 0.05, 0.128], { y0: 0.006, y1: 0.04, n: 6, x0: -0.045, x1: 0.045 }),
   ),
