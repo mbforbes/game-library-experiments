@@ -29,7 +29,8 @@ const ctxOpts =
 const browser = await (engineName === "webkit" ? webkit : chromium).launch({
   headless: !has("headed"),
   channel: engineName === "chromium" ? "chrome" : undefined,
-  args: engineName === "chromium" ? ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--enable-gpu-rasterization", "--use-angle=metal"] : [],
+  // (keep rendering when the window is covered or in the background: you can use other windows)
+  args: engineName === "chromium" ? ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--enable-gpu-rasterization", "--use-angle=metal", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-features=CalculateNativeWinOcclusion"] : [],
 });
 const ctx = await browser.newContext(ctxOpts as any);
 const page = await ctx.newPage();

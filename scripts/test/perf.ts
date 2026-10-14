@@ -21,7 +21,7 @@ if (process.argv.includes("--cold")) {
   for (const id of ["com.google.chrome.for.testing", "com.google.chrome.for.testing.helper"]) execSync(`rm -rf "${dir}/${id}"`);
   console.log("cleared Playwright Chromium's Metal shader cache");
 }
-const browser = await chromium.launch({ headless, channel: channel === "chromium" ? undefined : channel, args: ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--disable-renderer-backgrounding", "--disable-background-timer-throttling"] });
+const browser = await chromium.launch({ headless, channel: channel === "chromium" ? undefined : channel, args: ["--enable-unsafe-webgpu", "--ignore-gpu-blocklist", "--disable-renderer-backgrounding", "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-features=CalculateNativeWinOcclusion"] });
 const ctx = await browser.newContext(device === "phone" ? { ...devices["iPhone 15 Pro"], deviceScaleFactor: 3 } : { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
 const errors: string[] = [];
