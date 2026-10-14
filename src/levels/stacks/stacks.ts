@@ -42,6 +42,8 @@ export default function stacks(): Level {
   const tickers: ((dt: number, t: number) => void)[] = [];
   let codex: Codex;
   let lantern: THREE.PointLight;
+  const lanternAt = new THREE.Vector3();
+  let inspecting = false;
   let flock: { field: MediaField; orbits: { r: number; y: number; speed: number; phase: number; tilt: number }[] } | null = null;
   const yearAt = new Map<number, number>(); // year -> theta of its first bay
 
@@ -262,7 +264,14 @@ export default function stacks(): Level {
         // carried a little ahead of you, but never past the shelf fronts when you lean in close
         // (it used to end up behind the spines and light them from the back: all dark)
         const ahead = codexView ? 0.5 : Math.min(0.5, ctx.rig.state.d * 0.4);
-        lantern.position.copy(cam.position).addScaledVector(fwd, ahead).add(new THREE.Vector3(0, 0.35, 0));
+        const want = lanternAt.copy(cam.position).addScaledVector(fwd, ahead).add(new THREE.Vector3(0, 0.35, 0));
+        if (inspecting) {
+          // a game is pulled out right in front of you: hold the lantern up and off to the side,
+          // so its reflection lands beside the cover instead of glaring across it
+          const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+          want.copy(cam.position).addScaledVector(fwd, -0.2).addScaledVector(right, 0.85).add(new THREE.Vector3(0, 0.75, 0));
+        }
+        lantern.position.lerp(want, 1 - Math.exp(-dt * 6));
         lantern.intensity = 9 + Math.sin(t * 9) * 0.25 + Math.sin(t * 23) * 0.15;
       }
       // the wishlist flock circles
@@ -296,6 +305,7 @@ export default function stacks(): Level {
     },
 
     onSelect(g) {
+      inspecting = !!g;
       ctx.audio.play("page", { at: codex.group.position, delay: 0.2 });
       if (!g) {
         showChronicle();
