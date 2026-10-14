@@ -1,0 +1,365 @@
+{
+  "sheet": "den-3252a3e1.webp",
+  "w": 2048,
+  "h": 1024,
+  "records": [
+    {
+      "key": "streets-of-rage-2",
+      "game": "Streets of Rage 2",
+      "title": "Streets of Rage II",
+      "label": "Data Discs",
+      "x": 2,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "streets-of-rage",
+      "game": "Streets of Rage",
+      "title": "Streets of Rage",
+      "label": "Data Discs",
+      "x": 262,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "breath-of-fire-3",
+      "game": "Breath of Fire III",
+      "title": "Breath of Fire III (Original Soundtrack)",
+      "label": "Ship to Shore PhonoCo.",
+      "x": 522,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "stardew-valley",
+      "game": "Stardew Valley",
+      "title": "Stardew Valley: Original Soundtrack",
+      "label": "Gamer's Edition",
+      "x": 782,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "god-of-war",
+      "game": "God of War (2018)",
+      "title": "God of War (Bear McCreary)",
+      "label": "Sony Classical / Music On Vinyl",
+      "x": 1042,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "red-dead-redemption",
+      "game": "Red Dead Redemption",
+      "title": "Red Dead Redemption: Original Soundtrack",
+      "label": "Wax Poetics Records",
+      "x": 1302,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "celeste",
+      "game": "Celeste",
+      "title": "Celeste: Original Soundtrack",
+      "label": "Ship to Shore PhonoCo.",
+      "x": 1562,
+      "y": 2,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "doom",
+      "game": "Doom (2016)",
+      "title": "DOOM: Original Game Soundtrack",
+      "label": "Laced Records",
+      "x": 2,
+      "y": 262,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "sonic-mania",
+      "game": "Sonic Mania",
+      "title": "Sonic Mania",
+      "label": "Data Discs",
+      "x": 262,
+      "y": 262,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "symphony-of-the-night",
+      "game": "Castlevania: Symphony of the Night",
+      "title": "Castlevania: Symphony of the Night (Original Video Game Soundtrack)",
+      "label": "Mondo",
+      "x": 522,
+      "y": 262,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "shovel-knight-ost",
+      "game": "Shovel Knight: Shovel of Hope",
+      "title": "Shovel Knight: The Definitive Soundtrack",
+      "label": "Generation Series",
+      "x": 782,
+      "y": 262,
+      "w": 256,
+      "h": 256
+    },
+    {
+      "key": "clair-obscur",
+      "game": "Clair Obscur: Expedition 33",
+      "title": "Clair Obscur: Expedition 33 (Original Soundtrack)",
+      "label": "Laced Records",
+      "x": 1042,
+      "y": 262,
+      "w": 256,
+      "h": 256
+    }
+  ],
+  "magazines": [
+    {
+      "key": "gi-019",
+      "issue": "Game Informer #19",
+      "date": "1994-11",
+      "x": 1302,
+      "y": 262,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-031",
+      "issue": "Game Informer #31",
+      "date": "1995-11",
+      "x": 1466,
+      "y": 262,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-050",
+      "issue": "Game Informer #50",
+      "date": "1997-06",
+      "x": 1630,
+      "y": 262,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-053",
+      "issue": "Game Informer #53",
+      "date": "1997-09",
+      "x": 1794,
+      "y": 262,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-067",
+      "issue": "Game Informer #67",
+      "date": "1998-11",
+      "x": 2,
+      "y": 522,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-068",
+      "issue": "Game Informer #68",
+      "date": "1998-12",
+      "x": 166,
+      "y": 522,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-101",
+      "issue": "Game Informer #101",
+      "date": "2001-09",
+      "x": 330,
+      "y": 522,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-105",
+      "issue": "Game Informer #105",
+      "date": "2002-01",
+      "x": 494,
+      "y": 522,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-138",
+      "issue": "Game Informer #138",
+      "date": "2004-10",
+      "x": 658,
+      "y": 522,
+      "w": 160,
+      "h": 216
+    },
+    {
+      "key": "gi-156",
+      "issue": "Game Informer #156",
+      "date": "2006-04",
+      "x": 822,
+      "y": 522,
+      "w": 160,
+      "h": 216
+    }
+  ],
+  "sprites": [
+    {
+      "key": "axel",
+      "name": "Axel Stone",
+      "game": "Streets of Rage 2",
+      "x": 1051,
+      "y": 522,
+      "w": 42,
+      "h": 77
+    },
+    {
+      "key": "blaze",
+      "name": "Blaze Fielding",
+      "game": "Streets of Rage 2",
+      "x": 1097,
+      "y": 522,
+      "w": 46,
+      "h": 72
+    },
+    {
+      "key": "max",
+      "name": "Max Thunder",
+      "game": "Streets of Rage 2",
+      "x": 986,
+      "y": 522,
+      "w": 61,
+      "h": 84
+    },
+    {
+      "key": "adam",
+      "name": "Adam Hunter",
+      "game": "Streets of Rage",
+      "x": 1147,
+      "y": 522,
+      "w": 32,
+      "h": 63
+    },
+    {
+      "key": "ryu",
+      "name": "Ryu",
+      "game": "Breath of Fire III",
+      "x": 1537,
+      "y": 522,
+      "w": 23,
+      "h": 26
+    },
+    {
+      "key": "nina",
+      "name": "Nina",
+      "game": "Breath of Fire III",
+      "x": 1369,
+      "y": 522,
+      "w": 35,
+      "h": 41
+    },
+    {
+      "key": "momo",
+      "name": "Momo",
+      "game": "Breath of Fire III",
+      "x": 1326,
+      "y": 522,
+      "w": 39,
+      "h": 44
+    },
+    {
+      "key": "rei",
+      "name": "Rei",
+      "game": "Breath of Fire III",
+      "x": 1254,
+      "y": 522,
+      "w": 40,
+      "h": 53
+    },
+    {
+      "key": "garr",
+      "name": "Garr",
+      "game": "Breath of Fire III",
+      "x": 1183,
+      "y": 522,
+      "w": 67,
+      "h": 55
+    },
+    {
+      "key": "peco",
+      "name": "Peco",
+      "game": "Breath of Fire III",
+      "x": 1564,
+      "y": 522,
+      "w": 31,
+      "h": 25
+    },
+    {
+      "key": "teepo",
+      "name": "Teepo",
+      "game": "Breath of Fire III",
+      "x": 1408,
+      "y": 522,
+      "w": 31,
+      "h": 41
+    },
+    {
+      "key": "mario",
+      "name": "Raccoon Mario",
+      "game": "Super Mario Bros. 3",
+      "x": 1512,
+      "y": 522,
+      "w": 21,
+      "h": 28
+    },
+    {
+      "key": "link",
+      "name": "Link",
+      "game": "The Legend of Zelda",
+      "x": 1599,
+      "y": 522,
+      "w": 15,
+      "h": 16
+    },
+    {
+      "key": "samus",
+      "name": "Samus Aran",
+      "game": "Super Metroid",
+      "x": 1298,
+      "y": 522,
+      "w": 24,
+      "h": 47
+    },
+    {
+      "key": "sonic",
+      "name": "Sonic the Hedgehog",
+      "game": "Sonic the Hedgehog 2",
+      "x": 1443,
+      "y": 522,
+      "w": 27,
+      "h": 39
+    },
+    {
+      "key": "shovel-knight",
+      "name": "Shovel Knight",
+      "game": "Shovel Knight: Shovel of Hope",
+      "x": 1474,
+      "y": 522,
+      "w": 34,
+      "h": 31
+    }
+  ]
+}

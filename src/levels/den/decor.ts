@@ -14,6 +14,7 @@ import * as THREE from "three/webgpu";
 import { DecorBuilder, roundedRect, rand, type Vec3, type UVRect, type PropOpts, type Color } from "../../world/kit/decorkit";
 import type { LevelCtx } from "../types";
 import { NO } from "../../engine/flags";
+import { loadImage } from "../../library/art";
 
 export interface DenLayout {
   X0: number;
@@ -71,6 +72,63 @@ const C = {
 };
 
 type Tick = (dt: number, t: number) => void;
+
+// ---------------------------------------------------------------------------------------------
+// Real art (album covers of game soundtracks on vinyl, Game Informer covers, sprites for the perler
+// beads) comes from one sprite sheet + manifest. Fetched as soon as this module loads so it's in
+// hand by the time the room is dressed; if it's missing, the drawn stand-ins are used instead.
+
+interface SheetRect {
+  key: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+interface DenArtManifest {
+  sheet: string;
+  w: number;
+  h: number;
+  records?: (SheetRect & { game: string; title: string; label?: string })[];
+  magazines?: (SheetRect & { issue?: string | number; date?: string })[];
+  sprites?: (SheetRect & { name: string; game: string })[];
+}
+type DenArt = { man: Required<DenArtManifest>; img: ImageBitmap | HTMLImageElement };
+
+const DECOR_ART = "/art/decor/";
+async function loadDenArt(): Promise<DenArt | null> {
+  if (NO.has("decorart")) return null;
+  try {
+    const res = await fetch(DECOR_ART + "den.json", { cache: "no-cache", signal: AbortSignal.timeout(8000) });
+    // (a missing file comes back as the dev server's index.html)
+    if (!res.ok || !(res.headers.get("content-type") ?? "").includes("json")) return null;
+    const text = await res.text();
+    const man = JSON.parse(text) as DenArtManifest;
+    if (!man?.sheet) return null;
+    let v = 0;
+    for (let i = 0; i < text.length; i++) v = (v * 31 + text.charCodeAt(i)) | 0;
+    const img = await loadImage(`${DECOR_ART}${man.sheet}?v=${(v >>> 0).toString(36)}`);
+    const ok = (r: SheetRect) => r && r.w > 0 && r.h > 0 && r.x >= 0 && r.y >= 0 && r.x + r.w <= img.width && r.y + r.h <= img.height;
+    return { man: { ...man, records: (man.records ?? []).filter(ok), magazines: (man.magazines ?? []).filter(ok), sprites: (man.sprites ?? []).filter(ok) }, img };
+  } catch (err) {
+    console.warn("[den] decor art unavailable, using drawn stand-ins", err);
+    return null;
+  }
+}
+let denArt: Promise<DenArt | null> | null = null;
+/** Starts the download (once); called at module load and again (no-op) when the room is dressed. */
+const denArtOnce = () => (denArt ??= loadDenArt());
+if (!NO.has("decor")) denArtOnce();
+
+/** Perler bead piece: bead texture, its halo backer, and its size in beads (incl. the halo margin). */
+interface Perler {
+  rect: UVRect;
+  halo: UVRect;
+  bw: number;
+  bh: number;
+  name: string;
+  game: string;
+}
 type RO = PropOpts & { r?: number; bevel?: number; axis?: "x" | "y" | "z"; segs?: number };
 
 let seed = 1;
@@ -196,6 +254,133 @@ function scribble(c: Ctx2D, x: number, y: number, w: number, lines: number, colo
   }
 }
 
+/** Average colour of a sheet rect (for record spines). */
+function averageColor(img: CanvasImageSource, r: SheetRect) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 1;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
+  g.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, 1, 1);
+  const [R, G, B] = g.getImageData(0, 0, 1, 1).data;
+  // spines are darker and a touch more saturated than the averaged cover
+  const k = 0.8;
+  return `rgb(${Math.round(R * k)},${Math.round(G * k)},${Math.round(B * k)})`;
+}
+
+/**
+ * Perler beads from a pixel-art sprite: one bead (rounded, with a centre hole) per opaque pixel on a
+ * clear pegboard over a white backing. Returns the canvas size and a draw function (batched paths:
+ * one fill per bead colour, so even big sprites are a few dozen canvas calls).
+ */
+function beadPattern(img: CanvasImageSource, sp: SheetRect) {
+  const src = document.createElement("canvas");
+  src.width = sp.w;
+  src.height = sp.h;
+  const g = src.getContext("2d", { willReadFrequently: true })!;
+  g.drawImage(img, sp.x, sp.y, sp.w, sp.h, 0, 0, sp.w, sp.h);
+  const data = g.getImageData(0, 0, sp.w, sp.h).data;
+  // big sprites (not native resolution) are sampled down to at most ~96 beads a side
+  const step = Math.max(1, Math.ceil(Math.max(sp.w, sp.h) / 96));
+  const W = Math.floor(sp.w / step), H = Math.floor(sp.h / step);
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  const at = (i: number, j: number) => ((j * step) * sp.w + i * step) * 4;
+  for (let j = 0; j < H; j++)
+    for (let i = 0; i < W; i++)
+      if (data[at(i, j) + 3] > 127) {
+        x0 = Math.min(x0, i);
+        y0 = Math.min(y0, j);
+        x1 = Math.max(x1, i);
+        y1 = Math.max(y1, j);
+      }
+  if (x1 < 0) return null;
+  // only real pixel art makes sense as beads: a photo/cover (no transparency, thousands of colours) is skipped
+  const colors = new Set<number>();
+  let clear = 0;
+  for (let j = 0; j < H; j++)
+    for (let i = 0; i < W; i++) {
+      const o = at(i, j);
+      if (data[o + 3] <= 127) clear++;
+      else colors.add((data[o] << 16) | (data[o + 1] << 8) | data[o + 2]);
+    }
+  if (colors.size > 128 || clear < W * H * 0.05) return null;
+  const m = 2; // margin (beads) for the halo
+  const bw = x1 - x0 + 1 + 2 * m, bh = y1 - y0 + 1 + 2 * m;
+  const cell = Math.max(4, Math.min(10, Math.floor(280 / Math.max(bw, bh))));
+  const beads = new Map<string, [number, number][]>();
+  const all: [number, number][] = [];
+  for (let j = y0; j <= y1; j++)
+    for (let i = x0; i <= x1; i++) {
+      const o = at(i, j);
+      if (data[o + 3] <= 127) continue;
+      const key = `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`;
+      let list = beads.get(key);
+      if (!list) beads.set(key, (list = []));
+      const b: [number, number] = [i - x0 + m, j - y0 + m];
+      list.push(b);
+      all.push(b);
+    }
+  // The beads alone, cut out (transparent between beads and in the centre holes, so the dark backer
+  // shows through): ironed beads are rounded, slightly shaded at the rim, with a soft highlight.
+  const draw = (c: Ctx2D) => {
+    const r = cell * 0.49;
+    for (const [col, list] of beads) {
+      c.beginPath();
+      for (const [i, j] of list) {
+        c.moveTo((i + 0.5) * cell + r, (j + 0.5) * cell);
+        c.arc((i + 0.5) * cell, (j + 0.5) * cell, r, 0, PI * 2);
+      }
+      c.fillStyle = col;
+      c.fill();
+    }
+    c.beginPath();
+    for (const [i, j] of all) {
+      c.moveTo((i + 0.5) * cell + r * 0.8, (j + 0.5) * cell);
+      c.arc((i + 0.5) * cell, (j + 0.5) * cell, r * 0.8, 0, PI * 2);
+    }
+    c.strokeStyle = "rgba(0,0,0,0.16)";
+    c.lineWidth = Math.max(0.7, cell * 0.11);
+    c.stroke();
+    c.beginPath();
+    for (const [i, j] of all) {
+      const cx = (i + 0.5) * cell, cy = (j + 0.5) * cell;
+      c.moveTo(cx + Math.cos(3.6) * r * 0.55, cy + Math.sin(3.6) * r * 0.55);
+      c.arc(cx, cy, r * 0.55, 3.6, 4.8);
+    }
+    c.strokeStyle = "rgba(255,255,255,0.4)";
+    c.lineWidth = Math.max(0.8, cell * 0.11);
+    c.stroke();
+    // punch the centre holes
+    c.globalCompositeOperation = "destination-out";
+    c.beginPath();
+    const hr = Math.max(0.7, cell * 0.13);
+    for (const [i, j] of all) {
+      c.moveTo((i + 0.5) * cell + hr, (j + 0.5) * cell);
+      c.arc((i + 0.5) * cell, (j + 0.5) * cell, hr, 0, PI * 2);
+    }
+    c.fill();
+    c.globalCompositeOperation = "source-over";
+  };
+  // The backer just behind the beads, also cut out: a near-black core under the sprite (dark gaps and
+  // holes) ringed by a soft neon rim about a bead wide, which is what glows.
+  const hc = Math.max(2, Math.round(cell / 2));
+  const drawHalo = (neon: string) => (c: Ctx2D) => {
+    c.beginPath();
+    for (const [i, j] of all) {
+      c.moveTo((i + 0.5) * hc + hc * 1.35, (j + 0.5) * hc);
+      c.arc((i + 0.5) * hc, (j + 0.5) * hc, hc * 1.35, 0, PI * 2);
+    }
+    c.fillStyle = neon;
+    c.fill();
+    c.beginPath();
+    for (const [i, j] of all) c.rect((i - 0.2) * hc, (j - 0.2) * hc, hc * 1.4, hc * 1.4);
+    c.fillStyle = "#07060b";
+    c.fill();
+  };
+  return { w: bw * cell, h: bh * cell, hw: bw * hc, hh: bh * hc, bw, bh, draw, drawHalo };
+}
+
+/** Halo colours behind the perler pieces (the room's neon tones). */
+const PERLER_NEON = ["#ff3d9a", "#4fd8ff", "#a35cff", "#3dffa8", "#ffb000", "#ff7a1a"];
+
 const SHROOM = ["....RRRR....", "..RRWWRRRR..", ".RRWWWWRRRR.", ".RRRWWRRRWR.", "RRRRRRRRWWWR", "RWWRRRRRRWWR", "RWWWRRRRRRRR", ".RRRRRWWRRR.", "...SSSSSS...", "...SSSSSS...", "...SSSSSS...", "....SSSS...."];
 const BLOB = ["....XXX....", "..XXXXXXX..", ".XXXXXXXXX.", "XX..XXX..XX", "XXOOXXXOOXX", "XXXXXXXXXXX", "XXXXXXXXXXX", "X.XX.X.XX.X"];
 const HEART = [".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."];
@@ -204,7 +389,7 @@ const CAT = ["X...X...", "XX.XX...", "XXXXX...", "XOXOX..X", "XXXXX..X", ".XXXXX
 // ---------------------------------------------------------------------------------------------
 // textures (all in the builder's one atlas)
 
-async function paint(d: DecorBuilder, ctx: LevelCtx) {
+async function paint(d: DecorBuilder, ctx: LevelCtx, art: DenArt | null) {
   // Canvases are queued, then packed tallest-first so everything fits a 1024² atlas (the biggest
   // few are drawn at 0.9 scale).
   type Draw = (c: Ctx2D, w: number, h: number) => void;
@@ -424,7 +609,7 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
       c.fillStyle = "#1d3fa6";
       c.font = `14px ${HAND}`;
       c.fillText("sat 8pm", 8, 52);
-      c.fillText("bring ur own chair", 8, 68, 100);
+      c.fillText("Quincy + Miles in!", 8, 68, 100);
     });
     note(146, 124, 60, 104, -0.07, "#fdfdfb", "#e8306a", () => {
       c.fillStyle = "#333";
@@ -437,7 +622,12 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
       c.fillText("TOTAL", 6, 96);
       c.fillText("$$$", 36, 96);
     });
-    note(226, 186, 70, 46, 0.12, "#7af0ff", "#ff3d9a", () => scribble(c, 8, 18, 54, 3, "#1a3040"));
+    note(226, 186, 70, 46, 0.12, "#7af0ff", "#ff3d9a", () => {
+      c.fillStyle = "#1a3040";
+      c.font = `13px ${HAND}`;
+      c.fillText("rematch vs", 6, 26, 60);
+      c.fillText("Miles fri!", 6, 40, 60);
+    });
   });
 
   const nightDrive = big(192, 256, (c, w, h) => {
@@ -509,8 +699,8 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
     c.fillText("HI-SCORES", w / 2, 104);
     const rows: [string, string, string, string][] = [
       ["1ST", "COOPER", "999990", "#ff3d9a"],
-      ["2ND", "MAX", "512400", "#4fd8ff"],
-      ["3RD", "CAT", "000009", "#ffffff"],
+      ["2ND", "QUINCY", "512400", "#4fd8ff"],
+      ["3RD", "MILES", "248600", "#ffffff"],
       ["4TH", "???", "000000", "#777788"],
     ];
     c.font = `8px ${PIX}`;
@@ -545,54 +735,6 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
     c.font = `22px ${PIX}`;
     c.fillStyle = "#ffd23f";
     c.fillText("+1", w - 30, 34);
-  });
-
-  const sector9 = big(192, 256, (c, w, h) => {
-    const g = c.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, "#03050f");
-    g.addColorStop(1, "#162a55");
-    c.fillStyle = g;
-    c.fillRect(0, 0, w, h);
-    for (let i = 0; i < 70; i++) {
-      c.fillStyle = `rgba(220,235,255,${0.25 + rnd() * 0.75})`;
-      const s = rnd() < 0.1 ? 2.5 : 1.2;
-      c.fillRect(rnd() * w, rnd() * h, s, s);
-    }
-    const pg = c.createRadialGradient(108, 150, 6, 120, 160, 52);
-    pg.addColorStop(0, "#ffb36b");
-    pg.addColorStop(1, "#8a1d4a");
-    disc(c, 120, 160, 48);
-    c.fillStyle = pg;
-    c.fill();
-    c.strokeStyle = "#ffe0b8";
-    c.lineWidth = 4;
-    c.beginPath();
-    c.ellipse(120, 160, 78, 16, -0.3, 0, PI * 2);
-    c.stroke();
-    c.save();
-    c.translate(54, 92);
-    c.rotate(-0.5);
-    c.fillStyle = "#e8f2ff";
-    c.beginPath();
-    c.moveTo(0, -16);
-    c.lineTo(9, 10);
-    c.lineTo(0, 6);
-    c.lineTo(-9, 10);
-    c.closePath();
-    c.fill();
-    c.fillStyle = "#ff3d9a";
-    c.fillRect(-3, 10, 6, 8);
-    c.restore();
-    c.textAlign = "center";
-    c.font = `28px ${NEON}`;
-    c.fillStyle = "#4fd8ff";
-    c.shadowColor = "#4fd8ff";
-    c.shadowBlur = 8;
-    c.fillText("SECTOR 9", w / 2, 40);
-    c.shadowBlur = 0;
-    c.font = `8px ${SILK}`;
-    c.fillStyle = "#c8d8ff";
-    c.fillText("A DEEP SPACE SHOOTER", w / 2, 236);
   });
 
   const blueprint = big(192, 256, (c, w, h) => {
@@ -712,6 +854,17 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
         disc(c, x + 7, y - 3, 9);
         c.stroke();
       }
+      // plans with the crew a few days out
+      const who = day === today.getDate() + 3 ? "Quincy" : day === today.getDate() + 8 ? "Miles" : "";
+      if (who) {
+        c.strokeStyle = "#ff3d9a";
+        c.lineWidth = 1.5;
+        c.strokeRect(x - 2, y - 11, 21, 18);
+        c.fillStyle = "#c2186b";
+        c.font = `8px ${HAND}`;
+        c.fillText(who, x - 1, y + 6, 21);
+        c.font = `8px ${SILK}`;
+      }
     }
     for (let i = 0; i < 6; i++) {
       disc(c, 18 + i * 25, 6, 3);
@@ -772,23 +925,60 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
     }),
   );
 
-  const CANS: [string, string, string][] = [
-    ["VOLT", "#c6ff3d", "#13240a"],
-    ["FIZZ", "#ff3d9a", "#fbf3f8"],
-    ["NOVA", "#4fd8ff", "#0a1a40"],
+  // Happy Juice: the den's drink of choice (a smiling sun, bubbly type, a wave band)
+  const JUICE: [string, string, string][] = [
+    ["#ff4f9a", "#ffe45c", "#ffffff"],
+    ["#2fc8ff", "#ff3d9a", "#ffffff"],
+    ["#8a3dff", "#3dffa8", "#ffffff"],
+    ["#ffd23f", "#ff5a1f", "#5a1030"],
   ];
-  const cans = CANS.map(([name, col, bg]) =>
-    cv(96, 48, (c, w, h) => {
+  const juiceLabel = ([bg, accent, ink]: [string, string, string]) => (c: Ctx2D, w: number, h: number) => {
+    c.fillStyle = bg;
+    c.fillRect(0, 0, w, h);
+    // wave band along the bottom + pinstripe on top
+    c.fillStyle = accent;
+    c.beginPath();
+    c.moveTo(0, h);
+    for (let x = 0; x <= w; x += 4) c.lineTo(x, h - 7 + Math.sin((x / w) * PI * 8) * 2);
+    c.lineTo(w, h);
+    c.fill();
+    c.fillRect(0, 3, w, 2);
+    // two faces around the can (each half the circumference): a smiling sun over "Happy / Juice"
+    for (const ox of [0, w / 2]) {
+      const cx = ox + w / 4, sy = 13;
+      c.fillStyle = accent;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * PI * 2;
+        c.beginPath();
+        c.moveTo(cx + Math.cos(a) * 6, sy + Math.sin(a) * 6);
+        c.lineTo(cx + Math.cos(a + 0.22) * 9.5, sy + Math.sin(a + 0.22) * 9.5);
+        c.lineTo(cx + Math.cos(a - 0.22) * 9.5, sy + Math.sin(a - 0.22) * 9.5);
+        c.fill();
+      }
+      disc(c, cx, sy, 6);
+      c.fill();
+      c.strokeStyle = bg;
+      c.lineWidth = 1.2;
+      c.beginPath();
+      c.arc(cx, sy + 0.5, 3.2, 0.25, PI - 0.25);
+      c.stroke();
       c.fillStyle = bg;
-      c.fillRect(0, 0, w, h);
-      c.fillStyle = col;
-      c.fillRect(0, h - 12, w, 5);
-      c.fillRect(0, 4, w, 2);
-      c.font = `700 20px ${OSW}`;
-      c.fillText(name, 8, 30);
-      c.fillText(name, 56, 30);
-    }),
-  );
+      c.fillRect(cx - 2.6, sy - 2.6, 1.4, 1.8);
+      c.fillRect(cx + 1.2, sy - 2.6, 1.4, 1.8);
+      c.textAlign = "center";
+      c.lineWidth = 3;
+      c.strokeStyle = accent;
+      c.fillStyle = ink;
+      c.font = `bold 13px ${HAND}`;
+      c.strokeText("Happy", cx, 33, w / 2 - 6);
+      c.fillText("Happy", cx, 33, w / 2 - 6);
+      c.font = `bold 12px ${HAND}`;
+      c.strokeText("Juice", cx, 45, w / 2 - 10);
+      c.fillText("Juice", cx, 45, w / 2 - 10);
+      c.textAlign = "left";
+    }
+  };
+  const cans = JUICE.map((pal) => cv(128, 56, juiceLabel(pal)));
 
   const BINS = ["CABLES", "PADS", "MANUALS", "MEMORY", "ADAPTERS", "MISC", "SPARES", "???"];
   const bins = BINS.map((t) =>
@@ -857,19 +1047,68 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
     c.globalCompositeOperation = "source-over";
   });
 
-  const pizzaLid = cv(96, 96, (c, w, h) => {
+  const pizzaLid = cv(128, 128, (c, w, h) => {
     c.fillStyle = "#efe6d2";
     c.fillRect(0, 0, w, h);
-    disc(c, w / 2, 42, 26);
-    c.fillStyle = "#c8262c";
+    // tricolore corners
+    for (const [i, col] of ["#1d8a3a", "#f4f1ea", "#c8262c"].entries()) {
+      c.fillStyle = col;
+      c.fillRect(i * 10, 0, 10, 6);
+      c.fillRect(w - 30 + i * 10, h - 6, 10, 6);
+    }
+    c.strokeStyle = "#c8262c";
+    c.lineWidth = 3;
+    disc(c, w / 2, h / 2, 50);
+    c.stroke();
+    c.lineWidth = 1.2;
+    disc(c, w / 2, h / 2, 45);
+    c.stroke();
+    // Vesuvius + a pie
+    c.fillStyle = "#1d8a3a";
+    c.beginPath();
+    c.moveTo(w / 2 - 24, 70);
+    c.lineTo(w / 2 - 6, 50);
+    c.lineTo(w / 2 + 6, 50);
+    c.lineTo(w / 2 + 24, 70);
     c.fill();
-    c.font = `700 15px ${OSW}`;
-    c.fillStyle = "#fff";
-    c.textAlign = "center";
-    c.fillText("PIZZA", w / 2, 48);
     c.fillStyle = "#c8262c";
+    for (const [x, y, r] of [[-2, 45, 3], [3, 40, 2.5], [-1, 35, 2]]) disc(c, w / 2 + x, y, r), c.fill();
+    // arched NAPOLI
+    c.font = `700 15px ${OSW}`;
+    c.fillStyle = "#c8262c";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    const word = "NAPOLI";
+    [...word].forEach((ch, i) => {
+      const a = -PI / 2 + (i - (word.length - 1) / 2) * 0.32;
+      c.save();
+      c.translate(w / 2 + Math.cos(a) * 34, h / 2 + Math.sin(a) * 34);
+      c.rotate(a + PI / 2);
+      c.fillText(ch, 0, 0);
+      c.restore();
+    });
+    c.font = `700 12px ${OSW}`;
+    c.fillText("PIZZERIA", w / 2, 82);
+    c.font = `6px ${SILK}`;
+    c.fillStyle = "#1d8a3a";
+    c.fillText("FORNO A LEGNA  -  DAL 1987", w / 2, 95);
+    c.textBaseline = "alphabetic";
+  });
+  const pizzaSide = cv(256, 24, (c, w, h) => {
+    c.fillStyle = "#e8dcc2";
+    c.fillRect(0, 0, w, h);
+    c.fillStyle = "#1d8a3a";
+    c.fillRect(0, 0, w, 3);
+    c.fillStyle = "#c8262c";
+    c.fillRect(0, h - 3, w, 3);
+    c.font = `700 14px ${OSW}`;
+    c.fillStyle = "#c8262c";
+    c.textAlign = "center";
+    c.fillText("NAPOLI PIZZERIA", w / 2, 18);
     c.font = `7px ${SILK}`;
-    c.fillText("HOT  FRESH  FAST", w / 2, 84);
+    c.fillStyle = "#1d8a3a";
+    c.fillText("HOT  &  FRESH", 34, 15);
+    c.fillText("CALL 555-0187", w - 38, 15);
   });
 
   const leaf = cv(128, 128, (c) => {
@@ -1135,6 +1374,72 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
     c.fillText("PLAYER 1", 28, h / 2 + 10, w * 0.62);
   });
 
+  // ---- real art: record sleeves + labels, magazine covers, perler bead patterns ----
+  let recSleeves = sleeves;
+  let recColors = ["#1a1a22", "#d8262f", "#f2e8d0", "#2a5f9a", "#ffb000", "#3a1f4a", "#1d7a5a"];
+  let recordDisc = record;
+  let magCovers = mags;
+  const perlers: Perler[] = [];
+  if (art) {
+    const { man, img } = art;
+    const recs = man.records;
+    if (recs.length) {
+      // sleeves on show: the platter's, two leaning on the wall, one face-out in the credenza, two by
+      // the crate, one framed on the figure shelf; the rest only show their spines
+      recSleeves = recs.slice(0, 6).map((r) =>
+        cv(160, 160, (c, w, h) => {
+          c.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, w, h);
+          // a little shelf wear: ring wear + softened edges
+          c.strokeStyle = "rgba(255,255,255,0.07)";
+          c.lineWidth = 3;
+          disc(c, w / 2, h / 2, w * 0.42);
+          c.stroke();
+          c.strokeStyle = "rgba(0,0,0,0.35)";
+          c.lineWidth = 2;
+          c.strokeRect(1, 1, w - 2, h - 2);
+        }),
+      );
+      recColors = recs.map((r) => averageColor(img, r));
+      const r0 = recs[0];
+      recordDisc = cv(128, 128, (c) => {
+        disc(c, 64, 64, 63);
+        c.fillStyle = "#0c0b0f";
+        c.fill();
+        c.lineWidth = 0.8;
+        for (let r = 25; r < 62; r += 1.5) {
+          c.strokeStyle = `rgba(255,255,255,${0.03 + rand(r) * 0.06})`;
+          disc(c, 64, 64, r);
+          c.stroke();
+        }
+        // centre label printed with the album art
+        c.save();
+        disc(c, 64, 64, 23);
+        c.clip();
+        c.drawImage(img, r0.x, r0.y, r0.w, r0.h, 64 - 23, 64 - 23, 46, 46);
+        c.restore();
+        disc(c, 64, 64, 2.5);
+        c.fillStyle = "#000";
+        c.fill();
+      });
+    }
+    const covers = man.magazines.slice(0, 10);
+    if (covers.length)
+      magCovers = covers.map((m) =>
+        cv(120, 160, (c, w, h) => {
+          c.drawImage(img, m.x, m.y, m.w, m.h, 0, 0, w, h);
+          c.fillStyle = "rgba(255,255,255,0.06)";
+          c.fillRect(0, 0, 3, h); // spine crease
+        }),
+      );
+    for (const sp of man.sprites.slice(0, 24)) {
+      await tick();
+      const bead = beadPattern(img, sp);
+      if (!bead) continue;
+      const neon = PERLER_NEON[perlers.length % PERLER_NEON.length];
+      perlers.push({ rect: cv(bead.w, bead.h, bead.draw), halo: cv(bead.hw, bead.hh, bead.drawHalo(neon)), bw: bead.bw, bh: bead.bh, name: sp.name, game: sp.game });
+    }
+  }
+
   queue.sort((a, b) => b.h * b.k - a.h * a.k);
   for (const q of queue) {
     Object.assign(q.rect, d.canvas(q.w * q.k, q.h * q.k, (c) => {
@@ -1144,7 +1449,7 @@ async function paint(d: DecorBuilder, ctx: LevelCtx) {
     await tick();
   }
 
-  return { record, whiteboard, cork, nightDrive, hiScores, extraLife, sector9, blueprint, clock, calendar, mags, cases, cans, bins, keyboard, pizza, pizzaLid, leaf, stickers, deck, boxLabel, fragile, sleeves, heart, notes, screen, tokens, sevenSeg, handBag, roundRug, pegboard, pennant };
+  return { record, whiteboard, cork, nightDrive, hiScores, extraLife, blueprint, clock, calendar, mags, cases, cans, bins, keyboard, pizza, pizzaLid, pizzaSide, leaf, stickers, deck, boxLabel, fragile, sleeves, heart, notes, screen, tokens, sevenSeg, handBag, roundRug, pegboard, pennant, recSleeves, recColors, recordDisc, magCovers, perlers };
 }
 type Tex = Awaited<ReturnType<typeof paint>>;
 
@@ -1331,15 +1636,25 @@ function mug(d: DecorBuilder, color: Color, band?: Color) {
   d.torus(0.024, 0.0055, [0.042, 0.05, 0], color, { arc: PI, rot: [0, 0, -PI / 2], seg: 10 });
 }
 
+/** The label's first "Happy Juice" face is centred a quarter of the way round: turn it to face +z. */
+const LABEL_TURN = -0.25 * PI * 2;
+
 function sodaCan(d: DecorBuilder, label: UVRect, lying = false) {
   const body = () => {
-    d.cyl(0.033, 0.033, 0.104, [0, 0.062, 0], "#ffffff", { seg: 16, open: true, tex: label, metal: 0.45, rough: 0.35 });
+    d.cyl(0.033, 0.033, 0.104, [0, 0.062, 0], "#ffffff", { seg: 16, open: true, tex: label, metal: 0.45, rough: 0.35, rot: [0, LABEL_TURN + (lying ? PI : 0), 0] });
     d.lathe([[0, 0.004], [0.024, 0], [0.031, 0.004], [0.033, 0.01]], [0, 0, 0], "#b9bec8", { seg: 16, metal: 0.85, rough: 0.3 });
     d.lathe([[0.033, 0.114], [0.027, 0.122], [0.028, 0.125], [0, 0.121]], [0, 0, 0], "#c9ced8", { seg: 16, metal: 0.85, rough: 0.3 });
     d.box([0.012, 0.002, 0.02], [0, 0.124, 0.008], "#aab0ba", { metal: 0.8 });
   };
   if (lying) d.at([0, 0.033, -0.062], [PI / 2, 0, 0], body);
   else body();
+}
+
+function juiceBottle(d: DecorBuilder, label: UVRect, tint: Color) {
+  d.lathe([[0, 0], [0.028, 0], [0.032, 0.008], [0.032, 0.13], [0.027, 0.158], [0.014, 0.19], [0.0135, 0.214], [0, 0.214]], [0, 0, 0], tint, { seg: 16, rough: 0.08, metal: 0.1 });
+  d.cyl(0.0325, 0.0325, 0.07, [0, 0.075, 0], "#ffffff", { seg: 16, open: true, tex: label, rough: 0.4, rot: [0, LABEL_TURN, 0] });
+  d.cyl(0.0155, 0.0155, 0.016, [0, 0.222, 0], "#f4f1ea", { seg: 12, rough: 0.4 });
+  d.torus(0.0145, 0.002, [0, 0.214, 0], "#f4f1ea", { rot: [PI / 2, 0, 0], seg: 12 });
 }
 
 function lavaLampBase(d: DecorBuilder) {
@@ -1482,9 +1797,30 @@ function magazine(d: DecorBuilder, cover: UVRect) {
   d.plane([0.21, 0.28], [0, 0.0062, 0], "#ffffff", { tex: cover, rot: [-PI / 2, 0, 0], rough: 0.4 });
 }
 
-function magazineStack(d: DecorBuilder, T: Tex, n: number) {
+/** Wooden floor rack: two rows of covers face-out (the back row sits higher). */
+function magazineRack(d: DecorBuilder, T: Tex) {
+  const W = 0.5, wood = C.walnut, n = T.magCovers.length;
+  const side = new THREE.Shape([new THREE.Vector2(-0.14, 0), new THREE.Vector2(0.14, 0), new THREE.Vector2(0.14, 0.1), new THREE.Vector2(0.01, 0.52), new THREE.Vector2(-0.13, 0.52), new THREE.Vector2(-0.14, 0.5)]);
+  // shape x runs towards -z once turned onto the side
+  for (const sx of [-1, 1]) slabShape(d, side, 0.018, [(sx * (W - 0.018)) / 2, 0, 0], wood, { rot: [0, PI / 2, 0], rough: 0.45, bevel: 0.003 });
+  d.box([W - 0.03, 0.018, 0.27], [0, 0.009, 0], wood, { rough: 0.5 });
+  d.box([W - 0.03, 0.016, 0.13], [0, 0.15, -0.065], wood, { rough: 0.5 });
+  d.at([0, 0.15, -0.125], [-0.12, 0, 0], () => d.box([W - 0.03, 0.36, 0.012], [0, 0.18, 0], wood, { rough: 0.5 }));
+  rod(d, [-(W - 0.03) / 2, 0.075, 0.13], [(W - 0.03) / 2, 0.075, 0.13], 0.008, C.brass, { metal: 0.8, rough: 0.3 });
+  rod(d, [-(W - 0.03) / 2, 0.22, 0.0], [(W - 0.03) / 2, 0.22, 0.0], 0.007, C.brass, { metal: 0.8, rough: 0.3 });
+  const cover = (k: number, at: Vec3, tilt: number, yaw: number) =>
+    d.at(at, [tilt, yaw, 0], () => d.box([0.21, 0.28, 0.006], [0, 0.14, 0], "#ffffff", { tex: T.magCovers[k % n], face: "front", rough: 0.45 }));
+  cover(3, [-0.115, 0.158, -0.03], -0.3, 0.03);
+  cover(5, [0.115, 0.158, -0.035], -0.3, -0.04);
+  cover(0, [-0.115, 0.02, 0.105], -0.36, -0.02);
+  cover(7, [0.115, 0.02, 0.1], -0.36, 0.05);
+}
+
+/** A pile of `n` magazines with cover `top` on top (the ones under it count down from there). */
+function magazineStack(d: DecorBuilder, T: Tex, n: number, top: number) {
+  const len = T.magCovers.length;
   for (let i = 0; i < n; i++)
-    d.at([(rnd() - 0.5) * 0.02, i * 0.0065, (rnd() - 0.5) * 0.02], [0, (rnd() - 0.5) * 0.25, 0], () => magazine(d, T.mags[(i + n) % T.mags.length]));
+    d.at([(rnd() - 0.5) * 0.02, i * 0.0065, (rnd() - 0.5) * 0.02], [0, (rnd() - 0.5) * 0.25, 0], () => magazine(d, T.magCovers[(((top - (n - 1 - i)) % len) + len) % len]));
 }
 
 function cactus(d: DecorBuilder, pot: Color) {
@@ -1712,7 +2048,9 @@ async function tvNook(d: DecorBuilder, L: DenLayout, T: Tex, ctx: LevelCtx, anim
   const room = (x: number) => x > L.X0 + 0.45;
   if (room(sx - 0.68)) d.at([sx - 0.68, 0, L.Z0 + 0.17], null, () => towerSpeaker(d));
   d.at([sx + 0.68, 0, L.Z0 + 0.17], null, () => towerSpeaker(d));
-  if (room(sx - 1.0)) d.at([sx - 0.98, 1.42, L.Z0], null, () => framed(d, 0.4, 0.533, T.blueprint, "#e8e4dc"));
+  const faves = perlerSets(T.perlers).nook;
+  if (room(sx - 1.0))
+    d.at([sx - 0.98, faves.length ? 1.5 : 1.42, L.Z0], null, () => (faves.length ? perlerCluster(d, faves, 0.54, 0.74) : framed(d, 0.4, 0.533, T.blueprint, "#e8e4dc")));
   await tick();
   // pegboard of controllers above it
   if (room(sx - 1.0))
@@ -1726,7 +2064,62 @@ async function tvNook(d: DecorBuilder, L: DenLayout, T: Tex, ctx: LevelCtx, anim
       for (let k = 0; k < 4; k++) d.torus(0.04 - k * 0.002, 0.004, [0.14, -0.075 - k * 0.004, 0.055], "#1a1a20", { rot: [0.2 * k, 0.3, 0], seg: 14 });
     });
 
-  d.at([sx + 0.68, 1.42, L.Z0], null, () => framed(d, 0.36, 0.48, T.extraLife, "#16141a"));
+  d.at([sx + 0.68, 1.42, L.Z0], null, () => (T.perlers.length ? framed(d, 0.36, 0.48, T.hiScores, "#a35cff") : framed(d, 0.36, 0.48, T.extraLife, "#16141a")));
+}
+
+/**
+ * Perler sets: the biggest themed set (Breath of Fire III / Streets of Rage) gets the gallery above the
+ * credenza, the other one the front wall by the window, and favourites from other games hang in the
+ * TV nook.
+ */
+function perlerSets(P: Perler[]) {
+  const sor = P.filter((p) => /streets of rage/i.test(p.game));
+  const bof = P.filter((p) => /breath of fire/i.test(p.game));
+  const rest = P.filter((p) => !sor.includes(p) && !bof.includes(p));
+  let [main, front] = bof.length >= sor.length ? [bof, sor] : [sor, bof];
+  if (!main.length) main = rest.splice(0, 9);
+  return { main: main.slice(0, 10), front: front.slice(0, 5), nook: rest.slice(0, 6) };
+}
+/**
+ * A salon-style cluster of perler pieces filling `w`×`h` (centred on the current origin, on a wall
+ * facing +z). No frames or backing: the beads hang on the wall with a neon halo behind each piece.
+ * Every piece uses the same bead pitch, like real 5 mm beads, so a big sprite makes a big piece; the
+ * pitch is the largest that fits.
+ */
+function perlerCluster(d: DecorBuilder, items: Perler[], w: number, h: number) {
+  if (!items.length) return;
+  const GAP = 0.03, MAX_PITCH = 0.0062;
+  // try every row count (items split evenly, in order) and keep the one with the biggest beads
+  let best = { p: 0, rows: [] as Perler[][] };
+  for (let r = 1; r <= items.length; r++) {
+    const rows: Perler[][] = [];
+    for (let k = 0, i = 0; k < r; k++) {
+      const n = Math.round((items.length - i) / (r - k));
+      rows.push(items.slice(i, i + n));
+      i += n;
+    }
+    const pw = Math.min(...rows.map((row) => (w - GAP * (row.length - 1)) / row.reduce((a, it) => a + it.bw, 0)));
+    const ph = (h - GAP * (r - 1)) / rows.reduce((a, row) => a + Math.max(...row.map((it) => it.bh)), 0);
+    const p = Math.min(pw, ph, MAX_PITCH);
+    if (p > best.p * 1.02) best = { p, rows };
+  }
+  const p = best.p;
+  if (p <= 0) return;
+  const rowH = best.rows.map((row) => Math.max(...row.map((it) => it.bh)) * p);
+  let y = (rowH.reduce((a, b) => a + b, 0) + GAP * (rowH.length - 1)) / 2;
+  best.rows.forEach((row, r) => {
+    const rw = row.reduce((a, it) => a + it.bw * p, 0) + GAP * (row.length - 1);
+    let x = -rw / 2;
+    for (const it of row) {
+      const pw = it.bw * p, ph = it.bh * p;
+      d.at([x + pw / 2, y - rowH[r] / 2, 0], null, () => {
+        d.plane([pw, ph], [0, 0, 0.006], "#ffffff", { tex: it.halo, glow: 0.38, rough: 0.6 });
+        d.plane([pw, ph], [0, 0, 0.014], "#ffffff", { tex: it.rect, glow: 0.3, rough: 0.35 });
+      });
+      x += pw + GAP;
+    }
+    y -= rowH[r] + GAP;
+  });
 }
 
 /** Free back wall between the TV nook and the console bookcases: credenza, fridge, cat corner + wall stuff. */
@@ -1744,8 +2137,13 @@ async function backWall(d: DecorBuilder, L: DenLayout, T: Tex, ctx: LevelCtx, an
     await credenza(d, T, cx, z, ctx, anim, subs);
     d.at([cx, 1.42, z], null, () => whiteboard(d, T));
     await tick();
-    d.at([cx - 0.3, 2.2, z], [0, 0, 0.015], () => framed(d, 0.36, 0.48, T.nightDrive, "#16141a"));
-    d.at([cx + 0.3, 2.2, z], [0, 0, -0.01], () => framed(d, 0.36, 0.48, T.hiScores, "#a35cff"));
+    if (T.perlers.length) {
+      // the perler gallery: a wall of framed bead sprites above the whiteboard
+      d.at([cx, 2.19, z], null, () => perlerCluster(d, perlerSets(T.perlers).main, 1.42, 0.74));
+    } else {
+      d.at([cx - 0.3, 2.2, z], [0, 0, 0.015], () => framed(d, 0.36, 0.48, T.nightDrive, "#16141a"));
+      d.at([cx + 0.3, 2.2, z], [0, 0, -0.01], () => framed(d, 0.36, 0.48, T.hiScores, "#a35cff"));
+    }
   }
   // ---- mini fridge + corkboard + clock ----
   if (x1 - x >= 0.55) {
@@ -1790,12 +2188,13 @@ async function credenza(d: DecorBuilder, T: Tex, cx: number, z: number, ctx: Lev
     d.box([0.025, H - 0.03, D], [W / 2 - 0.0125, y0 + H / 2 - 0.015, zc], C.walnut, { rough: 0.5 });
     d.box([W - 0.02, H - 0.03, 0.01], [0, y0 + H / 2, 0.03], C.walnutDark);
     for (const sxx of [-1, 1]) d.box([0.02, H - 0.05, D - 0.02], [(sxx * bay) / 2, y0 + H / 2, zc], C.walnut, { rough: 0.5 });
-    // left bay: records
+    // left bay: records (spines in their covers' colours), one turned face-out at the front
     const left = -W / 2 + 0.025;
     for (let i = 0; i < 15; i++) {
-      const col = ["#1a1a22", "#d8262f", "#f2e8d0", "#2a5f9a", "#ffb000", "#3a1f4a", "#1d7a5a"][i % 7];
-      d.box([0.007, 0.31, 0.31], [left + 0.03 + i * 0.026, y0 + 0.025 + 0.155, zc + 0.01], col, { rot: [0, 0, (rnd() - 0.5) * 0.08], rough: 0.6 });
+      const col = T.recColors[(i * 3) % T.recColors.length];
+      d.box([0.007, 0.31, 0.31], [left + 0.03 + i * 0.026, y0 + 0.025 + 0.155, zc - 0.01], col, { rot: [0, 0, (rnd() - 0.5) * 0.08], rough: 0.6 });
     }
+    d.at([left + bay / 2 + 0.01, y0 + 0.026, zc + 0.172], [-0.06, 0.03, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[2 % T.recSleeves.length], face: "front", rough: 0.5 }));
   });
   await tick();
   d.at([cx, 0, z], null, () => {
@@ -1805,7 +2204,7 @@ async function credenza(d: DecorBuilder, T: Tex, cx: number, z: number, ctx: Lev
     d.cyl(0.012, 0.012, 0.02, [0, y0 + H / 2, zc + D / 2 + 0.012], C.brass, { rot: [PI / 2, 0, 0], seg: 12, metal: 0.9, rough: 0.25 });
     // right bay: inner shelf, magazines below, board games above
     d.box([bay - 0.02, 0.016, D - 0.03], [bay, y0 + 0.25, zc], C.walnut);
-    d.at([bay, y0 + 0.025, zc + 0.02], [0, PI / 2, 0], () => magazineStack(d, T, 6));
+    d.at([bay, y0 + 0.025, zc + 0.02], [0, PI / 2, 0], () => magazineStack(d, T, 6, 9));
     d.at([bay, y0 + 0.258, zc + 0.01], null, () => {
       d.box([0.4, 0.07, 0.3], [0, 0.035, 0], "#2a5f9a", { rough: 0.6 });
       d.box([0.4, 0.004, 0.3], [0, 0.071, 0], "#f2e8d0", { rough: 0.6 });
@@ -1817,9 +2216,9 @@ async function credenza(d: DecorBuilder, T: Tex, cx: number, z: number, ctx: Lev
     // ---- on top ----
     d.at([-0.56, top, 0.24], [0, 0.12, 0], () => shelfSpeaker(d));
     d.at([0.58, top, 0.24], [0, -0.12, 0], () => shelfSpeaker(d));
-    // vinyl sleeves leaning on the wall
-    d.at([-0.22, top, 0.045], [-0.12, 0.05, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.sleeves[0], face: "front" }));
-    d.at([-0.16, top, 0.06], [-0.1, -0.04, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.sleeves[2], face: "front" }));
+    // vinyl sleeves leaning on the wall: the one in front is the record on the platter
+    d.at([-0.22, top, 0.045], [-0.12, 0.05, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[1 % T.recSleeves.length], face: "front", rough: 0.5 }));
+    d.at([-0.16, top, 0.06], [-0.1, -0.04, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[0], face: "front", rough: 0.5 }));
     // turntable
     const tx = -0.2, tz = 0.25;
     d.at([tx, top, tz], null, () => {
@@ -1858,7 +2257,7 @@ async function credenza(d: DecorBuilder, T: Tex, cx: number, z: number, ctx: Lev
   });
   // the record spins (33 1/3)
   const rec = d.sub();
-  rec.plane([0.285, 0.285], [0, 0, 0], "#ffffff", { tex: T.record, rot: [-PI / 2, 0, 0], rough: 0.3 });
+  rec.plane([0.285, 0.285], [0, 0, 0], "#ffffff", { tex: T.recordDisc, rot: [-PI / 2, 0, 0], rough: 0.3 });
   rec.cyl(0.0035, 0.0035, 0.018, [0, 0.006, 0], C.chrome, { seg: 6, metal: 0.9 });
   const recMesh = rec.build("den-record");
   recMesh.position.set(cx - 0.2 - 0.04, y0 + H + 0.0975, z + 0.25);
@@ -1948,7 +2347,7 @@ function miniFridge(d: DecorBuilder, T: Tex, cx: number, z: number) {
     // on top: cans, cup noodles, token jar
     const top = 0.025 + H;
     d.at([-0.14, top, zc + 0.08], null, () => sodaCan(d, T.cans[0]));
-    d.at([-0.065, top, zc + 0.12], [0, 1.2, 0], () => sodaCan(d, T.cans[1]));
+    d.at([-0.065, top, zc + 0.12], [0, 0.35, 0], () => sodaCan(d, T.cans[1]));
     d.at([0.0, top, zc - 0.1], null, () => cupNoodle(d));
     d.at([0.13, top, zc + 0.04], null, () => tokenJar(d, T.tokens));
   });
@@ -1999,11 +2398,12 @@ function floatingShelves(d: DecorBuilder, T: Tex, cx: number, z: number) {
       } else {
         d.at([-0.14, top, 0.08], [0, 0.2, 0], () => brickHandheld(d));
         d.at([0.0, top, 0.09], [0, 0.4, 0], () => puzzleCube(d));
-        d.at([0.15, top, 0.08], null, () => d.at([0, 0, 0], null, () => {
-          d.box([0.07, 0.12, 0.012], [0, 0.06, -0.02], "#16141a");
-          d.plane([0.06, 0.08], [0, 0.07, -0.0135], "#ffffff", { tex: T.sleeves[1], rough: 0.5 });
-          d.box([0.012, 0.09, 0.03], [0, 0.045, -0.035], "#16141a", { rot: [-0.3, 0, 0] });
-        }));
+        // a little easel frame with a favourite album
+        d.at([0.15, top, 0.08], [-0.12, -0.2, 0], () => {
+          d.box([0.1, 0.1, 0.012], [0, 0.05, 0], "#16141a", { rough: 0.4 });
+          d.plane([0.084, 0.084], [0, 0.05, 0.0062], "#ffffff", { tex: T.recSleeves[5 % T.recSleeves.length], rough: 0.5, glow: 0.05 });
+          d.box([0.012, 0.085, 0.006], [0, 0.04, -0.03], "#16141a", { rot: [0.45, 0, 0] });
+        });
       }
     });
   });
@@ -2084,6 +2484,7 @@ async function battlestation(d: DecorBuilder, L: DenLayout, T: Tex) {
   frame(() => {
     // mug, floppies, CD spindle, joystick
     d.at([0.47, top, 0.6], [0, 2.2, 0], () => mug(d, "#f2ece0", C.magenta));
+    d.at([0.4, top, 0.47], [0, 0.2, 0], () => juiceBottle(d, T.cans[3], "#ffb347"));
     for (let i = 0; i < 6; i++)
       d.at([0.5, top + i * 0.0035, 0.38], [0, (rnd() - 0.5) * 0.4, 0], () => {
         d.box([0.09, 0.0033, 0.094], [0, 0.00165, 0], ["#1a1a20", "#2a5f9a", "#d8262f", "#1d7a5a", "#ffb000", "#f2f2f2"][i]);
@@ -2271,7 +2672,11 @@ async function rightSide(d: DecorBuilder, L: DenLayout, T: Tex) {
         d.box([W, 0.05, 0.016], [0, 0.03 + i * 0.085, 0.028], "#9a7450", { rough: 0.8 });
       }
       d.box([W - 0.04, 0.016, D], [0, 0.008, D / 2 + 0.02], "#7a5638");
-      for (let i = 0; i < 12; i++) d.box([0.31, 0.29, 0.006], [0, 0.16, 0.08 + i * 0.024], ["#1a1a22", "#d8262f", "#f2e8d0", "#2a5f9a", "#ffb000"][i % 5], { rot: [0.08 * (rnd() - 0.5), 0, 0], rough: 0.6 });
+      for (let i = 0; i < 12; i++) d.box([0.31, 0.29, 0.006], [0, 0.16, 0.08 + i * 0.024], T.recColors[(i * 5 + 1) % T.recColors.length], { rot: [0.08 * (rnd() - 0.5), 0, 0], rough: 0.6 });
+      // two more pulled out, leaning on the front of the crate
+      const n = T.recSleeves.length;
+      d.at([-0.1, 0, D + 0.075], [-0.2, 0.06, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[3 % n], face: "front", rough: 0.5 }));
+      d.at([0.11, 0, D + 0.1], [-0.22, -0.1, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[4 % n], face: "front", rough: 0.5 }));
       d.at([0, H, D / 2 + 0.02], [0, 0.08, 0], () => boombox(d));
       d.at([W / 2 + 0.12, 0.42, 0], null, () => outlet(d, [[0, -0.1, 0.05], [-0.04, -0.12, 0.12], [-0.1, -0.06, 0.16], [-0.17, -0.02, 0.17]]));
 
@@ -2287,6 +2692,7 @@ async function frontWall(d: DecorBuilder, L: DenLayout, T: Tex) {
   d.at([-1.18, 0.852, z - 0.075], null, () => cactus(d, C.terracotta));
   d.at([-0.88, 0.852, z - 0.08], null, () => succulent(d, "#1f1a2a", C.magenta));
   d.at([-0.62, 0.852, z - 0.07], [0, PI + 0.3, 0], () => slimeFig(d, "#a35cff"));
+  d.at([-0.4, 0.852, z - 0.075], [0, PI - 0.15, 0], () => juiceBottle(d, T.cans[1], "#ff7ab8"));
   d.at([0.7, 0.852, z - 0.075], [0, PI - 0.2, 0], () => mushroomFig(d));
   d.at([0.95, 0.852, z - 0.08], null, () => succulent(d, C.terracotta));
   d.at([1.2, 0.852, z - 0.075], [0, PI, 0], () => d.at([0, 0, 0], null, () => {
@@ -2308,6 +2714,11 @@ async function frontWall(d: DecorBuilder, L: DenLayout, T: Tex) {
       d.lathe([...shade].reverse(), [0, 0, 0], "#ffd9a0", { seg: 26, glow: 0.85, rough: 0.9, scale: [0.985, 1, 0.985] });
       d.sphere(0.03, [0, 1.5, 0], "#fff1d6", { seg: 10, glow: 2 });
     });
+    // wall above: the overflow perlers, or (with the gallery up) the Night Drive poster
+    const wx = (1.45 + vL) / 2;
+    const more = perlerSets(T.perlers).front;
+    if (more.length) d.at([wx, 2.14, z], [0, PI, 0], () => perlerCluster(d, more, vL - 1.5, 0.72));
+    else if (T.perlers.length) d.at([wx + 0.05, 2.08, z], [0, PI, 0.012], () => framed(d, 0.36, 0.48, T.nightDrive, "#16141a"));
     const bx = (lx + 0.17 + vL) / 2 + 0.02;
     const bw = Math.min(0.42, vL - lx - 0.2);
     d.at([bx, 0, z - 0.26], [0, PI, 0], () => {
@@ -2352,12 +2763,12 @@ async function centre(d: DecorBuilder, L: DenLayout, T: Tex) {
     tulipTable(d, "#e8e4dc", "#e8e4dc");
     d.at([0.02, 0.505, -0.02], null, () => tableLamp(d, "#5a2a7a"));
     d.at([-0.12, 0.505, 0.12], [0, 1.0, 0], () => mug(d, "#4fd8ff"));
-    d.at([0.12, 0.505, 0.12], [0, 0.4, 0], () => magazine(d, T.mags[3]));
+    d.at([0.12, 0.505, 0.12], [0, PI + 0.4, 0], () => magazine(d, T.magCovers[2 % T.magCovers.length]));
   });
   d.at([1.38, 0, cz + 0.1], null, () => {
     tulipTable(d, "#e8e4dc", "#e8e4dc");
     d.at([-0.06, 0.505, -0.06], null, () => snackBowl(d, "#ff3d9a"));
-    d.at([0.12, 0.505, -0.08], null, () => sodaCan(d, T.cans[2]));
+    d.at([0.12, 0.505, -0.08], [0, PI - 0.3, 0], () => sodaCan(d, T.cans[2]));
     d.at([0.07, 0.505, 0.11], [0, -0.5, 0], () => handheldFlat(d, T.screen));
     // charging cable: over the table edge, down the pedestal, along the floor to a power strip
     cable(d, [[0.19, 0.513, 0.15], [0.23, 0.5, 0.17], [0.235, 0.4, 0.17], [0.2, 0.15, 0.16], [0.24, 0.01, 0.2], [0.35, 0.006, 0.35], [0.4, 0.006, 0.55]], "#f2f2f2", 0.0022);
@@ -2371,13 +2782,16 @@ async function centre(d: DecorBuilder, L: DenLayout, T: Tex) {
   // floor clutter between the holo-table and the couch
   const fz = (L.tableZ + 0.5 + cz - 0.45) / 2;
   d.at([0.62, 0, fz + 0.02], [0, PI + 0.3, 0], () => pizzaBox(d, T));
+  d.at([1.0, 0, fz - 0.06], [0, PI - 0.25, 0], () => closedPizzaBox(d, T));
   d.at([-0.52, 0, fz], [0, PI + 0.4, 0], () => gameCase(d, T.cases[2]));
   d.at([-0.42, 0.014, fz + 0.04], [0, PI - 0.3, 0], () => gameCase(d, T.cases[3]));
   d.at([-0.72, 0, fz - 0.05], [0, 1.2, 0], () => openCase(d, "#4fd8ff"));
   d.at([0.1, 0, fz + 0.06], [0, -0.7, 0], () => padModern(d, "#e8e4f0", C.cyan));
   d.at([0.25, 0, fz - 0.06], [0, 0.6, 0], () => sodaCan(d, T.cans[0], true));
-  d.at([-0.95, 0, fz + 0.08], [0, PI + 0.2, 0], () => magazineStack(d, T, 4));
-  d.at([-1.05, 0, fz - 0.22], [0, PI - 0.5, 0], () => magazine(d, T.mags[1]));
+  d.at([-0.95, 0, fz + 0.08], [0, PI + 0.2, 0], () => magazineStack(d, T, 4, 4));
+  d.at([-1.05, 0, fz - 0.22], [0, PI - 0.5, 0], () => magazine(d, T.magCovers[1 % T.magCovers.length]));
+  // magazine rack by the left side table, turned to the room
+  d.at([-1.55, 0, L.couchZ - 0.42], [0, 2.45, 0], () => magazineRack(d, T));
   await tick();
   // bean bags around the holo-table
   d.at([-1.4, 0, L.tableZ - 0.45], [0, 0.6, 0.05], () => {
@@ -2396,9 +2810,11 @@ function pizzaBox(d: DecorBuilder, T: Tex) {
   d.box([t, wall, S], [S / 2 - t / 2, wall / 2, 0], col, { rough: 0.95 });
   d.box([t, wall, S], [-S / 2 + t / 2, wall / 2, 0], col, { rough: 0.95 });
   d.plane([S * 0.92, S * 0.92], [0, t + 0.004, 0], "#ffffff", { tex: T.pizza, rot: [-PI / 2, 0, 0], rough: 0.65 });
+  pizzaSides(d, T, S, wall);
   d.at([0, wall, -S / 2], [-1.85, 0, 0], () => {
     d.box([S, t, S], [0, 0, S / 2], "#d8b07a", { rough: 0.95 });
-    d.plane([S * 0.8, S * 0.8], [0, t / 2 + 0.001, S / 2], "#ffffff", { tex: T.pizzaLid, rot: [-PI / 2, 0, 0], rough: 0.8 });
+    // printed on the outside of the lid, turned so it reads upright with the lid open
+    d.plane([S * 0.84, S * 0.84], [0, t / 2 + 0.001, S / 2], "#ffffff", { tex: T.pizzaLid, rot: [-PI / 2, 0, PI], rough: 0.8 });
   });
   // a slice escaped onto a napkin
   d.box([0.16, 0.002, 0.16], [S / 2 + 0.12, 0.001, 0.05], "#f4f1ea", { rot: [0, 0.4, 0], rough: 0.9 });
@@ -2412,6 +2828,22 @@ function pizzaBox(d: DecorBuilder, T: Tex) {
     d.cyl(0.011, 0.011, 0.072, [0.14, 0, 0.009], "#c98a45", { seg: 8, rough: 0.8 });
     for (const [px, py] of [[0.05, 0.004], [0.095, -0.012], [0.1, 0.016]]) d.cyl(0.009, 0.009, 0.003, [px, py, 0.009], "#9e2a1e", { rot: [PI / 2, 0, 0], seg: 8 });
   });
+}
+
+/** "NAPOLI PIZZERIA" strips round the four sides of a pizza box (S square, `h` tall). */
+function pizzaSides(d: DecorBuilder, T: Tex, S: number, h: number) {
+  for (let i = 0; i < 4; i++)
+    d.at([0, 0, 0], [0, (i * PI) / 2, 0], () => d.plane([S * 0.96, h * 0.82], [0, h / 2, S / 2 + 0.0008], "#ffffff", { tex: T.pizzaSide, rough: 0.85 }));
+}
+
+/** A second, closed box (it was a two-pizza night). */
+function closedPizzaBox(d: DecorBuilder, T: Tex) {
+  const S = 0.36, h = 0.044;
+  d.box([S, h, S], [0, h / 2, 0], "#c9a06a", { rough: 0.95 });
+  d.plane([S * 0.9, S * 0.9], [0, h + 0.0008, 0], "#ffffff", { tex: T.pizzaLid, rot: [-PI / 2, 0, 0], rough: 0.8 });
+  pizzaSides(d, T, S, h);
+  // grease spot + a receipt taped on
+  d.plane([0.07, 0.1], [0.12, h + 0.0012, 0.11], "#fbfaf4", { rot: [-PI / 2, 0, 0.3], rough: 0.9 });
 }
 
 /** Ceiling fan (blades spin) over the holo-table. */
@@ -2459,10 +2891,14 @@ export async function decorateDen(ctx: LevelCtx, L: DenLayout, pause: () => Prom
     slice = performance.now();
   };
   seed = 1;
-  const d = new DecorBuilder({ atlasSize: 1024 });
+  // don't hold the room up for long on a slow connection: stand-ins if the art isn't here in 4 s
+  const art = await Promise.race([denArtOnce(), new Promise<null>((r) => setTimeout(() => r(null), 4000))]);
+  slice = performance.now(); // (waiting for the download isn't work)
+  // the drawn stand-ins fit a 1024² atlas; real covers + perler patterns need the full 2048²
+  const d = new DecorBuilder({ atlasSize: art ? 2048 : 1024 });
   const anim: Tick[] = [];
   const subs: DecorBuilder[] = [];
-  const T = await paint(d, ctx);
+  const T = await paint(d, ctx, art);
   await tvNook(d, L, T, ctx, anim, subs);
   await backWall(d, L, T, ctx, anim, subs);
   await battlestation(d, L, T);

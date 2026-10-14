@@ -1,0 +1,412 @@
+{
+  "_about": "Real-world artwork for the Neon Den decor, packed by scripts/decor/den-assets.ts into public/art/decor/den-<hash>.webp + den.json. crop = [x, y, w, h] in source pixels (applied before resizing); size = the source dimensions the crop was measured on; frame = GIF frame index; transparent = hex colours keyed to alpha (sheet backgrounds, frame boxes, drop shadows). Records without a crop are centre-cropped to a square.",
+  "records": [
+    {
+      "key": "streets-of-rage-2",
+      "game": "Streets of Rage 2",
+      "title": "Streets of Rage II",
+      "label": "Data Discs",
+      "catalog": "DATA005",
+      "year": 2016,
+      "url": "https://coverartarchive.org/release/4d5aba15-72ce-4c1c-bc2b-74de8114aa43/14228858985-500.jpg",
+      "page": "https://musicbrainz.org/release/4d5aba15-72ce-4c1c-bc2b-74de8114aa43",
+      "credit": "2xLP jacket (Data Discs). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "streets-of-rage",
+      "game": "Streets of Rage",
+      "title": "Streets of Rage",
+      "label": "Data Discs",
+      "catalog": "DATA001",
+      "year": 2015,
+      "url": "https://coverartarchive.org/release/442e47ef-0800-4059-b735-90ef7830da57/14140532505-500.jpg",
+      "page": "https://musicbrainz.org/release/442e47ef-0800-4059-b735-90ef7830da57",
+      "credit": "LP jacket (Data Discs). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "breath-of-fire-3",
+      "game": "Breath of Fire III",
+      "title": "Breath of Fire III (Original Soundtrack)",
+      "label": "Ship to Shore PhonoCo.",
+      "year": 2022,
+      "url": "https://cdn.shopify.com/s/files/1/1779/5441/files/BreathofFireIIIColorVersion_Vinyl_Thumbnail.png?v=1717984788",
+      "size": [2000, 2000],
+      "crop": [162, 463, 1139, 1129],
+      "page": "https://materia.store/products/breath-of-fire-iii-original-video-game-soundtrack-color-vinyl-color-vinyl",
+      "credit": "2xLP jacket (Ship to Shore PhonoCo., art by Tbone & AlJax). Flat front cut from the store's straight-on product render (jacket only, discs excluded)."
+    },
+    {
+      "key": "stardew-valley",
+      "game": "Stardew Valley",
+      "title": "Stardew Valley: Original Soundtrack",
+      "label": "Gamer's Edition",
+      "catalog": "GE002",
+      "year": 2017,
+      "url": "https://coverartarchive.org/release/c5826158-b733-45a4-8931-36110935e336/20974816717-500.jpg",
+      "page": "https://musicbrainz.org/release/c5826158-b733-45a4-8931-36110935e336",
+      "credit": "2xLP jacket (Gamer's Edition). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "god-of-war",
+      "game": "God of War (2018)",
+      "title": "God of War (Bear McCreary)",
+      "label": "Sony Classical / Music On Vinyl",
+      "catalog": "MOVATM331",
+      "year": 2023,
+      "url": "https://coverartarchive.org/release/773f6d36-c124-49a3-b0e4-7f44d12d847b/37038023826-500.jpg",
+      "page": "https://musicbrainz.org/release/773f6d36-c124-49a3-b0e4-7f44d12d847b",
+      "credit": "2xLP jacket (Sony Classical / Music On Vinyl). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "red-dead-redemption",
+      "game": "Red Dead Redemption",
+      "title": "Red Dead Redemption: Original Soundtrack",
+      "label": "Wax Poetics Records",
+      "catalog": "WPR009",
+      "year": 2010,
+      "url": "https://coverartarchive.org/release/6bf95a6f-c2c1-4491-b9eb-3cd95dd1f8ea/32870666517-500.jpg",
+      "page": "https://musicbrainz.org/release/6bf95a6f-c2c1-4491-b9eb-3cd95dd1f8ea",
+      "credit": "2xLP jacket (Wax Poetics Records / Rockstar Games). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "celeste",
+      "game": "Celeste",
+      "title": "Celeste: Original Soundtrack",
+      "label": "Ship to Shore PhonoCo.",
+      "catalog": "STS-028",
+      "year": 2018,
+      "url": "https://coverartarchive.org/release/21d8b3c2-19d5-4f67-be0d-7b854284c788/30725717929-500.jpg",
+      "page": "https://musicbrainz.org/release/21d8b3c2-19d5-4f67-be0d-7b854284c788",
+      "credit": "2xLP jacket (Ship to Shore PhonoCo.). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "doom",
+      "game": "Doom (2016)",
+      "title": "DOOM: Original Game Soundtrack",
+      "label": "Laced Records",
+      "year": 2018,
+      "url": "https://coverartarchive.org/release/16345711-6bff-49a9-8ef2-e3e5ba241271/25696969593-500.jpg",
+      "page": "https://musicbrainz.org/release/16345711-6bff-49a9-8ef2-e3e5ba241271",
+      "credit": "2xLP jacket (Laced Records / Bethesda). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "sonic-mania",
+      "game": "Sonic Mania",
+      "title": "Sonic Mania",
+      "label": "Data Discs",
+      "catalog": "DATA-S",
+      "year": 2017,
+      "url": "https://coverartarchive.org/release/870db0cf-036e-4a3c-aa32-807e2aa6bc8f/19124998752-500.jpg",
+      "page": "https://musicbrainz.org/release/870db0cf-036e-4a3c-aa32-807e2aa6bc8f",
+      "credit": "LP jacket (Data Discs). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "symphony-of-the-night",
+      "game": "Castlevania: Symphony of the Night",
+      "title": "Castlevania: Symphony of the Night (Original Video Game Soundtrack)",
+      "label": "Mondo",
+      "catalog": "MOND-075",
+      "year": 2018,
+      "url": "https://coverartarchive.org/release/790fce04-baf4-4476-866d-a0fba8f1de2f/26038325858-500.jpg",
+      "page": "https://musicbrainz.org/release/790fce04-baf4-4476-866d-a0fba8f1de2f",
+      "credit": "2xLP jacket (Mondo, art by Jasmin Darnell). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "shovel-knight-ost",
+      "game": "Shovel Knight: Shovel of Hope",
+      "title": "Shovel Knight: The Definitive Soundtrack",
+      "label": "Generation Series",
+      "catalog": "GS-002",
+      "year": 2017,
+      "url": "https://coverartarchive.org/release/ee90c518-0465-487a-b000-69fae0c5255f/16509902162-500.jpg",
+      "page": "https://musicbrainz.org/release/ee90c518-0465-487a-b000-69fae0c5255f",
+      "credit": "2xLP jacket (Generation Series). Scan via MusicBrainz / Cover Art Archive."
+    },
+    {
+      "key": "clair-obscur",
+      "game": "Clair Obscur: Expedition 33",
+      "title": "Clair Obscur: Expedition 33 (Original Soundtrack)",
+      "label": "Laced Records",
+      "catalog": "LMLP294SX",
+      "year": 2026,
+      "url": "https://coverartarchive.org/release/67312253-548f-4d0a-bca4-cdb4f0f07635/44289089043-500.jpg",
+      "page": "https://musicbrainz.org/release/67312253-548f-4d0a-bca4-cdb4f0f07635",
+      "credit": "2xLP jacket (Laced Records). Scan via MusicBrainz / Cover Art Archive."
+    }
+  ],
+  "magazines": [
+    {
+      "key": "gi-019",
+      "issue": "Game Informer #19",
+      "date": "1994-11",
+      "cover": "Sonic & Knuckles",
+      "url": "https://archive.org/download/game-informer-issue-19-november-1994/page/n0_w600.jpg",
+      "size": [818, 1063],
+      "crop": [23, 4, 791, 1055],
+      "page": "https://archive.org/details/game-informer-issue-19-november-1994",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-031",
+      "issue": "Game Informer #31",
+      "date": "1995-11",
+      "cover": "Donkey Kong Country 2: Diddy's Kong Quest",
+      "url": "https://archive.org/download/game-informer-issue-31-november-1995/page/n0_w600.jpg",
+      "size": [798, 1060],
+      "crop": [4, 4, 790, 1052],
+      "page": "https://archive.org/details/game-informer-issue-31-november-1995",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-050",
+      "issue": "Game Informer #50",
+      "date": "1997-06",
+      "cover": "Star Fox 64",
+      "url": "https://archive.org/download/game-informer-issue-50-june-1997/page/n0_w600.jpg",
+      "size": [799, 1065],
+      "crop": [4, 14, 791, 1047],
+      "page": "https://archive.org/details/game-informer-issue-50-june-1997",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-053",
+      "issue": "Game Informer #53",
+      "date": "1997-09",
+      "cover": "Final Fantasy VII",
+      "url": "https://archive.org/download/game-informer-issue-53-september-1997/page/n0_w600.jpg",
+      "size": [793, 1060],
+      "crop": [4, 4, 785, 1052],
+      "page": "https://archive.org/details/game-informer-issue-53-september-1997",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-067",
+      "issue": "Game Informer #67",
+      "date": "1998-11",
+      "cover": "Metal Gear Solid",
+      "url": "https://archive.org/download/game-informer-issue-67-november-1998/page/n0_w600.jpg",
+      "size": [795, 1060],
+      "crop": [4, 4, 787, 1052],
+      "page": "https://archive.org/details/game-informer-issue-67-november-1998",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-068",
+      "issue": "Game Informer #68",
+      "date": "1998-12",
+      "cover": "The Legend of Zelda: Ocarina of Time",
+      "url": "https://archive.org/download/game-informer-issue-68-december-1998/page/n0_w600.jpg",
+      "size": [795, 1060],
+      "crop": [4, 4, 787, 1052],
+      "page": "https://archive.org/details/game-informer-issue-68-december-1998",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-101",
+      "issue": "Game Informer #101",
+      "date": "2001-09",
+      "cover": "Tony Hawk's Pro Skater 3",
+      "url": "https://archive.org/download/game-informer-issue-101-september-2001/page/n0_w600.jpg",
+      "size": [1000, 1209],
+      "crop": [5, 5, 990, 1199],
+      "page": "https://archive.org/details/game-informer-issue-101-september-2001",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-105",
+      "issue": "Game Informer #105",
+      "date": "2002-01",
+      "cover": "Final Fantasy X",
+      "url": "https://archive.org/download/game-informer-issue-105-january-2002/page/n0_w600.jpg",
+      "size": [900, 1084],
+      "crop": [5, 5, 890, 1074],
+      "page": "https://archive.org/details/game-informer-issue-105-january-2002",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-138",
+      "issue": "Game Informer #138",
+      "date": "2004-10",
+      "cover": "The Elder Scrolls IV: Oblivion",
+      "url": "https://archive.org/download/game-informer-issue-138-october-2004/page/n0_w600.jpg",
+      "size": [670, 800],
+      "crop": [3, 3, 664, 794],
+      "page": "https://archive.org/details/game-informer-issue-138-october-2004",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    },
+    {
+      "key": "gi-156",
+      "issue": "Game Informer #156",
+      "date": "2006-04",
+      "cover": "God of War II",
+      "url": "https://archive.org/download/game-informer-issue-156-april-2006/page/n0_w600.jpg",
+      "size": [670, 800],
+      "crop": [3, 3, 664, 794],
+      "page": "https://archive.org/details/game-informer-issue-156-april-2006",
+      "credit": "Cover scan, Internet Archive (Game Informer collection)."
+    }
+  ],
+  "sprites": [
+    {
+      "key": "axel",
+      "name": "Axel Stone",
+      "game": "Streets of Rage 2",
+      "url": "https://static.wikia.nocookie.net/streetsofrage/images/0/07/Sor2_axelgif.gif/revision/latest?format=original",
+      "frame": 0,
+      "page": "https://streetsofrage.fandom.com/wiki/File:Sor2_axelgif.gif",
+      "credit": "Idle frame, Streets of Rage Wiki (Fandom) sprite rip."
+    },
+    {
+      "key": "blaze",
+      "name": "Blaze Fielding",
+      "game": "Streets of Rage 2",
+      "url": "https://static.wikia.nocookie.net/streetsofrage/images/d/d5/Sor2_blazegif.gif/revision/latest?format=original",
+      "frame": 0,
+      "page": "https://streetsofrage.fandom.com/wiki/File:Sor2_blazegif.gif",
+      "credit": "Idle frame, Streets of Rage Wiki (Fandom) sprite rip."
+    },
+    {
+      "key": "max",
+      "name": "Max Thunder",
+      "game": "Streets of Rage 2",
+      "url": "https://static.wikia.nocookie.net/streetsofrage/images/6/6a/MaxSoR2-stance.gif/revision/latest?format=original",
+      "frame": 0,
+      "transparent": ["000000"],
+      "page": "https://streetsofrage.fandom.com/wiki/File:MaxSoR2-stance.gif",
+      "credit": "Stance frame, Streets of Rage Wiki (Fandom) sprite rip; drop shadow keyed out."
+    },
+    {
+      "key": "adam",
+      "name": "Adam Hunter",
+      "game": "Streets of Rage",
+      "url": "https://static.wikia.nocookie.net/streetsofrage/images/b/b4/AdamSoR.png/revision/latest?format=original",
+      "page": "https://streetsofrage.fandom.com/wiki/File:AdamSoR.png",
+      "credit": "Idle frame, Streets of Rage Wiki (Fandom) sprite rip."
+    },
+    {
+      "key": "ryu",
+      "name": "Ryu",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20230802111449id_/https://www.spriters-resource.com/resources/sheets/37/40337.png?updated=1460957743",
+      "size": [888, 1632],
+      "crop": [4, 1326, 34, 40],
+      "transparent": ["ff00ff", "00ffff", "282828"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40337/",
+      "credit": "Adult Ryu field sprite, facing front. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "nina",
+      "name": "Nina",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20210225101215id_/https://www.spriters-resource.com/resources/sheets/37/40334.png?updated=1460957743",
+      "size": [796, 1588],
+      "crop": [10, 600, 44, 52],
+      "transparent": ["ff00ff", "00ffff", "101010"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40334/",
+      "credit": "Adult Nina, facing front. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "momo",
+      "name": "Momo",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20241117163808id_/https://www.spriters-resource.com/resources/sheets/37/40333.png",
+      "size": [1644, 1876],
+      "crop": [6, 14, 43, 51],
+      "transparent": ["ff00ff", "00ffff", "101010"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40333/",
+      "credit": "Field sprite, facing front. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "rei",
+      "name": "Rei",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20230802111351id_/https://www.spriters-resource.com/resources/sheets/37/40336.png?updated=1460957743",
+      "size": [1932, 1764],
+      "crop": [9, 72, 44, 58],
+      "transparent": ["ff00ff", "00ffff", "101010"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40336/",
+      "credit": "Adult Rei, standing. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "garr",
+      "name": "Garr",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20250815092642id_/https://www.spriters-resource.com/resources/sheets/37/40332.png",
+      "size": [1616, 1336],
+      "crop": [12, 12, 71, 62],
+      "transparent": ["ff00ff", "00ffff", "101010"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40332/",
+      "credit": "Field sprite, facing front. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "peco",
+      "name": "Peco",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20220526033141id_/https://www.spriters-resource.com/resources/sheets/37/40335.png?updated=1460957743",
+      "size": [1192, 916],
+      "crop": [6, 6, 37, 31],
+      "transparent": ["ff00ff", "00ffff", "101010"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40335/",
+      "credit": "Field sprite, facing front. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "teepo",
+      "name": "Teepo",
+      "game": "Breath of Fire III",
+      "url": "https://web.archive.org/web/20230802111442id_/https://www.spriters-resource.com/resources/sheets/37/40340.png?updated=1460957744",
+      "size": [640, 860],
+      "crop": [6, 106, 35, 48],
+      "transparent": ["ff00ff", "00ffff", "101010"],
+      "page": "https://www.spriters-resource.com/playstation/breathoffire3/asset/40340/",
+      "credit": "Adult Teepo, facing front. Ripped by Barubary, The Spriters Resource (sheet via Wayback Machine); drop shadow keyed out."
+    },
+    {
+      "key": "mario",
+      "name": "Raccoon Mario",
+      "game": "Super Mario Bros. 3",
+      "url": "https://mario.wiki.gallery/images/2/23/SMB3_Raccoon_Mario_run.gif",
+      "frame": 0,
+      "page": "https://www.mariowiki.com/File:SMB3_Raccoon_Mario_run.gif",
+      "credit": "Standing frame, Super Mario Wiki sprite."
+    },
+    {
+      "key": "link",
+      "name": "Link",
+      "game": "The Legend of Zelda",
+      "url": "https://cdn.wikimg.net/en/zeldawiki/images/9/92/TLoZ_Link_Sprite.png",
+      "page": "https://zeldawiki.wiki/wiki/File:TLoZ_Link_Sprite.png",
+      "credit": "NES sprite, Zelda Wiki."
+    },
+    {
+      "key": "samus",
+      "name": "Samus Aran",
+      "game": "Super Metroid",
+      "url": "https://static.wikia.nocookie.net/metroid/images/f/f5/Samus_Super_Metroid.png/revision/latest?format=original",
+      "transparent": ["ffffff"],
+      "page": "https://metroid.fandom.com/wiki/File:Samus_Super_Metroid.png",
+      "credit": "Front-facing sprite, Wikitroid (Fandom); white background keyed out."
+    },
+    {
+      "key": "sonic",
+      "name": "Sonic the Hedgehog",
+      "game": "Sonic the Hedgehog 2",
+      "url": "https://web.archive.org/web/20250719170223id_/https://www.spriters-resource.com/resources/sheets/10/10073.png?updated=1671586005",
+      "size": [1204, 1509],
+      "crop": [36, 260, 33, 45],
+      "transparent": ["0d4807", "25661a"],
+      "page": "https://www.spriters-resource.com/sega_genesis/sonicth2/asset/10073/",
+      "credit": "Idle frame. Ripped by Triangly & Paraemon, The Spriters Resource (sheet via Wayback Machine)."
+    },
+    {
+      "key": "shovel-knight",
+      "name": "Shovel Knight",
+      "game": "Shovel Knight: Shovel of Hope",
+      "url": "https://web.archive.org/web/20250815185605id_/https://www.spriters-resource.com/resources/sheets/64/67117.png?updated=1663721132",
+      "size": [560, 3514],
+      "crop": [2, 2, 34, 32],
+      "transparent": ["00ff00", "008080"],
+      "page": "https://www.spriters-resource.com/pc_computer/shovelknight/asset/67117/",
+      "credit": "Idle frame, The Spriters Resource (sheet via Wayback Machine)."
+    }
+  ]
+}
