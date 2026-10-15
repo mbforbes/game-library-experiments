@@ -41,7 +41,7 @@ runs as-is. `bun run art` rebuilds it (only needed to bake newly added games in 
 
 ## Deploy (Cloudflare Workers + static assets, free plan)
 
-Live at **https://the-backlog.m-b-forbes.workers.dev**. `bun run deploy` (clean build +
+Live at **https://the-backlog.games** (also https://the-backlog.m-b-forbes.workers.dev). `bun run deploy` (clean build +
 `wrangler deploy`, using the scoped token in `.env.cloudflare-deploy`, which is gitignored).
 
 It's set-and-forget: nothing needs re-running when the sheet changes.

@@ -92,7 +92,8 @@ export default function vault(): Level {
       for (const [x, z] of [
         [-2, -1.2],
         [2, -1.2],
-        [0, 1.4],
+        [-0.9, 1.3],
+        [0.9, 1.3],
       ]) {
         const l = new THREE.PointLight(0xffd59a, 11, 8, 1.4);
         l.position.set(x, H - 0.3, z);
@@ -111,6 +112,8 @@ export default function vault(): Level {
           snap = d.snapshot;
         }
       } catch {}
+      // local layout testing only: ?vaultdemo fills in made-up prices (never on the live site)
+      if (location.hostname === "localhost" && new URLSearchParams(location.search).has("vaultdemo")) ({ index, snap } = demoData(store.games));
       // each game in its recorded condition (from the live sheet), loose otherwise
       const valued = (snap?.items ?? []).map((it) => {
         const g = store.byId.get(it.id);
@@ -296,14 +299,14 @@ export default function vault(): Level {
       const placements: Placement[] = [];
       const plaques: THREE.Object3D[] = [];
       showcase.forEach((v, i) => {
-        const col = i % 3, row = Math.floor(i / 3);
-        const px = (col - 1) * 1.15, pz = -0.55 + row * 1.25;
+        const [px, pz] = pedestalAt(i);
         const [w, hgt] = templateOf(v.g!, ctx.art).size;
         const sc = Math.min(1.9, 0.3 / Math.max(w, hgt));
-        placements.push({ game: v.g!, position: new THREE.Vector3(px, 1.02, pz), quaternion: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, row ? Math.PI : 0, 0)), scale: sc });
+        // standing on the pedestal, facing back into the room
+        placements.push({ game: v.g!, position: new THREE.Vector3(px, 0.93, pz), quaternion: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0)), scale: sc });
         const pl = plaque(`${v.it.title}`, `${money(v.price)} · ${COND_LABEL[v.cond]}`);
-        pl.position.set(px, 0.93, pz + (row ? -0.2 : 0.2));
-        pl.rotation.set(-0.6 * (row ? -1 : 1), row ? Math.PI : 0, 0);
+        pl.position.set(px, 0.86, pz - 0.29);
+        pl.rotation.set(0.55, Math.PI, 0);
         plaques.push(pl);
       });
       if (placements.length) {
@@ -325,13 +328,13 @@ export default function vault(): Level {
         { closed: true, h: [0.6, 3.0], d: [0.5, 4.6], h0: 1.7, d0: 3.2, lift: 0.1, round: 0.8 },
       );
       const sBack = rail.project(new THREE.Vector3(0, 0, -D / 2));
-      c.rig.setRail(rail, { s: sBack, h: 1.75, d: 3.4 });
+      c.rig.setRail(rail, { s: sBack, h: 1.75, d: 2.7 });
       stations.push(
-        { id: "value", label: "The Value", go: () => c.rig.goTo({ s: sBack, h: 1.75, d: 3.4 }) },
+        { id: "value", label: "The Value", go: () => c.rig.goTo({ s: sBack, h: 1.75, d: 2.7 }) },
         { id: "history", label: "Over Time", go: () => c.rig.goTo({ s: rail.project(history.position), h: 1.7, d: 2.6 }) },
         { id: "top", label: "Most Valuable", go: () => c.rig.goTo({ s: rail.project(ranking.position), h: 1.75, d: 2.6 }) },
         { id: "platforms", label: "By Platform", go: () => c.rig.goTo({ s: rail.project(platforms.position), h: 1.6, d: 2.3 }) },
-        { id: "showcase", label: "Showcase", go: () => c.rig.goFree(new THREE.Vector3(0, 1.9, 2.4), new THREE.Vector3(0, 0.95, -0.2)) },
+        { id: "showcase", label: "Showcase", go: () => c.rig.goFree(new THREE.Vector3(0, 1.85, -1.75), new THREE.Vector3(0.3, 0.95, 1.4)) },
         { id: "door", label: "The Door", go: () => c.rig.goTo({ s: rail.project(new THREE.Vector3(0, 0, D / 2)), h: 1.5, d: 3.6 }) },
       );
     },
@@ -353,6 +356,12 @@ export default function vault(): Level {
       for (const f of fields) f.dispose();
     },
   };
+
+  /** Showcase pedestals: two rows in the front half of the room, in front of the vault door. */
+  function pedestalAt(i: number): [number, number] {
+    const col = i % 3, row = Math.floor(i / 3);
+    return [(col - 1) * 1.2 + (row ? 0.6 : 0), 0.85 + row * 1.0];
+  }
 
   // ---- drawing helpers --------------------------------------------------------------------------
 
@@ -482,8 +491,7 @@ export default function vault(): Level {
     const d = new DecorBuilder({ atlasSize: 1024 });
     // pedestals with glass-case frames
     for (let i = 0; i < pedestals; i++) {
-      const col = i % 3, row = Math.floor(i / 3);
-      const px = (col - 1) * 1.15, pz = -0.55 + row * 1.25;
+      const [px, pz] = pedestalAt(i);
       d.box([0.5, 0.88, 0.5], [px, 0.44, pz], "#1d1a15", { rough: 0.35, metal: 0.2 });
       d.box([0.56, 0.05, 0.56], [px, 0.9, pz], "#8a6a2c", { metal: 1, rough: 0.3 });
       d.box([0.56, 0.05, 0.56], [px, 0.025, pz], "#8a6a2c", { metal: 1, rough: 0.3 });
@@ -496,7 +504,6 @@ export default function vault(): Level {
         d.box([0.015, 0.62, 0.015], [px + sx * 0.25, 1.23, pz + sz * 0.25], "#c9a45c", { metal: 1, rough: 0.25 });
       d.box([0.52, 0.015, 0.52], [px, 1.545, pz], "#c9a45c", { metal: 1, rough: 0.25 });
       d.cyl(0.04, 0.05, 0.02, [px, 1.53, pz], "#fff1c9", { glow: 2 });
-      d.plane([0.48, 0.6], [px, 1.23, pz + 0.251], "#b8d4ff", { glow: 0.04, rough: 0.05, metal: 0.2 }); // a hint of glass
     }
     // the vault door (open, swung against the front wall) + its round frame
     const doorR = 1.25;
@@ -545,6 +552,27 @@ export default function vault(): Level {
   }
 
   return level;
+}
+
+/** Made-up numbers for laying out the boards on localhost (?vaultdemo). */
+function demoData(games: Game[]): { index: VaultIndexEntry[]; snap: VaultSnapshot } {
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  const items: VaultItem[] = games
+    .filter((g) => g.status !== "wishlist" && !/windows|pc|steam/i.test(g.platform))
+    .slice(0, 600)
+    .map((g) => {
+      const loose = Math.round((5 + rnd() ** 3 * 300) * 100) / 100;
+      return { id: g.id, title: g.title, platform: g.platform, status: g.status, physical: "assumed", prices: { loose, cib: loose * 2.1, new: loose * 5 } };
+    });
+  const tot = (k: "loose" | "cib" | "new") => items.reduce((a, i) => a + (i.prices[k] ?? 0), 0);
+  const date = new Date().toISOString().slice(0, 10);
+  const snap: VaultSnapshot = { date, generatedAt: new Date().toISOString(), source: "DEMO (made-up numbers)", currency: "USD", assumptions: [], items, unpriced: [], excluded: {} };
+  const index: VaultIndexEntry[] = [
+    { date: "2026-04-15", generatedAt: "", source: "", totals: { loose: tot("loose") * 0.9, cib: 0, new: 0, asOwned: tot("loose") * 0.9 }, priced: 580, unpriced: 20 },
+    { date, generatedAt: "", source: "", totals: { loose: tot("loose"), cib: tot("cib"), new: tot("new"), asOwned: tot("loose") }, priced: 600, unpriced: 0 },
+  ];
+  return { index, snap };
 }
 
 export type { Game };
