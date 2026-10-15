@@ -58,6 +58,8 @@ export class ArtStore {
   private snapCache = new Map<string, Promise<THREE.Texture | null>>();
   private loader = { loadAsync: (url: string) => loadImage(url).then((img) => new THREE.Texture(img as any)) };
   maxAnisotropy = 8;
+  /** when the light atlases arrived (performance.now), 0 until then */
+  readyAt = 0;
   /** resolves when the light atlases have arrived */
   ready: Promise<void> = Promise.resolve();
 
@@ -89,7 +91,9 @@ export class ArtStore {
         } catch {}
         onProgress?.(++done / all.length);
       }),
-    ).then(() => {});
+    ).then(() => {
+      this.readyAt = performance.now();
+    });
     this.fallbackCanvas.width = this.fallbackCanvas.height = FB_SIZE;
     const ctx = this.fallbackCanvas.getContext("2d")!;
     ctx.fillStyle = "#111";

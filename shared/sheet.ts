@@ -3,7 +3,7 @@
 
 import Papa from "papaparse";
 import { platformOf, slugify } from "./platforms";
-import type { ConsoleInfo, Game, Grade, Library, Status } from "./types";
+import type { Condition, ConsoleInfo, Game, Grade, Library, Status } from "./types";
 
 export { PUB_ID, DEFAULT_TABS, tabCsvUrl, discoverTabs, fetchTabCsvs, type TabName } from "./sheetfetch";
 import { PUB_ID, fetchTabCsvs, type TabName } from "./sheetfetch";
@@ -32,6 +32,19 @@ function table(csv: string, marker = "title"): { header: Map<string, number>; bo
     if (k && !header.has(k)) header.set(k, i);
   });
   return { header, body: all.slice(hi + 1), preamble: all.slice(0, hi) };
+}
+
+/** "CIB", "Complete in box", "Sealed", "Loose"... → a Condition (undefined when blank/unknown) */
+function condition(v: string): Condition | undefined {
+  const s = v.trim().toLowerCase();
+  if (!s) return undefined;
+  if (/^(cib|complete)/.test(s)) return "cib";
+  if (/new|sealed/.test(s)) return "new";
+  if (/grad/.test(s)) return "graded";
+  if (/box only|^box$/.test(s)) return "box";
+  if (/manual/.test(s)) return "manual";
+  if (/loose|cart|disc|used/.test(s)) return "loose";
+  return undefined;
 }
 
 const normKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -101,7 +114,8 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
     const h = bl.header;
     const title = col(h, "Title"), consoleC = col(h, "Console"), genre = col(h, "Genre"), dev = col(h, "Developer"),
       rel = col(h, "Release Date"), hrs = col(h, "Avg Completion Time", "Avg Completion"), pri = col(h, "Priority"),
-      inProg = col(h, "In Progress"), done = col(h, "Completed"), edition = col(h, "Edition");
+      inProg = col(h, "In Progress"), done = col(h, "Completed"), edition = col(h, "Edition"),
+      cond = col(h, "Condition", "Copy Condition"), physB = col(h, "Own Physical Copy", "Physical");
     bl.body.forEach((r, row) => {
       const t = title(r);
       if (!t) return;
@@ -110,6 +124,7 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
       add({
         title: t, platform: consoleC(r), genre: genre(r), developer: dev(r), released, year: released ? +released.slice(0, 4) : undefined,
         status, row, priority: num(pri(r)), hours: num(hrs(r)), edition: edition(r) || undefined,
+        condition: condition(cond(r)), ownPhysical: physB(r) ? yes(physB(r)) : undefined,
       });
     });
   }
@@ -125,7 +140,8 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
     const h = cp.header;
     const title = col(h, "Title"), consoleC = col(h, "Console"), genre = col(h, "Genre"), dev = col(h, "Developer"),
       rel = col(h, "Release Date"), doneOn = col(h, "Date of Completion"), gr = col(h, "Grade"),
-      phys = col(h, "Own Physical Copy"), val = col(h, "Value"), notes = col(h, "Notes"), edition = col(h, "Edition");
+      phys = col(h, "Own Physical Copy"), val = col(h, "Value"), notes = col(h, "Notes"), edition = col(h, "Edition"),
+      cond = col(h, "Condition", "Copy Condition");
     cp.body.forEach((r, row) => {
       const t = title(r);
       if (!t) return;
@@ -134,6 +150,7 @@ export function parseLibrary(csvs: Record<TabName, string>): Library {
         title: t, platform: consoleC(r), genre: genre(r), developer: dev(r), released, year: released ? +released.slice(0, 4) : undefined,
         status: "completed", row, completedOn: parseDate(doneOn(r)), grade: grade(gr(r)), ownPhysical: yes(phys(r)),
         value: num(val(r)), review: notes(r) || undefined, edition: edition(r) || undefined,
+        condition: condition(cond(r)),
       });
     });
   }

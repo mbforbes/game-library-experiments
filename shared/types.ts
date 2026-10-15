@@ -2,6 +2,9 @@
 
 export type Status = "backlog" | "playing" | "completed" | "wishlist";
 
+/** PriceCharting-style conditions: loose = cartridge/disc only; cib = complete in box. */
+export type Condition = "loose" | "cib" | "new" | "graded" | "box" | "manual";
+
 export interface Game {
   /** Unique id within the library, e.g. "g:ps5/signalis" or "w:snes/earthbound". */
   id: string;
@@ -20,14 +23,17 @@ export interface Game {
   row: number;
   /** Optional "Edition" column (Greatest Hits, Player's Choice, Collector's...) */
   edition?: string;
+  /** Optional "Condition" column (what the copy is: loose / complete in box / new...). Valuations assume loose when missing. */
+  condition?: Condition;
 
   // Backlog
   priority?: number; // 1 = highest, 5 = lowest
   hours?: number; // average completion time
 
-  // Completed
+  // Completed (and Backlog, if it ever gets an "Own Physical Copy?" column)
   completedOn?: string; // ISO date
   grade?: Grade;
+  /** true/false when the sheet says; undefined when it doesn't */
   ownPhysical?: boolean;
   value?: number; // USD
   review?: string;

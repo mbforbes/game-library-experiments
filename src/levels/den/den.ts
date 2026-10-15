@@ -26,6 +26,7 @@ import { buildOutside, billboard, outsideFx } from "../../world/kit/outside";
 import { neonEnvironment } from "../../world/kit/env";
 import { poster } from "../../world/kit/decor";
 import { GRADE_COLORS } from "../../media/spines";
+import { DecorBuilder } from "../../world/kit/decorkit";
 import type { Level, LevelCtx, Station } from "../types";
 import { DenEggs } from "./eggs";
 import { decorateDen } from "./decor";
@@ -289,6 +290,12 @@ export default function den(): Level {
       vending.group.rotation.y = Math.PI;
       scene.add(vending.group);
       const vendAt = new THREE.Vector3(2.75, 1.2, Z1 - 0.5);
+      // a little safe on the floor beside the vending machine (the way into the vault)
+      const safe = miniSafe();
+      safe.position.set(3.62, 0, Z1 - 0.42);
+      safe.rotation.y = Math.PI - 0.35;
+      scene.add(safe);
+      c.pickable(safe, () => c.openVault());
       const vendSfx = () => {
         c.audio.play("coin", { at: vendAt, volume: 0.6 });
         c.audio.play("vend", { at: vendAt, delay: 0.15 });
@@ -680,6 +687,46 @@ function floorMaterial() {
   m.roughnessNode = mix(float(0.18).add(grit.mul(0.1)), float(0.6), seam);
   m.userData.seam = seam;
   return m;
+}
+
+/** A small floor safe: steel body, gold trim, a dial and a three-spoke handle. */
+function miniSafe() {
+  const d = new DecorBuilder({ atlasSize: 256 });
+  const dial = d.canvas(128, 128, (x, w, h) => {
+    x.fillStyle = "#1a1a1d";
+    x.beginPath();
+    x.arc(w / 2, h / 2, w / 2 - 2, 0, Math.PI * 2);
+    x.fill();
+    x.strokeStyle = "#d9b45a";
+    x.lineWidth = 2;
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2, r0 = i % 5 ? 0.4 : 0.34;
+      x.beginPath();
+      x.moveTo(w / 2 + Math.cos(a) * w * r0, h / 2 + Math.sin(a) * h * r0);
+      x.lineTo(w / 2 + Math.cos(a) * w * 0.46, h / 2 + Math.sin(a) * h * 0.46);
+      x.stroke();
+    }
+    x.fillStyle = "#d9b45a";
+    x.beginPath();
+    x.arc(w / 2, h / 2, w * 0.14, 0, Math.PI * 2);
+    x.fill();
+  });
+  const S = 0.34;
+  d.box([S, S * 1.05, S * 0.9], [0, S * 0.525 + 0.03, 0], "#22302a", { rough: 0.4, metal: 0.6 });
+  d.box([S * 0.84, S * 0.88, 0.02], [0, S * 0.525 + 0.03, S * 0.45 + 0.004], "#2b3b34", { rough: 0.35, metal: 0.6 });
+  d.box([S * 0.84, 0.012, 0.024], [0, S * 0.97 + 0.03, S * 0.45 + 0.006], "#c9a45c", { metal: 1, rough: 0.3 });
+  d.box([S * 0.84, 0.012, 0.024], [0, 0.11, S * 0.45 + 0.006], "#c9a45c", { metal: 1, rough: 0.3 });
+  d.cyl(0.055, 0.055, 0.018, [-0.04, S * 0.6, S * 0.45 + 0.018], "#ffffff", { tex: dial, rot: [Math.PI / 2, 0, 0], metal: 0.5, rough: 0.3, seg: 24 });
+  d.cyl(0.012, 0.012, 0.03, [0.085, S * 0.5, S * 0.45 + 0.02], "#c9a45c", { rot: [Math.PI / 2, 0, 0], metal: 1, rough: 0.25 });
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * Math.PI * 2 + 0.3;
+    d.box([0.008, 0.06, 0.008], [0.085 + Math.cos(a) * 0.028, S * 0.5 + Math.sin(a) * 0.028, S * 0.45 + 0.034], "#c9a45c", { rot: [0, 0, a + Math.PI / 2], metal: 1, rough: 0.25 });
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) d.box([0.04, 0.03, 0.04], [sx * S * 0.4, 0.015, sz * S * 0.36], "#141414", { rough: 0.6 });
+  // (essential: it's a door, not decoration; and it must stay clickable)
+  const g = new THREE.Group();
+  g.add(d.build("den-safe", { essential: true }));
+  return g;
 }
 
 function pegboardMaterial() {

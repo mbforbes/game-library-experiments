@@ -280,7 +280,8 @@ export class DecorBuilder {
   }
 
   /** Bake everything added so far into one mesh. */
-  build(name = "decor"): THREE.Mesh {
+  /** `essential`: part of the room itself (walls, floors), so the quality governor never hides it. */
+  build(name = "decor", opts: { essential?: boolean } = {}): THREE.Mesh {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute("normal", new THREE.Float32BufferAttribute(this.nrm, 3));
@@ -296,7 +297,7 @@ export class DecorBuilder {
     }
     const mesh = new THREE.Mesh(g, this.shared.material);
     // decor lives on its own camera layer (the quality governor can drop it on slow devices)
-    tagQuality(mesh, "decor");
+    if (!opts.essential) tagQuality(mesh, "decor");
     mesh.name = name;
     this.pos = [];
     this.nrm = [];

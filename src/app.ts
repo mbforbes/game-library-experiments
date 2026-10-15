@@ -125,7 +125,9 @@ export class App {
       });
       this.store.loadNew();
 
-      const id = params.get("level") ?? DEFAULT_LEVEL;
+      const wantVault = params.get("level") === "vault" || location.pathname.replace(/\/$/, "") === "/vault";
+      let id = params.get("level") ?? DEFAULT_LEVEL;
+      if (id === "vault") id = DEFAULT_LEVEL; // the vault opens after the password (below)
       this.engine.renderer.setAnimationLoop(this.frame);
       await this.loadLevel(LEVELS[id] ? id : DEFAULT_LEVEL, (k, msg) => this.hud.setProgress(msg, 0.8 + k * 0.2));
       console.info(`[library] ready in ${Math.round(performance.now() - t0)}ms (${this.engine.backend}, ${this.store.source})`);
@@ -133,6 +135,7 @@ export class App {
       this.hud.hideLoading();
       if (!off("upgrade") && this.governor.settings.hiRes) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
       if (!off("prebuild")) this.prebuildOthers();
+      if (wantVault) this.openVault();
       // the performance test: /profile or ?profile
       if (params.has("profile") || location.pathname.replace(/\/$/, "") === "/profile") import("./profile/profiler").then((m) => m.runProfile(this));
     } catch (err) {
@@ -159,6 +162,7 @@ export class App {
       inspect: (g) => this.openGame(g),
       toast: (t, ms) => this.hud.toast(t, ms),
       onUpdate: (fn) => slot.tickers.push(fn),
+      openVault: () => this.openVault(),
     };
   }
 
@@ -218,7 +222,10 @@ export class App {
         slot.rig.update(0); // put the camera at this world's opening view
         const first = this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 4, visibleOnly: true });
         await Promise.race([first, wait(6000)]);
-        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 2 }));
+        // then everything else; hold the loading screen a little (≤ 0.6 s) so the first seconds
+        // in the room aren't spent finishing compiles (warm visits finish well inside that)
+        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1 }));
+        await Promise.race([slot.full, wait(600)]);
       }
       slot.compiled = true;
       this.markNew(slot);
@@ -233,13 +240,13 @@ export class App {
 
   /** After the first world is up, quietly build + compile the others so switching is instant. */
   private async prebuildOthers() {
-    await idle(2500);
-    // the world on screen finishes compiling first
+    // let the first room have the stage: wait until its own compiles are done and you've had a
+    // few seconds in it, then build the others only while you're not moving around
     await this.active?.full;
+    await wait(6000);
     for (const id of Object.keys(LEVELS)) {
       if (LEVELS[id].hidden || this.slots.has(id)) continue;
-      // wait for a quiet moment (no level switch in flight)
-      while (this.loadingLevel) await idle(500);
+      while (this.loadingLevel || !this.active || this.active.rig.idle < 1.5 || this.inspector.active) await wait(400);
       await this.ensureSlot(id, true).ready.catch((e) => console.warn("[prebuild]", id, e));
     }
   }
@@ -278,6 +285,26 @@ export class App {
     if (!first) this.audio.play("crton");
     await tween(first ? 600 : 460, (k) => (post.crt.value = (1 - k) * (1 - k)));
     this.loadingLevel = false;
+  }
+
+  /** The vault: unlocked by a password the Worker checks (it sets an HttpOnly cookie). */
+  async openVault() {
+    if (this.loadingLevel || this.active?.id === "vault") return;
+    let ok = false;
+    try {
+      ok = (await fetch("/api/vault/data", { credentials: "same-origin" })).ok;
+    } catch {}
+    if (!ok) {
+      this.audio.play("tick");
+      ok = await this.hud.askVaultPassword(async (pw) => {
+        const r = await fetch("/api/vault/unlock", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: pw }) });
+        return r.ok;
+      });
+    }
+    if (!ok) return;
+    this.audio.play("jingle");
+    this.audio.revive();
+    this.loadLevel("vault");
   }
 
   private markNew(slot: Slot) {

@@ -28,6 +28,8 @@ export interface LevelCtx {
   toast(text: string, ms?: number): void;
   /** A level-scoped place to put per-frame tickers */
   onUpdate(fn: (dt: number, t: number) => void): void;
+  /** Ask for the vault password (server-checked) and go to the vault if it's right. */
+  openVault(): void;
 }
 
 export interface Station {

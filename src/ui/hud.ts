@@ -187,6 +187,40 @@ export class Hud {
     setTimeout(() => this.loading.remove(), 900);
   }
 
+  /** The vault's password prompt; resolves true once `check` accepts a password, false if cancelled. */
+  askVaultPassword(check: (pw: string) => Promise<boolean>): Promise<boolean> {
+    return new Promise((resolve) => {
+      const el = h("div", "vault-ask");
+      el.innerHTML = `<form class="va-card"><div class="va-title">THE VAULT</div><input type="password" autocomplete="off" spellcheck="false" aria-label="Combination" placeholder="Combination"><div class="va-msg"></div><div class="va-actions"><button type="button" class="va-cancel">Cancel</button><button type="submit" class="va-go">Unlock</button></div></form>`;
+      document.body.appendChild(el);
+      const form = el.querySelector("form") as HTMLFormElement;
+      const input = el.querySelector("input") as HTMLInputElement;
+      const msg = el.querySelector(".va-msg") as HTMLElement;
+      setTimeout(() => input.focus(), 50);
+      const close = (v: boolean) => {
+        el.remove();
+        resolve(v);
+      };
+      el.addEventListener("pointerdown", (e) => e.stopPropagation());
+      (el.querySelector(".va-cancel") as HTMLButtonElement).onclick = () => close(false);
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!input.value.trim()) return;
+        msg.textContent = "…";
+        let ok = false;
+        try {
+          ok = await check(input.value);
+        } catch {}
+        if (ok) return close(true);
+        msg.textContent = "That's not it.";
+        form.classList.remove("shake");
+        void form.offsetWidth;
+        form.classList.add("shake");
+        input.select();
+      };
+    });
+  }
+
   /** Show the "New" filter chip only when there are new games (with their count). */
   setNewCount(n: number) {
     const chip = this.filterBox.querySelector('[data-f="new"]') as HTMLElement | null;

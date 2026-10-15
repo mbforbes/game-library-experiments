@@ -48,6 +48,13 @@ export const LEVELS: Record<string, LevelEntry> = {
     music: { url: "/audio/music-lab-v1.mp3", title: "Fragments", artist: "AERØHEAD", license: "CC BY-NC 3.0", licenseUrl: "https://creativecommons.org/licenses/by-nc/3.0/", link: "https://www.youtube.com/channel/UCoZbM1a4PKQ6haa2Ap4TSdg" },
     load: () => import("./lab/lab").then((m) => m.default),
   },
+  vault: {
+    name: "The Vault",
+    tagline: "What it's all worth.",
+    accent: "#ffcc55",
+    hidden: true,
+    load: () => import("./vault/vault").then((m) => m.default),
+  },
   showroom: {
     name: "Showroom",
     tagline: "Test bench: every form factor side by side.",
