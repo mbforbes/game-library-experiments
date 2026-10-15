@@ -2,6 +2,7 @@
 // god-ray shafts, filler tomes, and the Codex (a giant floating book that renders text).
 
 import * as THREE from "three/webgpu";
+import { tagQuality } from "../../engine/quality";
 import {
   positionWorld, positionLocal, cameraPosition, vec2, vec3, float, floor, fract, hash, mix, smoothstep, sin, cos, time, instanceIndex, uv, texture,
   normalView, positionViewDirection, abs, uniform, max,
@@ -104,6 +105,7 @@ export function dust(count: number, radius: number, y0: number, y1: number, colo
   m.emissiveNode = vec3(c.r, c.g, c.b).mul(tw.mul(1.5).add(0.3));
   const mesh = new THREE.InstancedMesh(geo, m, count);
   mesh.frustumCulled = false;
+  tagQuality(mesh, "fx");
   return mesh;
 }
 
@@ -125,6 +127,7 @@ export function lightShaft(from: THREE.Vector3, to: THREE.Vector3, radius: numbe
   mesh.position.copy(from).lerp(to, 0.5);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), from.clone().sub(to).normalize());
   mesh.renderOrder = 4;
+  tagQuality(mesh, "fx");
   return mesh;
 }
 

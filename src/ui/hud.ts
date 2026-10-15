@@ -154,7 +154,7 @@ export class Hud {
     const rows: [string, string][] = touch
       ? [["swipe", "move along"], ["pinch", "zoom"], ["tap", "pull out a game"], ["drag game", "turn it over"]]
       : [["scroll", "move along"], ["drag", "pan"], ["ctrl + scroll", "zoom"], ["click", "pull out a game"], ["← → / esc", "browse / put back"]];
-    this.help.innerHTML = `<button class="help-chip" aria-label="Controls">?</button><div class="help-card">${rows.map(([k, v]) => `<div><kbd>${k}</kbd><span>${v}</span></div>`).join("")}<p class="credits"></p></div>`;
+    this.help.innerHTML = `<button class="help-chip" aria-label="Controls">?</button><div class="help-card">${rows.map(([k, v]) => `<div><kbd>${k}</kbd><span>${v}</span></div>`).join("")}<label class="toggle"><input type="checkbox" class="fps-toggle"> FPS meter</label><p class="credits"></p></div>`;
     const chip = this.help.querySelector(".help-chip") as HTMLButtonElement;
     chip.onclick = () => {
       cb.onUi("tick");
@@ -184,6 +184,16 @@ export class Hud {
   hideLoading() {
     this.loading.classList.add("done");
     setTimeout(() => this.loading.remove(), 900);
+  }
+
+  /** Wire the FPS meter's on/off checkbox in the controls card. */
+  bindFps(get: () => boolean, set: (on: boolean) => void) {
+    const box = this.help.querySelector(".fps-toggle") as HTMLInputElement;
+    box.checked = get();
+    box.onchange = () => {
+      set(box.checked);
+      this.cb.onUi("tick");
+    };
   }
 
   /** Music credit (Creative Commons attribution) in the controls card. */

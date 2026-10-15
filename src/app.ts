@@ -17,6 +17,8 @@ import { AudioEngine } from "./audio/audio";
 import { neonFx } from "./world/kit/common";
 import { Bursts } from "./world/kit/particles";
 import { off } from "./engine/flags";
+import { detectDevice, initialSettings, Governor, refreshDivisor, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
+import { FpsMeter } from "./ui/fps";
 import type { Level, LevelCtx } from "./levels/types";
 
 /** A built world, kept alive so switching back is instant: own scene, rig, tickers, post look. */
@@ -58,6 +60,17 @@ export class App {
   }
   private raycaster = new THREE.Raycaster();
   private debug = new URLSearchParams(location.search).has("debug");
+  device!: DeviceInfo;
+  governor!: Governor;
+  fps!: FpsMeter;
+  /** render every Nth animation frame (high-refresh screens: aim for 60, not 144) */
+  private every = 1;
+  private tick = 0;
+  private intervals: number[] = [];
+  private lastRaf = 0;
+  private lastRender = 0;
+  /** per rendered frame: dt, cpu work, gpu time (the profiler reads these) */
+  readonly samples: { t: number; dt: number; cpu: number; gpu: number }[] = [];
   private frames: number[] = [];
   loadingLevel = false;
 
@@ -66,9 +79,24 @@ export class App {
     this.hud = new Hud(this.store, this.callbacks(), Object.entries(LEVELS).filter(([, l]) => !l.hidden).map(([id, l]) => ({ id, name: l.name, tagline: l.tagline })));
     try {
       this.hud.setProgress("Booting renderer…", 0.05);
-      this.engine = await createEngine(canvas);
+      // fast by default: start from what this device settled on last time, or a safe setting
+      const params = new URLSearchParams(location.search);
+      this.device = await detectDevice();
+      const { s: q0, remembered } = initialSettings(this.device, params);
+      this.engine = await createEngine(canvas, { msaa: q0.msaa, dpr: q0.dpr, bloom: q0.bloom, timestamps: true });
+      this.governor = new Governor(this.device, q0, {
+        apply: (s, changed) => this.applyQuality(s, changed),
+        busy: () => this.loadingLevel || document.hidden || !this.active,
+      });
+      if (params.has("nogov")) this.governor.enabled = false;
+      this.applyQuality(q0, ["dpr", "bloom", "fx", "decor", "hiRes"]);
+      console.info(`[quality] ${remembered ? "remembered" : "first visit"}: ${JSON.stringify(q0)} · ${this.device.gpu.api} ${this.device.gpu.description || this.device.gpu.renderer || ""}`);
+      this.fps = new FpsMeter(this.device.mobile);
+      document.body.appendChild(this.fps.el);
+      this.applyQuality(q0, []); // (sets the meter's note)
+      this.hud.bindFps(() => this.fps.on, (on) => (this.fps.on = on));
       const tEngine = performance.now();
-      this.art = new ArtStore(this.engine.quality.tier === "high" ? "hi" : "lo");
+      this.art = new ArtStore(this.device.mobile ? "lo" : "hi");
       this.hud.art = this.art;
       this.hud.setProgress("Reading Cooper's spreadsheet…", 0.15);
       const fontsReady = loadFonts();
@@ -81,21 +109,23 @@ export class App {
       this.spines.build(this.store.games);
       const tSpines = performance.now();
       console.info(`[boot] renderer ${Math.round(tEngine - t0)}ms, data ${Math.round(tData - tEngine)}ms, spines ${Math.round(tSpines - tData)}ms`);
+      (window as any).__boot = { renderer: Math.round(tEngine - t0), data: Math.round(tData - tEngine), spines: Math.round(tSpines - tData) };
       this.kit = makeMediaKit(this.art, this.spines);
       this.inspector = new Inspector(this.engine.scene, this.engine.camera, this.art);
       this.input = new Input(canvas);
       this.bindInput();
       this.store.on("filter", () => this.applyFilter());
 
-      const params = new URLSearchParams(location.search);
       const id = params.get("level") ?? DEFAULT_LEVEL;
       this.engine.renderer.setAnimationLoop(this.frame);
       await this.loadLevel(LEVELS[id] ? id : DEFAULT_LEVEL, (k, msg) => this.hud.setProgress(msg, 0.8 + k * 0.2));
       console.info(`[library] ready in ${Math.round(performance.now() - t0)}ms (${this.engine.backend}, ${this.store.source})`);
       (window as any).__ready = performance.now() - t0;
       this.hud.hideLoading();
-      if (!off("upgrade")) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
+      if (!off("upgrade") && this.governor.settings.hiRes) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
       if (!off("prebuild")) this.prebuildOthers();
+      // the performance test: /profile or ?profile
+      if (params.has("profile") || location.pathname.replace(/\/$/, "") === "/profile") import("./profile/profiler").then((m) => m.runProfile(this));
     } catch (err) {
       console.error(err);
       this.hud.showError(String((err as Error)?.message ?? err));
@@ -183,6 +213,8 @@ export class App {
       }
       slot.compiled = true;
       console.info(`[level] ${id}: built ${Math.round(tc - tb)}ms, compiled ${Math.round(performance.now() - tc)}ms${slot.background ? " (background)" : ""}`);
+      const lt = ((window as any).__levelTimes ??= {});
+      lt[id] = { built: Math.round(tc - tb), compiled: Math.round(performance.now() - tc), background: slot.background };
       slot.full.then(() => console.info(`[level] ${id}: all shaders ready at ${Math.round(performance.now() - tb)}ms`));
       report(1, "Ready");
     })();
@@ -239,6 +271,7 @@ export class App {
   }
 
   private activate(slot: Slot) {
+    if (this.governor && live.decor !== this.governor.settings.decor) this.applyDecor(this.governor.settings.decor);
     this.active = slot;
     this.engine.setScene(slot.scene);
     this.inspector.setScene(slot.scene);
@@ -467,10 +500,19 @@ export class App {
   private bursts = new Bursts();
   private burstColor = "#ffffff";
   private frame = () => {
+    // high-refresh screens: render every Nth animation frame so we aim for ~60 fps, not 144
+    const rafNow = performance.now();
+    if (this.lastRaf && this.intervals.length < 90) {
+      this.intervals.push(rafNow - this.lastRaf);
+      if (this.intervals.length === 90) this.every = refreshDivisor(this.intervals);
+    }
+    this.lastRaf = rafNow;
+    if (++this.tick % this.every) return;
     if (!this.active) {
       this.engine.render();
       return;
     }
+    const work0 = performance.now();
     const sp = this.active.post, ep = this.engine.post;
     ep.bloomStrength.value = sp.bloomStrength.value;
     ep.bloomRadius.value = sp.bloomRadius.value;
@@ -495,9 +537,42 @@ export class App {
     this.bursts.update(dt);
     if (!off("audio")) this.audio.update(this.engine.camera);
     this.engine.render();
-    this.engine.adapt(dt);
+    // timing for the governor, the FPS meter and the profiler
+    const cpu = performance.now() - work0;
+    const fdt = this.lastRender ? work0 - this.lastRender : 16.7;
+    this.lastRender = work0;
+    const gpu = this.engine.gpuMs;
+    this.samples.push({ t: work0, dt: fdt, cpu, gpu });
+    if (this.samples.length > 4000) this.samples.splice(0, 1000);
+    this.governor.frame(fdt, cpu, gpu);
+    this.fps.push(fdt);
     if (this.debug) this.debugStats(dt);
   };
+
+  /** Apply quality settings (from the governor, the profiler, or at startup). */
+  applyQuality(s: QualitySettings, changed: (keyof QualitySettings)[]) {
+    const cam = this.engine.camera;
+    if (changed.includes("dpr")) this.engine.setDpr(s.dpr);
+    if (changed.includes("bloom")) this.engine.setBloom(s.bloom);
+    if (changed.includes("fx")) {
+      live.fx = s.fx;
+      if (s.fx) cam.layers.enable(LAYER.fx);
+      else cam.layers.disable(LAYER.fx);
+    }
+    // props only come or go between rooms (or on the first apply), never in plain view
+    if (changed.includes("decor") && (!this.active || changed.length > 1)) this.applyDecor(s.decor);
+    if (changed.includes("hiRes")) {
+      live.hiRes = s.hiRes;
+      if (s.hiRes && this.art && !off("upgrade")) this.art.ready.then(() => this.art.upgrade());
+    }
+    if (this.fps) this.fps.note = `${s.dpr}x${s.bloom ? "" : " nb"}${s.fx ? "" : " nf"}${s.msaa ? "" : " fx"}`;
+  }
+
+  private applyDecor(on: boolean) {
+    live.decor = on;
+    if (on) this.engine.camera.layers.enable(LAYER.decor);
+    else this.engine.camera.layers.disable(LAYER.decor);
+  }
 
   private debugStats(dt: number) {
     this.frames.push(dt);

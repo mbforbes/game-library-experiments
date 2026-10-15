@@ -17,6 +17,7 @@ import { MediaField, templateOf, type Placement } from "../../media/field";
 import { faceOut } from "../../world/shelving";
 import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx, legendStrip, dataBoard } from "../../world/kit/lab";
 import { loadForecasts, letterOf, type Forecasts } from "../../library/forecasts";
+import { live } from "../../engine/quality";
 import { boxes, neonMaterial, neonSign } from "../../world/kit/common";
 import { neonEnvironment } from "../../world/kit/env";
 import { DotMatrix } from "../../world/kit/displays";
@@ -180,7 +181,7 @@ export default function lab(): Level {
         // render the view through the portal on the camera's side, only when it's on screen
         // (every other frame on phones, at reduced resolution)
         frameN++;
-        if (engine.quality.mobile && frameN % 2) return;
+        if (!live.fx || (engine.quality.mobile && frameN % 2)) return; // live portal views are an optional effect
         const near = inB ? portalB : portalA;
         frustum.setFromProjectionMatrix(projView.multiplyMatrices(c.camera.projectionMatrix, c.camera.matrixWorldInverse));
         near.surface.updateWorldMatrix(true, false);
@@ -191,6 +192,7 @@ export default function lab(): Level {
         const scale = engine.quality.mobile ? 0.35 : 0.45;
         near.resize(size.x * scale, size.y * scale);
         near.updateCamera(c.camera);
+        near.cam.layers.mask = c.camera.layers.mask;
         portalA.group.visible = portalB.group.visible = false;
         // same MRT, target layout and render context as the main pass: nothing new to compile
         engine.renderTo(scene, near.cam, near.rt);

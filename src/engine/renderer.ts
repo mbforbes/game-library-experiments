@@ -1,9 +1,11 @@
 // WebGPU renderer (automatic WebGL2 fallback) + post chain (selective bloom on emissive,
-// vignette, grain) + adaptive resolution that keeps frame time on budget.
+// vignette, grain, FXAA when MSAA is off). Resolution and bloom are set from outside by the
+// quality governor (see quality.ts).
 
 import * as THREE from "three/webgpu";
-import { pass, mrt, output, emissive, uniform, vec4, vec3, screenUV, float, time, vec2, mix, fract, sin, dot, step, smoothstep } from "three/tsl";
+import { pass, mrt, output, emissive, uniform, vec4, vec3, screenUV, float, time, vec2, mix, fract, sin, dot, step, smoothstep, renderOutput } from "three/tsl";
 import { bloom } from "three/addons/tsl/display/BloomNode.js";
+import { fxaa } from "three/addons/tsl/display/FXAANode.js";
 
 export interface Quality {
   tier: "low" | "mid" | "high";
@@ -40,8 +42,16 @@ export interface Engine {
   /** Post uniforms (TSL uniform nodes; set `.value`). flash = full-screen flash, fade = 0 visible .. 1 black */
   post: Record<"bloomStrength" | "bloomRadius" | "bloomThreshold" | "vignette" | "grain" | "flash" | "fade" | "crt" | "exposure", any>;
   dpr: number;
+  /** 4x MSAA on (else FXAA) */
+  msaa: boolean;
+  /** last measured GPU time per frame in ms (-1 when the browser can't measure it) */
+  gpuMs: number;
   render(): void;
   resize(): void;
+  /** Change the render pixel ratio (render targets are reallocated). */
+  setDpr(dpr: number): void;
+  /** Bloom resolution scale (0 = fade bloom out). */
+  setBloom(scale: number): void;
   /** Show a different scene (level switch: just swaps what the main pass draws). */
   setScene(scene: THREE.Scene): void;
   /**
@@ -59,8 +69,14 @@ export interface Engine {
    * (same MRT, same render context): reuses the main pass's node builds and GPU pipelines.
    */
   renderTo(scene: THREE.Scene, cam: THREE.Camera, rt: THREE.RenderTarget): void;
-  /** called every frame with the frame's dt (s) to adapt pixel ratio */
-  adapt(dt: number): void;
+}
+
+export interface EngineOptions {
+  msaa?: boolean;
+  dpr?: number;
+  bloom?: number;
+  /** measure GPU time per frame with timestamp queries where supported */
+  timestamps?: boolean;
 }
 
 /**
@@ -83,16 +99,18 @@ function polyfillSchedulerYield() {
   });
 }
 
-export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
+export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOptions = {}): Promise<Engine> {
   polyfillSchedulerYield();
   const params = new URLSearchParams(location.search);
   const quality = detectQuality();
+  const msaa = opts.msaa ?? true;
   const renderer = new THREE.WebGPURenderer({
     canvas,
-    antialias: quality.tier !== "low",
+    antialias: msaa,
     powerPreference: "high-performance",
     forceWebGL: params.has("webgl"),
-  });
+    trackTimestamp: !!opts.timestamps,
+  } as any);
   await renderer.init();
   const backend = (renderer.backend as any).isWebGPUBackend ? "webgpu" : "webgl";
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -121,7 +139,11 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   const color = scenePass.getTextureNode("output");
   const glow = scenePass.getTextureNode("emissive");
   const bloomPass = bloom(glow, post.bloomStrength as any, post.bloomRadius as any, post.bloomThreshold as any);
-  if (quality.mobile) bloomPass.setResolutionScale(0.35);
+  // bloom "off" fades it out and shrinks its passes to almost nothing (no graph changes, so no
+  // shader recompiles when the quality governor toggles it)
+  const bloomMix = uniform(opts.bloom === 0 ? 0 : 1);
+  let bloomGoal = bloomMix.value as number;
+  bloomPass.setResolutionScale(Math.max(0.08, opts.bloom ?? 0.25));
 
   // CRT power-off between worlds: the picture squashes to a bright line, then to a dot
   const k1 = post.crt.div(0.55).clamp(0, 1);
@@ -131,7 +153,7 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   const q = screenUV.sub(0.5).div(vec2(sx, sy)).add(0.5);
   const inside = step(0, q.x).mul(step(q.x, 1)).mul(step(0, q.y)).mul(step(q.y, 1));
   const sceneC = color.sample(q);
-  const bloomC = (bloomPass as any).getTextureNode().sample(q);
+  const bloomC = (bloomPass as any).getTextureNode().sample(q).mul(bloomMix);
   // Vignette + film grain + flash/fade, applied in linear space before tone mapping
   const d = screenUV.sub(0.5).length();
   const vig = float(1).sub(d.mul(d).mul(post.vignette).mul(2.2)).clamp(0, 1);
@@ -140,9 +162,18 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   const dotGlow = smoothstep(0.06, 0.0, screenUV.sub(0.5).mul(vec2(1.6, 1)).length()).mul(k2).mul(float(1).sub(k2.pow(4))).mul(2);
   const composed = sceneC.add(bloomC).mul(vig).mul(glowLine).mul(inside).add(g).add(vec3(dotGlow));
   const flashed = composed.add(post.flash);
-  pipeline.outputNode = vec4(mix(flashed.rgb, vec4(0, 0, 0, 1).rgb, post.fade.max(post.crt.greaterThan(0.995).select(float(1), float(0)))), 1);
+  const final = vec4(mix(flashed.rgb, vec4(0, 0, 0, 1).rgb, post.fade.max(post.crt.greaterThan(0.995).select(float(1), float(0)))), 1);
+  if (msaa) pipeline.outputNode = final;
+  else {
+    // no MSAA: tone map + encode first, then FXAA on the final image (cheap, one extra pass)
+    pipeline.outputColorTransform = false;
+    pipeline.outputNode = fxaa(renderOutput(final));
+  }
 
-  let dpr = quality.maxDpr;
+  let dpr = Math.max(0.5, Math.min(3, opts.dpr ?? Math.min(window.devicePixelRatio || 1, 1.5)));
+  // GPU time: resolve timestamp queries in the background, averaged over the frames they cover
+  let gpuMs = -1, resolving = false, framesSince = 0;
+  const timing = !!opts.timestamps && !!(renderer.backend as any).trackTimestamp;
   const engine: Engine = {
     renderer,
     scene,
@@ -155,8 +186,38 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
     get dpr() {
       return dpr;
     },
+    msaa,
+    get gpuMs() {
+      return gpuMs;
+    },
     render() {
+      const b = bloomMix.value as number;
+      if (b !== bloomGoal) bloomMix.value = b + Math.sign(bloomGoal - b) * Math.min(Math.abs(bloomGoal - b), 0.03);
       pipeline.render();
+      if (timing) {
+        framesSince++;
+        if (!resolving) {
+          resolving = true;
+          framesSince = 0;
+          renderer
+            .resolveTimestampsAsync("render")
+            .then((ms) => {
+              // (three reports the most recent frame's passes)
+              if (typeof ms === "number" && ms > 0) gpuMs = ms;
+            })
+            .catch(() => {})
+            .finally(() => (resolving = false));
+        }
+      }
+    },
+    setDpr(next) {
+      if (Math.abs(next - dpr) < 0.01) return;
+      dpr = next;
+      engine.resize();
+    },
+    setBloom(scale) {
+      bloomGoal = scale > 0 ? 1 : 0;
+      bloomPass.setResolutionScale(Math.max(0.08, scale));
     },
     resize() {
       const w = canvas.clientWidth || window.innerWidth;
@@ -166,7 +227,6 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
     },
-    adapt: makeAdaptor(),
     setScene(s) {
       engine.scene = s;
       scenePass.scene = s;
@@ -286,43 +346,18 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
       return get.call(rc, rt, m, depth);
     };
   }
+  const draw = engine.render; // bloom fade + pipeline.render + GPU timing
   engine.render = () => {
     rendered = true;
     if (compiling) {
       const rt = renderer.getRenderTarget(), m = renderer.getMRT();
       renderer.setRenderTarget(null);
       renderer.setMRT(null);
-      pipeline.render();
+      draw();
       renderer.setRenderTarget(rt);
       renderer.setMRT(m);
-    } else pipeline.render();
+    } else draw();
   };
-
-  function makeAdaptor() {
-    // Average frame time over ~1.5s windows; step the pixel ratio down when slow, up when fast.
-    let acc = 0, n = 0, cooldown = 2.5;
-    const fixed = params.has("dpr");
-    if (fixed) dpr = Math.max(0.5, Math.min(3, parseFloat(params.get("dpr")!)));
-    return (dt: number) => {
-      if (fixed) return;
-      cooldown -= dt;
-      acc += dt;
-      n++;
-      if (acc < 1.5) return;
-      const avg = acc / n;
-      acc = 0;
-      n = 0;
-      if (cooldown > 0) return;
-      let next = dpr;
-      if (avg > 1 / 45) next = Math.max(quality.minDpr, dpr * 0.85);
-      else if (avg < 1 / 58 && dpr < quality.maxDpr) next = Math.min(quality.maxDpr, dpr * 1.1);
-      if (Math.abs(next - dpr) > 0.01) {
-        dpr = next;
-        engine.resize();
-        cooldown = 3;
-      }
-    };
-  }
 
   engine.resize();
   window.addEventListener("resize", () => engine.resize());

@@ -15,6 +15,7 @@
 //   scene.add(d.build());
 
 import * as THREE from "three/webgpu";
+import { tagQuality } from "../../engine/quality";
 import { attribute, texture, mix, vec3, float, sin, time, hash, positionWorld, floor, uv } from "three/tsl";
 
 export type Vec3 = [number, number, number];
@@ -294,6 +295,8 @@ export class DecorBuilder {
       this.shared.dirty = false;
     }
     const mesh = new THREE.Mesh(g, this.shared.material);
+    // decor lives on its own camera layer (the quality governor can drop it on slow devices)
+    tagQuality(mesh, "decor");
     mesh.name = name;
     this.pos = [];
     this.nrm = [];

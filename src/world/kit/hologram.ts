@@ -3,6 +3,7 @@
 // screenshots look great as voxels. All work happens in the vertex shader from instanceIndex.
 
 import * as THREE from "three/webgpu";
+import { tagQuality } from "../../engine/quality";
 import {
   texture, instanceIndex, vec2, vec3, vec4, float, uniform, time, sin, fract, floor, hash, mix, positionLocal, max, smoothstep,
   positionWorld, normalView, positionViewDirection, abs, cos,
@@ -109,6 +110,8 @@ export class Hologram {
     this.title = new THREE.Mesh(new THREE.PlaneGeometry(size * 1.1, size * 0.1), tm);
     this.title.position.y = size + 0.08;
     this.group.add(this.title);
+    // the projection (voxels, light cone, title) is an optional effect; the table itself isn't
+    for (const o of [this.mesh, cone, this.title]) tagQuality(o, "fx");
   }
 
   async show(game: Game | null) {

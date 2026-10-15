@@ -2,6 +2,7 @@
 // One instanced mesh, simulated on the CPU (a few dozen particles at a time).
 
 import * as THREE from "three/webgpu";
+import { live } from "../../engine/quality";
 import { uniform, vec3, attribute } from "three/tsl";
 
 interface P {
@@ -36,6 +37,7 @@ export class Bursts {
   }
 
   emit(at: THREE.Vector3, color: string, n = 18, spread = 0.12, upward = 0.25) {
+    if (!live.fx) return;
     this.color.value.set(color).convertSRGBToLinear();
     for (let i = 0; i < n; i++) {
       if (this.ps.length >= this.max) this.ps.shift();
