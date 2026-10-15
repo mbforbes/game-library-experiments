@@ -10,7 +10,8 @@
   },
   // permanent store: last good sheet snapshot, runtime art lookups + images (free tier)
   "kv_namespaces": [{ "binding": "STORE", "id": "cf686d99bbbb491b9221b45b50155f00" }],
-  // the site's home (custom domains on the Cloudflare zone; workers.dev keeps working too)
+  // the site's home (custom domains on the Cloudflare zone); workers.dev keeps working too
+  "workers_dev": true,
   "routes": [
     { "pattern": "the-backlog.games", "custom_domain": true },
     { "pattern": "www.the-backlog.games", "custom_domain": true }
