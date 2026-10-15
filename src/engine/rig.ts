@@ -117,6 +117,15 @@ export class CameraRig {
     this.poke();
   }
 
+  /** The camera is at rest: no flight, drag, glide or blend still under way. */
+  get settled() {
+    if (this.flight || this.dragging || Math.abs(this.vel.s) > 0.01 || Math.abs(this.vel.h) > 0.01) return false;
+    if (Math.abs(this.free.weight - this.free.goalWeight) > 0.01) return false;
+    const r = this.rail;
+    const ds = r ? Math.abs(r.delta(this.state.s, this.goal.s)) : 0;
+    return ds < 0.005 && Math.abs(this.goal.h - this.state.h) < 0.005 && Math.abs(this.goal.d - this.state.d) < 0.005;
+  }
+
   get isFree() {
     return this.free.goalWeight > 0;
   }

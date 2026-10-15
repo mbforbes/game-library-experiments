@@ -78,6 +78,8 @@ export class App {
   /** resolves when the other worlds have been prebuilt in the background */
   prebuilt: Promise<void> = Promise.resolve();
   private profiling = new URLSearchParams(location.search).has("profile") || location.pathname.replace(/\/$/, "") === "/profile";
+  /** time of the last pointer / wheel / key / touch input */
+  private lastInput = 0;
 
   async start(canvas: HTMLCanvasElement) {
     const t0 = performance.now();
@@ -125,6 +127,7 @@ export class App {
       this.inspector = new Inspector(this.engine.scene, this.engine.camera, this.art);
       this.input = new Input(canvas);
       this.bindInput();
+      for (const ev of ["pointermove", "pointerdown", "wheel", "keydown", "touchstart"]) addEventListener(ev, () => (this.lastInput = performance.now()), { passive: true, capture: true });
       this.store.on("filter", () => this.applyFilter());
       // recently added games: badge them in every world (also ones built later)
       this.store.on("new", () => {
@@ -211,7 +214,9 @@ export class App {
       await level.build(this.ctx(slot), async (msg) => {
         report(Math.min(0.6, 0.08 * ++phase), msg);
         this.audio.scope = "";
-        // background builds give the frame loop room to breathe between phases
+        // background builds give the frame loop room to breathe between phases, and wait while
+        // you're interacting
+        if (slot.background) while (!this.quiet()) await wait(250);
         await (slot.background ? idle(120) : nextFrame());
         this.audio.scope = id;
       });
@@ -221,7 +226,10 @@ export class App {
       if (slot.background) {
         // prebuilding a world nobody is looking at yet: everything, one shader at a time
         report(0.62, "Compiling shaders…");
-        await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 1 });
+        // (paced to idle time between frames and paused while you interact; the performance test
+        // wants it done before it measures)
+        const gate = this.profiling ? undefined : () => this.quiet();
+        await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 1, gate });
         slot.full = Promise.resolve();
       } else {
         // On screen next: compile what the opening view shows (a first visit compiles every shader
@@ -233,7 +241,7 @@ export class App {
         await Promise.race([first, wait(6000)]);
         // then everything else; hold the loading screen a little (≤ 0.6 s) so the first seconds
         // in the room aren't spent finishing compiles (warm visits finish well inside that)
-        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1 }));
+        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1, paced: true }));
         await Promise.race([slot.full, wait(600)]);
       }
       slot.compiled = true;
@@ -256,9 +264,20 @@ export class App {
     if (!this.profiling) await wait(6000);
     for (const id of Object.keys(LEVELS)) {
       if (LEVELS[id].hidden || this.slots.has(id)) continue;
-      while (this.loadingLevel || !this.active || (!this.profiling && (this.active.rig.idle < 1.5 || this.inspector.active))) await wait(400);
+      while (this.loadingLevel || !this.active || !this.quiet()) await wait(400);
       await this.ensureSlot(id, true).ready.catch((e) => console.warn("[prebuild]", id, e));
     }
+  }
+
+  /**
+   * May background work (prebuilding other worlds) run right now? Not while you're moving,
+   * hovering or holding a game: even small compiles cost the odd dropped frame. A world you're
+   * waiting for (switching to it) always may, and so does the performance test.
+   */
+  private quiet() {
+    if (this.profiling || this.loadingLevel) return true;
+    const rig = this.active?.rig;
+    return performance.now() - this.lastInput > 1500 && (!rig || (rig.idle >= 1.5 && rig.settled)) && !this.inspector.active;
   }
 
   async loadLevel(id: string, onProgress?: (k: number, msg: string) => void) {

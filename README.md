@@ -71,7 +71,10 @@ writes per day at most, everything else is static.
 
 - Every world is built once into its own scene and kept alive. The others are prebuilt and their
   shaders compiled in the background after the first one appears, so switching is just the CRT
-  animation.
+  animation. Background building waits while you're interacting (pointer, wheel, keys, camera
+  moving, a game held) and only compiles in the idle time between frames. three's own compile
+  loop yields with `scheduler.yield()`, which Chrome runs ahead of rendering, so an unpaced
+  compile got a frame through only every 50-100 ms.
 - All GPU pipelines are precompiled behind the loading bar, in parallel and in the same render
   context the frame uses. Materials share programs: constants are uniforms, one shared material
   serves the inspected game, and two serve every close-up cover overlay. Images decode off the

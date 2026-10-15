@@ -57,10 +57,12 @@ export interface Engine {
   /**
    * Compile every pipeline `scene` needs for the main pass up front (all objects, on screen or
    * not, visible or hidden), so the first time something comes into view doesn't stall the GPU
-   * on a shader compile. Yields between objects; reports 0..1 progress.
+   * on a shader compile. Yields between objects; reports 0..1 progress. `paced`: only compile
+   * in the idle time between frames (for compiles that run while the room is on screen). With
+   * `gate`, waits before each object until it returns true (pausing while you interact).
    */
-  precompile(scene: THREE.Scene, onProgress?: (k: number) => void, opts?: { parallel?: number; visibleOnly?: boolean }): Promise<void>;
-  /** Someone is now waiting on the compile in progress: let it use more parallelism. */
+  precompile(scene: THREE.Scene, onProgress?: (k: number) => void, opts?: { parallel?: number; visibleOnly?: boolean; paced?: boolean; gate?: () => boolean }): Promise<void>;
+  /** Someone is now waiting on the compile in progress: full speed, more parallelism. */
   boostCompile(parallel?: number): void;
   /** A render target that matches the main pass (formats, MRT, samples) so it reuses its pipelines. */
   matchingTarget(w: number, h: number): THREE.RenderTarget;
@@ -77,6 +79,27 @@ export interface EngineOptions {
   bloom?: number;
   /** measure GPU time per frame with timestamp queries where supported */
   timestamps?: boolean;
+}
+
+/**
+ * Wait until there are at least `ms` of idle time left before the next frame (shared across
+ * callers: several objects fit in one long idle period). Without requestIdleCallback (Safari):
+ * just after a frame, assuming ~8 ms. Never waits more than ~0.2 s, so work always progresses.
+ */
+let idleDeadline: { timeRemaining(): number } | null = null;
+async function idleSlot(ms: number) {
+  if (idleDeadline && idleDeadline.timeRemaining() >= ms) return;
+  const ric = (window as any).requestIdleCallback as ((cb: (d: { timeRemaining(): number; didTimeout: boolean }) => void, o: { timeout: number }) => void) | undefined;
+  idleDeadline = await new Promise((r) => {
+    if (ric) ric((d) => r(d.didTimeout ? { timeRemaining: () => 0 } : d), { timeout: 200 });
+    else
+      requestAnimationFrame(() =>
+        setTimeout(() => {
+          const end = performance.now() + 8;
+          r({ timeRemaining: () => Math.max(0, end - performance.now()) });
+        }, 0),
+      );
+  });
 }
 
 /**
@@ -263,6 +286,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
       const pending: Promise<unknown>[] = [];
       const prevCollect = pipes.__collect;
       pipes.__collect = { list: pending, limit: Math.max(1, opts.parallel ?? 4) };
+      if (opts.paced || opts.gate) gates.set(s, opts.gate ?? (() => true));
       let job: Promise<void>;
       try {
         job = renderer.compileAsync(s, camera, null, onProgress ? (e: ProgressEvent) => onProgress(e.loaded / Math.max(1, e.total)) : null);
@@ -272,6 +296,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
         for (const r of restore) r();
       }
       await job.catch((err) => console.warn("[engine] precompile", err));
+      gates.delete(s);
       pipes.__collect = prevCollect;
       await Promise.allSettled(pending);
       if (--compiling === 0) {
@@ -280,6 +305,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
       }
     },
     boostCompile(parallel = 4) {
+      gates.clear(); // (no more pausing or pacing: someone is waiting)
       if (pipes.__collect) pipes.__collect.limit = Math.max(pipes.__collect.limit, parallel);
     },
     matchingTarget(w, h) {
@@ -331,6 +357,30 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
         if (inflight.size >= c.limit) promises.push(p);
       }
       return r;
+    };
+  }
+  // Paced / gated compiles (precompile's `paced` and `gate`). compileAsync builds each object's
+  // shaders through getForRenderAsync (nothing else calls it), so such a scene waits there before
+  // each object: for its gate, then for idle time between frames. Left alone, compileAsync's own
+  // yields (scheduler.yield) run ahead of rendering, so a long compile on screen got frames
+  // through only every 50-100 ms (Chrome's render-starvation limit) even though no single task
+  // was long.
+  const gates = new Map<THREE.Object3D, () => boolean>();
+  {
+    const nodes = (renderer as any)._nodes;
+    const getAsync = nodes.getForRenderAsync;
+    nodes.getForRenderAsync = async function (ro: any) {
+      const may = gates.get(ro.scene);
+      if (may)
+        for (;;) {
+          if (!may()) {
+            await new Promise((r) => setTimeout(r, 250));
+            continue;
+          }
+          await idleSlot(8);
+          if (may()) break;
+        }
+      return getAsync.call(nodes, ro);
     };
   }
   // learn the call depth the scene pass renders at (see precompile)
