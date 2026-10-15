@@ -183,6 +183,14 @@ export async function runProfile(app: App) {
     every: (app as any).every,
     refreshMs: +((((app as any).intervals as number[]).slice().sort((a, b) => a - b)[Math.floor(((app as any).intervals.length || 1) * 0.2)] ?? 0) as number).toFixed(2),
     limits: r.backend?.device?.limits ? pick(r.backend.device.limits, ["maxTextureDimension2D", "maxBufferSize", "maxColorAttachments", "maxSampledTexturesPerShaderStage"]) : null,
+    // the device three actually rendered with (it asks for a "compatibility" adapter)
+    device3: r.backend?.device
+      ? {
+          features: [...(r.backend.device.features ?? [])].slice(0, 40),
+          adapterInfo: r.backend.device.adapterInfo ? pick(r.backend.device.adapterInfo, ["vendor", "architecture", "device", "description"]) : null,
+          timestamps: !!r.backend.trackTimestamp,
+        }
+      : null,
     memory: (performance as any).memory ? { used: (performance as any).memory.usedJSHeapSize, limit: (performance as any).memory.jsHeapSizeLimit } : null,
     boot: (window as any).__boot ?? null,
     ready: (window as any).__ready ?? null,

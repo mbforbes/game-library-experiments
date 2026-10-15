@@ -57,6 +57,7 @@ for (const k of keys) {
   console.log(`\n=== ${k}`);
   console.log(`${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · ${p.viewport} @${d.native}x · ${d.cores ?? "?"} cores · ${d.memory ?? "?"} GB`);
   console.log(`GPU ${g.api}: ${g.vendor ?? ""} ${g.architecture ?? ""} ${g.description ?? ""} | ${g.renderer ?? ""}${d.integrated ? " (integrated)" : ""}`);
+  if (p.device3) console.log(`three's device: ${JSON.stringify(p.device3.adapterInfo)} · timestamps ${p.device3.timestamps} · ${p.device3.features?.length ?? 0} features`);
   console.log(`backend ${p.backend} · msaa ${p.msaa} · refresh ${p.refreshMs}ms (every ${p.every}) · programs ${JSON.stringify(p.programs)} pipelines ${p.pipelines}`);
   console.log(`boot ${JSON.stringify(p.boot)} ready ${Math.round(p.ready ?? 0)}ms · levels ${JSON.stringify(p.levelTimes)} · switches ${JSON.stringify(p.switches)}`);
   console.log(`start ${JSON.stringify(p.startSettings)}`);
