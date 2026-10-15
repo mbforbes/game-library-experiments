@@ -81,20 +81,20 @@ export default function vault(): Level {
       engine.post.vignette.value = 0.55;
       engine.post.exposure.value = 1.0;
       scene.background = new THREE.Color(0x06070a);
-      scene.fog = new THREE.FogExp2(0x07080b, 0.035);
+      scene.fog = new THREE.FogExp2(0x07080b, 0.02);
       scene.environment = neonEnvironment(engine.renderer, [
         { color: "#ffd27a", pos: [0, 4, 0], size: [5, 0.1, 4], intensity: 2.4 },
         { color: "#ffb347", pos: [-4.5, 1.6, 0], size: [0.1, 1.6, 2], intensity: 1.2 },
         { color: "#9ab6ff", pos: [4.5, 1.6, 0], size: [0.1, 1.6, 2], intensity: 0.8 },
       ]);
       scene.environmentIntensity = 0.7;
-      scene.add(new THREE.HemisphereLight(0xfff0d8, 0x1a1410, 0.7));
+      scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a2018, 1.5));
       for (const [x, z] of [
         [-2, -1.2],
         [2, -1.2],
         [0, 1.4],
       ]) {
-        const l = new THREE.PointLight(0xffd59a, 5, 7, 1.6);
+        const l = new THREE.PointLight(0xffd59a, 11, 8, 1.4);
         l.position.set(x, H - 0.3, z);
         scene.add(l);
       }
@@ -426,8 +426,8 @@ export default function vault(): Level {
     // brushed steel panels with rivets
     const steel = d.canvas(256, 256, (x, w, h) => {
       const g = x.createLinearGradient(0, 0, w, h);
-      g.addColorStop(0, "#3a3f47");
-      g.addColorStop(1, "#262a31");
+      g.addColorStop(0, "#5a606a");
+      g.addColorStop(1, "#3c414a");
       x.fillStyle = g;
       x.fillRect(0, 0, w, h);
       for (let i = 0; i < 120; i++) {
@@ -500,7 +500,7 @@ export default function vault(): Level {
     }
     // the vault door (open, swung against the front wall) + its round frame
     const doorR = 1.25;
-    d.at([0, 1.45, D / 2 - 0.05], [0, 0, 0], () => {
+    d.at([0, 1.45, D / 2 - 0.05], [0, Math.PI, 0], () => {
       d.torus(doorR + 0.08, 0.1, [0, 0, 0], "#5c616a", { metal: 0.9, rough: 0.35, seg: 48 });
       d.plane([doorR * 2, doorR * 2], [0, 0, 0.02], "#050505", { rough: 1 });
     });
