@@ -115,15 +115,21 @@ export default function vault(): Level {
       // local layout testing only: ?vaultdemo fills in made-up prices (never on the live site)
       if (location.hostname === "localhost" && new URLSearchParams(location.search).has("vaultdemo")) ({ index, snap } = demoData(store.games));
       // each game in its recorded condition (from the live sheet), loose otherwise
+      // (no price for that condition: the cheapest known price, same rule as the pricing script)
+      const fallback = (it: VaultItem) => Math.min(...(["loose", "cib", "new"] as const).map((k) => it.prices[k] ?? Infinity));
+      const priceOf = (it: VaultItem, cond: Condition) => {
+        const p = it.prices[cond] ?? fallback(it);
+        return isFinite(p) ? p : 0;
+      };
       const valued = (snap?.items ?? []).map((it) => {
         const g = store.byId.get(it.id);
         const cond: Condition = g?.condition ?? "loose";
-        const price = it.prices[cond] ?? it.prices.loose ?? 0;
-        return { it, g, cond, condRecorded: !!g?.condition, price: price ?? 0 };
+        return { it, g, cond, condRecorded: !!g?.condition, price: priceOf(it, cond) };
       });
       const total = valued.reduce((a, v) => a + v.price, 0);
       const recorded = valued.filter((v) => v.condRecorded).length;
-      const sum = (k: Condition) => (snap?.items ?? []).reduce((a, it) => a + (it.prices[k] ?? it.prices.loose ?? 0), 0);
+      const assumed = valued.filter((v) => v.it.physical === "assumed").length;
+      const sum = (k: Condition) => (snap?.items ?? []).reduce((a, it) => a + priceOf(it, k), 0);
       const top = [...valued].sort((a, b) => b.price - a.price);
 
       buildRoom(scene);
@@ -168,10 +174,11 @@ export default function vault(): Level {
         x.font = `400 ${h * 0.037}px "Inter", sans-serif`;
         const notes = [
           `${valued.length} physical games priced · ${snap.unpriced.length} couldn't be matched · digital copies not counted`,
+          assumed ? `${assumed} of them are backlog games assumed to be physical copies (the sheet doesn't say) · marked * on the list` : "",
           recorded ? `${recorded} games in their recorded condition, the rest valued loose (cartridge/disc only)` : "Valued loose (cartridge/disc only, good condition): the sheet doesn't record condition yet",
           `Complete in box would be ~${money(sum("cib"))} · new/sealed ~${money(sum("new"))} · prices: ${snap.source}`,
-        ];
-        notes.forEach((n, i) => x.fillText(n, w / 2, h * (0.8 + i * 0.058), w * 0.92));
+        ].filter(Boolean);
+        notes.forEach((n, i) => x.fillText(n, w / 2, h * (0.785 + i * (notes.length > 3 ? 0.048 : 0.058)), w * 0.92));
       });
       value.position.set(0, 1.75, -D / 2 + 0.04);
       scene.add(value);
@@ -243,7 +250,7 @@ export default function vault(): Level {
 
       // ---- right wall: most valuable + by platform ----
       const ranking = board(2.6, 1.7, (x, w, h) => {
-        header(x, w, h, "MOST VALUABLE", "each in its recorded condition (loose if none)");
+        header(x, w, h, "MOST VALUABLE", `each in its recorded condition (loose if none)${assumed ? " · * assumed physical" : ""}`);
         x.textAlign = "left";
         top.slice(0, 10).forEach((v, i) => {
           const y = h * (0.31 + i * 0.065);
@@ -252,7 +259,7 @@ export default function vault(): Level {
           x.fillText(String(i + 1).padStart(2, " "), w * 0.05, y);
           x.fillStyle = "#e9e1cf";
           x.font = `500 ${h * 0.042}px "Inter", sans-serif`;
-          x.fillText(`${v.it.title}`, w * 0.11, y, w * 0.55);
+          x.fillText(`${v.it.title}${v.it.physical === "assumed" ? " *" : ""}`, w * 0.11, y, w * 0.55);
           x.fillStyle = "#8d826e";
           x.font = `400 ${h * 0.032}px "Inter", sans-serif`;
           x.fillText(`${platformOf(v.it.platform).short} · ${COND_LABEL[v.cond]}`, w * 0.68, y, w * 0.14);
