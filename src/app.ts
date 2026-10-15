@@ -93,7 +93,8 @@ export class App {
       this.engine = await createEngine(canvas, { msaa: q0.msaa, dpr: q0.dpr, bloom: q0.bloom, timestamps: true });
       this.governor = new Governor(this.device, q0, {
         apply: (s, changed) => this.applyQuality(s, changed),
-        busy: () => this.loadingLevel || document.hidden || !this.active,
+        // (and not while shaders compile at full speed: that measures the compile, not the device)
+        busy: () => this.loadingLevel || document.hidden || !this.active || this.engine.compilingUnpaced,
       });
       if (params.has("nogov")) this.governor.enabled = false;
       try {
@@ -241,7 +242,7 @@ export class App {
         await Promise.race([first, wait(6000)]);
         // then everything else; hold the loading screen a little (≤ 0.6 s) so the first seconds
         // in the room aren't spent finishing compiles (warm visits finish well inside that)
-        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1, paced: true }));
+        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1, paced: !this.profiling }));
         await Promise.race([slot.full, wait(600)]);
       }
       slot.compiled = true;

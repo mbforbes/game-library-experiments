@@ -58,13 +58,13 @@ export async function runProfile(app: App) {
   const maxDpr = ladder[ladder.length - 1];
   const pipes = () => (app.engine.renderer as any)._pipelines?.caches?.size ?? 0;
   const T0 = performance.now();
-  const TOTAL = 56_000;
+  const TOTAL = 52_000;
   const tick = setInterval(() => ui.progress(Math.min(1, (performance.now() - T0) / TOTAL)), 250);
 
   // one measured step: run `drive` every frame for `ms`, then summarise the frames
   async function step(name: string, room: string, ms: number, drive?: (k: number) => void) {
     ui.status(`${LEVELS[room]?.name ?? room} · ${name}`);
-    await wait(250); // let the previous change settle (render targets, etc.)
+    await wait(200); // let the previous change settle (render targets, etc.)
     const p0 = pipes();
     const t0 = performance.now();
     let raf = 0;
@@ -120,11 +120,11 @@ export async function runProfile(app: App) {
       const stations = app.level?.stations ?? [];
       // a busy, representative view: the room's first station
       stations[0]?.go();
-      await wait(1400);
+      await wait(1000);
       // 1) moving along the shelves at the starting settings
-      await step("move", room, 3500, () => app.rig.scroll(9));
+      await step("move", room, 3000, () => app.rig.scroll(9));
       // 2) zoom out, then back in, looking around
-      await step("zoom+look", room, 2000, (k) => {
+      await step("zoom+look", room, 1800, (k) => {
         app.rig.zoom(k < 0.5 ? 1.012 : 0.988);
         app.rig.pan(0, Math.sin(k * 12) * 3);
       });
@@ -133,29 +133,29 @@ export async function runProfile(app: App) {
       const g = f?.order[Math.floor(f.order.length * 0.4)];
       if (g) {
         app.openGame(g);
-        await step("inspect", room, 1800, () => app.inspector.drag(4, 0));
+        await step("inspect", room, 1600, () => app.inspector.drag(4, 0));
         app.closeGame(true);
       }
       // 4) hold a view and switch things off one at a time
       stations[Math.min(1, stations.length - 1)]?.go();
-      await wait(1200);
+      await wait(900);
       set({ ...base, dpr: maxDpr, bloom: 0.5, fx: true });
-      await step(`max (dpr ${maxDpr}, bloom hi)`, room, 1500);
+      await step(`max (dpr ${maxDpr}, bloom hi)`, room, 1200);
       set({ ...base, dpr: 1, bloom: base.bloom, fx: true });
-      await step("dpr 1", room, 1300);
+      await step("dpr 1", room, 1100);
       if (ladder[0] < 1) {
         set({ dpr: ladder[0] });
-        await step(`dpr ${ladder[0]}`, room, 1300);
+        await step(`dpr ${ladder[0]}`, room, 1100);
         set({ dpr: 1 });
       }
       set({ bloom: 0 });
-      await step("no bloom", room, 1300);
+      await step("no bloom", room, 1100);
       set({ bloom: base.bloom, fx: false });
-      await step("no effects", room, 1300);
+      await step("no effects", room, 1100);
       set({ fx: true });
       // props: switched directly on the camera layer for the measurement
       (app as any).applyDecor(false);
-      await step("no props", room, 1300);
+      await step("no props", room, 1100);
       (app as any).applyDecor(true);
       set(base);
     }

@@ -64,6 +64,8 @@ export interface Engine {
   precompile(scene: THREE.Scene, onProgress?: (k: number) => void, opts?: { parallel?: number; visibleOnly?: boolean; paced?: boolean; gate?: () => boolean }): Promise<void>;
   /** Someone is now waiting on the compile in progress: full speed, more parallelism. */
   boostCompile(parallel?: number): void;
+  /** A compile is running at full speed (not paced to idle time): frame times say little now. */
+  readonly compilingUnpaced: boolean;
   /** A render target that matches the main pass (formats, MRT, samples) so it reuses its pipelines. */
   matchingTarget(w: number, h: number): THREE.RenderTarget;
   /**
@@ -273,6 +275,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
       // Shaders are built object by object (yielding between them) and read the renderer's MRT /
       // target when they are, so those stay set until the compile finishes; frames rendered
       // meanwhile run with a clean state (see render()). Overlapping compiles share the state.
+      compilingScenes.add(s);
       if (compiling++ === 0) {
         renderer.setRenderTarget((scenePass as any).renderTarget);
         renderer.setMRT(mainMrt);
@@ -296,13 +299,18 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
         for (const r of restore) r();
       }
       await job.catch((err) => console.warn("[engine] precompile", err));
-      gates.delete(s);
       pipes.__collect = prevCollect;
       await Promise.allSettled(pending);
+      gates.delete(s);
+      compilingScenes.delete(s);
       if (--compiling === 0) {
         renderer.setRenderTarget(null);
         renderer.setMRT(null);
       }
+    },
+    get compilingUnpaced() {
+      for (const c of compilingScenes) if (!gates.has(c)) return true;
+      return false;
     },
     boostCompile(parallel = 4) {
       gates.clear(); // (no more pausing or pacing: someone is waiting)
@@ -366,6 +374,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
   // through only every 50-100 ms (Chrome's render-starvation limit) even though no single task
   // was long.
   const gates = new Map<THREE.Object3D, () => boolean>();
+  const compilingScenes = new Set<THREE.Object3D>();
   {
     const nodes = (renderer as any)._nodes;
     const getAsync = nodes.getForRenderAsync;
