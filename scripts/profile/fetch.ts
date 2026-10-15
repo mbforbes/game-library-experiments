@@ -67,6 +67,12 @@ for (const k of keys) {
       `${s.room.padEnd(7)} ${s.name.padEnd(25)} ${String(s.fps).padStart(5)} ${String(s.p50).padStart(5)} ${String(s.p90).padStart(5)} ${String(s.p99).padStart(5)} ${String(s.max).padStart(5)} ${(Math.round(s.slow20 * 100) + "%").padStart(5)} ${String(s.cpuAvg).padStart(5)} ${String(s.gpuAvg).padStart(5)} ${String(s.drawCalls).padStart(6)} ${String(Math.round(s.triangles / 1000) + "k").padStart(6)} ${String(s.pipelinesAdded).padStart(4)}`,
     );
   }
+  for (const s of p.segments ?? [])
+    if (s.name === "browse" || s.hitches?.length)
+      console.log(
+        `${s.room} ${s.name}${s.name === "browse" ? ` (${(s.frames / Math.max(1, s.fps)).toFixed(1)} s, ${s.hovered} games under the pointer, ${s.opened} opened)` : ""}: ` +
+          (s.hitches?.length ? "slow frames " + s.hitches.map((h: any) => `${h.at}s ${h.ms}ms (${h.doing})`).join(" | ") : "no slow frames"),
+      );
   if (p.governorLog?.length) console.log("governor:", p.governorLog.map((l: any) => `${l.change} (${l.reason})`).join(" | "));
   if (p.errors?.length) console.log("errors:", p.errors.join(" | "));
 }

@@ -103,10 +103,15 @@ An FPS meter sits top left (toggle in the `?` card). `?q=low|high`, `?dpr=`, `?m
 
 ## Performance test (`/profile`)
 
-https://the-backlog.games/profile runs a ~1 minute hands-off test. It tours all three rooms
-(moving, zooming, pulling a game out), then holds a view in each while switching effects off one
-at a time. It uploads device and GPU details, load timings and per-step frame/CPU/GPU stats to
-`/api/profile` (Workers KV). Read the results with:
+https://the-backlog.games/profile runs a 1 minute hands-off test. In each room it browses without
+stopping, through the app's own input handlers: moving along the shelves with the pointer
+drifting over games (lifting them, showing titles), opening one about every 3 s, turning it
+(flipping every other one), putting it back, moving on, zooming. Then it holds a view while
+switching effects off one at a time. Browsing gets whatever the minute has left after getting
+ready, room switches and the effect steps (about 8-10 s a room, at least 5). Slow frames are
+recorded with what was going on at the time ("opening a game", "turning it over", ...). The test
+uploads device and GPU details, load timings and per-step frame/CPU/GPU stats to `/api/profile`
+(Workers KV). Read the results with:
 
 ```sh
 bun scripts/profile/fetch.ts            # last 5 uploads, summarised (--local for the dev server, --raw for JSON)
