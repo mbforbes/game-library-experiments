@@ -235,3 +235,4 @@ dd { margin: 0; }
 .pu-actions { display: flex; gap: 8px; }
 .pu-actions button { flex: 1; padding: 11px 0; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; color: #fff; background: #ffffff10; }
 .pu-actions .pu-go, .pu-actions .pu-close { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
+.new-badge { margin-left: 4px; padding: 2px 8px; border-radius: 999px; background: #ffe14a; color: #c3104f; font: 700 11px/1.4 Oswald, sans-serif; letter-spacing: 0.5px; box-shadow: 0 0 12px -2px #ff2e88; }

@@ -4,7 +4,7 @@
 import type { Game } from "../../shared/types";
 import { platformOf } from "../../shared/platforms";
 import { GRADE_COLORS } from "../media/spines";
-import { FILTERS, type Filter, type LibraryStore } from "../library/store";
+import { FILTERS, newGames, type Filter, type LibraryStore } from "../library/store";
 import type { ArtStore } from "../library/art";
 import type { Station } from "../levels/types";
 import type { Track } from "../levels";
@@ -142,6 +142,7 @@ export class Hud {
         cb.onFilter(f.id);
         this.syncFilters();
       };
+      if (f.id === "new") b.style.display = "none";
       this.filterBox.appendChild(b);
     }
     this.root.appendChild(this.filterBox);
@@ -184,6 +185,14 @@ export class Hud {
   hideLoading() {
     this.loading.classList.add("done");
     setTimeout(() => this.loading.remove(), 900);
+  }
+
+  /** Show the "New" filter chip only when there are new games (with their count). */
+  setNewCount(n: number) {
+    const chip = this.filterBox.querySelector('[data-f="new"]') as HTMLElement | null;
+    if (!chip) return;
+    chip.style.display = n ? "" : "none";
+    chip.textContent = `New · ${n}`;
   }
 
   /** Wire the FPS meter's on/off checkbox in the controls card. */
@@ -296,7 +305,7 @@ export class Hud {
       <div class="p-head">
         <div class="p-plat" style="--c:${p.neon}">${esc(p.name)}</div>
         <h2>${esc(g.title)}</h2>
-        <div class="p-status s-${g.status}">${statusLabel(g)} ${grade}</div>
+        <div class="p-status s-${g.status}">${statusLabel(g)} ${grade}${newGames.since.has(g.id) ? `<span class="new-badge">NEW · added ${fmt(newGames.since.get(g.id)!.slice(0, 10))}</span>` : ""}</div>
       </div>
       <dl>${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
       ${extra}

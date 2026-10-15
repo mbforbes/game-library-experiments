@@ -8,7 +8,14 @@ import type { Game } from "../../shared/types";
 import { GRADE_COLORS } from "./spines";
 import type { Template } from "./templates";
 
-const CELLS = ["A+", "A", "B", "C", "D", "F", "PLAY"];
+const CELLS = ["A+", "A", "B", "C", "D", "F", "PLAY", "NEW"];
+export const NEW_CELL = CELLS.indexOf("NEW");
+
+/** Games added to the sheet recently (set by the app from /api/seen): they get a NEW! sticker. */
+let newIds: Set<string> = new Set();
+export function setNewIds(ids: Set<string>) {
+  newIds = ids;
+}
 const S = 96;
 
 let atlas: THREE.CanvasTexture | null = null;
@@ -20,6 +27,27 @@ export function stickerAtlas(): THREE.CanvasTexture {
   const ctx = c.getContext("2d")!;
   CELLS.forEach((k, i) => {
     const cx = i * S + S / 2, cy = S / 2, r = S * 0.46;
+    if (k === "NEW") {
+      // a starburst: hot yellow with a magenta outline and "NEW!"
+      ctx.beginPath();
+      for (let p = 0; p < 28; p++) {
+        const a = (p / 28) * Math.PI * 2 - Math.PI / 2;
+        const rr = p % 2 ? r * 0.74 : r;
+        ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "#ffe14a";
+      ctx.fill();
+      ctx.lineWidth = S * 0.05;
+      ctx.strokeStyle = "#ff2e88";
+      ctx.stroke();
+      ctx.fillStyle = "#e0105e";
+      ctx.font = `800 ${S * 0.3}px "Oswald", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("NEW!", cx, cy + S * 0.02);
+      return;
+    }
     ctx.fillStyle = k === "PLAY" ? "#ffb000" : GRADE_COLORS[k];
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -51,6 +79,7 @@ export function stickerAtlas(): THREE.CanvasTexture {
 }
 
 export function stickerCell(g: Game): number {
+  if (newIds.has(g.id)) return NEW_CELL;
   if (g.status === "playing") return CELLS.indexOf("PLAY");
   if (g.status === "completed" && g.grade) return CELLS.indexOf(g.grade);
   return -1;

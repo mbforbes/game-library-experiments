@@ -7,7 +7,7 @@ import type { Game } from "../../shared/types";
 import { mediaFor, platformOf, type MediaKind } from "../../shared/platforms";
 import { TEMPLATES, geometryFor, coverRect, photoRect, type Template } from "./templates";
 import { SPECIAL_SHELLS } from "./branding";
-import { stickerCell, stickerLocal, stickerMaterial } from "./stickers";
+import { stickerCell, stickerLocal, stickerMaterial, NEW_CELL } from "./stickers";
 import { texture, uv, vec2, uniform, step } from "three/tsl";
 import type { ArtStore } from "../library/art";
 import type { SpineAtlas } from "./spines";
@@ -238,7 +238,9 @@ export class MediaField {
       if (!local) continue;
       b.games.forEach((g, i) => {
         const cell = stickerCell(g);
-        if (cell >= 0) items.push({ id: g.id, m: b.base[i].clone().multiply(local), local, cell });
+        // the NEW! starburst is bigger than a grade dot so it's easy to spot
+        const loc = cell === NEW_CELL ? local.clone().multiply(new THREE.Matrix4().makeScale(1.55, 1.55, 1)) : local;
+        if (cell >= 0) items.push({ id: g.id, m: b.base[i].clone().multiply(loc), local: loc, cell });
       });
     }
     if (!items.length) return;
@@ -316,6 +318,97 @@ export class MediaField {
   }
 
   /** Glow colour (sRGB hex) + intensity for edges / highlight rim. */
+  /**
+   * Mark the recently added games: a pulsing rim in this room's colour (glow intensity -1 is the
+   * shader's "new" flag) and a NEW! sticker (stickers are rebuilt to pick up the change).
+   */
+  setNew(ids: Set<string>, hex: string) {
+    let changed = false;
+    for (const b of this.batches) {
+      b.games.forEach((g, i) => {
+        const isNew = ids.has(g.id);
+        const was = b.glow.getW(i) < 0;
+        if (isNew === was) return;
+        changed = true;
+        if (isNew) this.setGlow(g.id, hex, -1);
+        else b.glow.setW(i, 0), (b.buf.needsUpdate = true);
+      });
+    }
+    if (!changed || this.holo) return;
+    this.makeNewTags(ids, hex);
+    if (this.stickers) {
+      this.stickers.removeFromParent();
+      this.stickers.geometry.dispose();
+      this.stickers = null;
+    }
+    this.stickerIdx.clear();
+    this.makeStickers();
+    for (const id of this.hidden) this.syncSticker(id, null);
+  }
+
+  // ---- NEW! tags: a small glowing tag floating over each recently added game ------------------
+  private newTags: THREE.Group | null = null;
+  private static tagMats = new Map<string, THREE.SpriteNodeMaterial>();
+
+  private static tagMaterial(hex: string) {
+    let m = MediaField.tagMats.get(hex);
+    if (m) return m;
+    const c = document.createElement("canvas");
+    c.width = 160;
+    c.height = 72;
+    const x = c.getContext("2d")!;
+    x.fillStyle = hex;
+    x.beginPath();
+    x.roundRect(4, 4, 152, 52, 14);
+    x.fill();
+    x.beginPath();
+    x.moveTo(68, 54);
+    x.lineTo(80, 70);
+    x.lineTo(92, 54);
+    x.fill();
+    x.fillStyle = "#16101e";
+    x.font = `800 38px "Oswald", sans-serif`;
+    x.textAlign = "center";
+    x.textBaseline = "middle";
+    x.fillText("NEW!", 80, 31);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    m = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false });
+    const tex = texture(t);
+    m.colorNode = tex.rgb;
+    m.opacityNode = tex.a;
+    // (a little emissive so it reads in dark rooms and catches a touch of bloom)
+    (m as any).emissiveNode = tex.rgb.mul(0.6);
+    MediaField.tagMats.set(hex, m);
+    return m;
+  }
+
+  private makeNewTags(ids: Set<string>, hex: string) {
+    if (this.newTags) {
+      this.newTags.removeFromParent();
+      this.newTags = null;
+    }
+    const g = new THREE.Group();
+    g.name = `${this.group.name}:new-tags`;
+    const mat = MediaField.tagMaterial(hex);
+    for (const b of this.batches) {
+      const [, h] = b.t.size;
+      b.games.forEach((game, i) => {
+        if (!ids.has(game.id)) return;
+        const sp = new THREE.Sprite(mat);
+        const p = new THREE.Vector3(0, h + 0.035, 0).applyMatrix4(b.base[i]);
+        sp.position.copy(p);
+        sp.scale.set(0.07, 0.0315, 1);
+        sp.userData = { y: p.y, phase: i * 0.7 };
+        sp.renderOrder = 6;
+        g.add(sp);
+      });
+    }
+    if (!g.children.length) return;
+    this.newTags = g;
+    this.group.add(g);
+  }
+
   setGlow(id: string, hex: string, intensity: number) {
     const w = this.where.get(id);
     if (!w) return;
@@ -337,6 +430,10 @@ export class MediaField {
   }
 
   update(dt: number) {
+    if (this.newTags) {
+      const t = performance.now() / 1000;
+      for (const sp of this.newTags.children) sp.position.y = sp.userData.y + Math.sin(t * 2.2 + sp.userData.phase) * 0.006;
+    }
     if (!this.animating.size) return;
     const k = 1 - Math.exp(-dt * 8);
     const dirty = new Set<Batch>();

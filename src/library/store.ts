@@ -6,10 +6,14 @@ import { computeStats, type Stats } from "../../shared/stats";
 import { platformOf } from "../../shared/platforms";
 import type { Game, Library } from "../../shared/types";
 
-export type Filter = "all" | "playing" | "backlog" | "completed" | "aplus" | "wishlist";
+export type Filter = "all" | "new" | "playing" | "backlog" | "completed" | "aplus" | "wishlist";
+
+/** Games added to the sheet recently (see /api/seen). Kept here so the filter can see it. */
+export const newGames = { ids: new Set<string>(), since: new Map<string, string>(), days: 30 };
 
 export const FILTERS: { id: Filter; label: string; test: (g: Game) => boolean }[] = [
   { id: "all", label: "All", test: () => true },
+  { id: "new", label: "New", test: (g) => newGames.ids.has(g.id) },
   { id: "playing", label: "Playing", test: (g) => g.status === "playing" },
   { id: "backlog", label: "Backlog", test: (g) => g.status === "backlog" || g.status === "playing" },
   { id: "completed", label: "Beaten", test: (g) => g.status === "completed" },
@@ -59,6 +63,55 @@ export class LibraryStore {
       localStorage.setItem(LS_KEY, JSON.stringify(lib));
     } catch {}
     this.set(lib);
+  }
+
+  /**
+   * "New" games: the sheet has no date-added column, so the Worker keeps a registry of when each
+   * game was first seen (and first owned, for wishlist games that get bought). We report any
+   * games it doesn't know yet, then mark those added within the last N days.
+   */
+  async loadNew() {
+    const params = new URLSearchParams(location.search);
+    try {
+      const res = await fetch("/api/seen");
+      if (!res.ok) return;
+      let reg = (await res.json()) as { newDays: number; baseline: string | null; items: Record<string, { seen: string; owned?: string }> };
+      const report = this.games
+        .filter((g) => {
+          const r = reg.items[g.id];
+          return !r || (g.status !== "wishlist" && !r.owned);
+        })
+        .map((g) => ({ id: g.id, owned: g.status !== "wishlist" }));
+      if (report.length) {
+        const r2 = await fetch("/api/seen", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: report }) });
+        if (r2.ok) reg = await r2.json();
+      }
+      const days = params.has("newdays") ? +params.get("newdays")! : reg.newDays;
+      newGames.days = days;
+      newGames.ids.clear();
+      newGames.since.clear();
+      const cutoff = Date.now() - days * 864e5;
+      for (const g of this.games) {
+        const r = reg.items[g.id];
+        const when = g.status === "wishlist" ? r?.seen : (r?.owned ?? r?.seen);
+        if (!when || !reg.baseline || when <= reg.baseline) continue; // there from the start
+        if (Date.parse(when) >= cutoff) {
+          newGames.ids.add(g.id);
+          newGames.since.set(g.id, when);
+        }
+      }
+      // ?newtest=N: pretend N random owned games are new (to preview the look)
+      const test = +(params.get("newtest") ?? 0);
+      if (test > 0) {
+        const pool = this.games.filter((g) => g.status !== "wishlist");
+        for (let i = 0; i < test; i++) {
+          const g = pool[(i * 7919 + 13) % pool.length];
+          newGames.ids.add(g.id);
+          newGames.since.set(g.id, new Date(Date.now() - i * 2 * 864e5).toISOString());
+        }
+      }
+      this.emit("new");
+    } catch {}
   }
 
   set(lib: Library) {
@@ -126,7 +179,7 @@ export class LibraryStore {
     return scored.slice(0, limit).map((x) => x[1]);
   }
 
-  on(ev: "data" | "select" | "filter", fn: Listener) {
+  on(ev: "data" | "select" | "filter" | "new", fn: Listener) {
     if (!this.listeners.has(ev)) this.listeners.set(ev, new Set());
     this.listeners.get(ev)!.add(fn);
     return () => this.listeners.get(ev)!.delete(fn);

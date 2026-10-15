@@ -19,6 +19,8 @@ import { Bursts } from "./world/kit/particles";
 import { off } from "./engine/flags";
 import { detectDevice, initialSettings, Governor, refreshDivisor, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
 import { FpsMeter } from "./ui/fps";
+import { newGames } from "./library/store";
+import { setNewIds } from "./media/stickers";
 import type { Level, LevelCtx } from "./levels/types";
 
 /** A built world, kept alive so switching back is instant: own scene, rig, tickers, post look. */
@@ -115,6 +117,13 @@ export class App {
       this.input = new Input(canvas);
       this.bindInput();
       this.store.on("filter", () => this.applyFilter());
+      // recently added games: badge them in every world (also ones built later)
+      this.store.on("new", () => {
+        setNewIds(newGames.ids);
+        for (const slot of this.slots.values()) if (slot.compiled) this.markNew(slot);
+        this.hud.setNewCount(newGames.ids.size);
+      });
+      this.store.loadNew();
 
       const id = params.get("level") ?? DEFAULT_LEVEL;
       this.engine.renderer.setAnimationLoop(this.frame);
@@ -212,6 +221,7 @@ export class App {
         slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 2 }));
       }
       slot.compiled = true;
+      this.markNew(slot);
       console.info(`[level] ${id}: built ${Math.round(tc - tb)}ms, compiled ${Math.round(performance.now() - tc)}ms${slot.background ? " (background)" : ""}`);
       const lt = ((window as any).__levelTimes ??= {});
       lt[id] = { built: Math.round(tc - tb), compiled: Math.round(performance.now() - tc), background: slot.background };
@@ -268,6 +278,11 @@ export class App {
     if (!first) this.audio.play("crton");
     await tween(first ? 600 : 460, (k) => (post.crt.value = (1 - k) * (1 - k)));
     this.loadingLevel = false;
+  }
+
+  private markNew(slot: Slot) {
+    if (!newGames.ids.size && !slot.level) return;
+    for (const f of slot.level?.fields ?? []) f.setNew(newGames.ids, slot.entry.newColor ?? slot.entry.accent);
   }
 
   private activate(slot: Slot) {

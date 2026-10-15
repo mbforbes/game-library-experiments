@@ -83,10 +83,13 @@ export function makeMediaMaterial(pages: THREE.Texture[], spineTex: THREE.Textur
   const rim = float(1).sub(normalView.dot(positionViewDirection).abs()).pow(2.0);
   const hl = iState.y;
   const self = iState.w.mul(float(1).sub(dim.mul(0.8)));
-  let glow: any = iGlow.rgb.mul(select(isGlow, iGlow.w.mul(1.6), float(0)));
+  let glow: any = iGlow.rgb.mul(select(isGlow, iGlow.w.max(0).mul(1.6), float(0)));
   glow = glow.add(select(isSpine, spine.rgb.mul(self), vec3(0)));
   glow = glow.add(select(isCover, cover.rgb.mul(self.mul(0.12)), vec3(0)));
   glow = glow.add(iGlow.rgb.mul(hl.mul(rim.mul(1.4).add(0.12))));
+  // recently added games (glow intensity < 0): a slow pulsing rim in the room's colour
+  const pulse = sin(time.mul(3.2).add(positionWorld.x.mul(2))).mul(0.5).add(0.5);
+  glow = glow.add(select(iGlow.w.lessThan(0), iGlow.rgb.mul(rim.mul(2.4).add(0.07)).mul(pulse.mul(0.75).add(0.25)), vec3(0)));
   mat.emissiveNode = glow;
   return mat;
 }
