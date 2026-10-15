@@ -136,13 +136,16 @@ It shows:
 
 Prices come from PriceCharting snapshots stored in KV (`vault:index`, `vault:snap:<date>`).
 Each game is valued in its sheet "Condition" column (Loose / CIB / New / Graded / Box only /
-Manual), or loose when there isn't one. Backlog games on consoles are assumed physical unless an
-"Own Physical Copy?" column says otherwise; PC games count as digital.
+Manual), or loose when there isn't one. A game with no price in that condition gets the cheapest
+price it has. Backlog games on consoles are assumed physical unless an "Own Physical Copy?" column
+says otherwise (they're marked * on the boards); PC games count as digital.
 
-**To add a new valuation** (e.g. monthly), run the gentle, cached pricing script:
+**To add a new valuation** (at most monthly), run the gentle, cached pricing script, check its
+review file, then upload:
 
 ```sh
-bun scripts/vault/price.ts --refresh --upload=remote   # see scripts/vault/README.md
+bun scripts/vault/price.ts --refresh --dry-run   # ~25-30 min; see scripts/vault/README.md
+bun scripts/vault/price.ts --upload=both
 ```
 
 It adds a dated snapshot, and the chart grows a point. Prices are never committed (the repo is
