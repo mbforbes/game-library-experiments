@@ -38,6 +38,9 @@ export async function runProfile(app: App) {
   const ui = overlay();
   const started = await ui.ask();
   if (!started) return ui.remove();
+  // measure a settled site: let the other rooms finish building first (usually done by now)
+  ui.status("Getting ready…");
+  await Promise.race([app.prebuilt, wait(8000)]);
   const errors: string[] = [];
   const origError = console.error;
   console.error = (...a: unknown[]) => {

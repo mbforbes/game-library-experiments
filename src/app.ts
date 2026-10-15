@@ -75,6 +75,9 @@ export class App {
   readonly samples: { t: number; dt: number; cpu: number; gpu: number }[] = [];
   private frames: number[] = [];
   loadingLevel = false;
+  /** resolves when the other worlds have been prebuilt in the background */
+  prebuilt: Promise<void> = Promise.resolve();
+  private profiling = new URLSearchParams(location.search).has("profile") || location.pathname.replace(/\/$/, "") === "/profile";
 
   async start(canvas: HTMLCanvasElement) {
     const t0 = performance.now();
@@ -134,10 +137,10 @@ export class App {
       (window as any).__ready = performance.now() - t0;
       this.hud.hideLoading();
       if (!off("upgrade") && this.governor.settings.hiRes) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
-      if (!off("prebuild")) this.prebuildOthers();
+      if (!off("prebuild")) this.prebuilt = this.prebuildOthers();
       if (wantVault) this.openVault();
       // the performance test: /profile or ?profile
-      if (params.has("profile") || location.pathname.replace(/\/$/, "") === "/profile") import("./profile/profiler").then((m) => m.runProfile(this));
+      if (this.profiling) import("./profile/profiler").then((m) => m.runProfile(this));
     } catch (err) {
       console.error(err);
       this.hud.showError(String((err as Error)?.message ?? err));
@@ -243,10 +246,11 @@ export class App {
     // let the first room have the stage: wait until its own compiles are done and you've had a
     // few seconds in it, then build the others only while you're not moving around
     await this.active?.full;
-    await wait(6000);
+    // (the performance test wants everything built before it measures: no grace period)
+    if (!this.profiling) await wait(6000);
     for (const id of Object.keys(LEVELS)) {
       if (LEVELS[id].hidden || this.slots.has(id)) continue;
-      while (this.loadingLevel || !this.active || this.active.rig.idle < 1.5 || this.inspector.active) await wait(400);
+      while (this.loadingLevel || !this.active || (!this.profiling && (this.active.rig.idle < 1.5 || this.inspector.active))) await wait(400);
       await this.ensureSlot(id, true).ready.catch((e) => console.warn("[prebuild]", id, e));
     }
   }
