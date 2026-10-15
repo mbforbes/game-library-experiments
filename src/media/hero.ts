@@ -51,6 +51,9 @@ class HeroShared {
   private constructor(art: ArtStore) {
     const mk = (c: HTMLCanvasElement) => {
       c.width = c.height = 4;
+      // (drawn on, or there's no image behind it yet and its first upload, in the warm-up
+      // compile, fails with a warning; it's redrawn for each game opened)
+      c.getContext("2d")!.fillRect(0, 0, 4, 4);
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       t.flipY = false;
