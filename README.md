@@ -81,6 +81,73 @@ writes per day at most, everything else is static.
   switches). It reports frame times per action, stalls, any shader/node builds that happen at
   render time, and errors. Add `?no=prebuild,overlays,upgrade,audio` to the URL to ablate parts.
 
+## Fast by default (quality governor)
+
+Every device starts from a setting that should hold 60 fps anywhere: desktops at 1x
+resolution, phones at 1.5x, small bloom, MSAA only where it's cheap (FXAA otherwise). A
+governor (`src/engine/quality.ts`) then watches real frame times while you use the site:
+- smooth frames (GPU headroom where the browser can measure it) → step up one notch: sharper
+  resolution, nicer bloom, sharp close-up covers
+- sustained slowness → step down: bloom, resolution, close-up detail, ambient effects, and
+  decor at the next room switch
+A knob that had to come down stays down for the visit, and the settled result is remembered per
+device, so the next visit starts there. High-refresh screens (120/144 Hz) render every other
+frame (aim for 60). Effects live on camera layer 1 and decor on layer 2, so one switch covers
+every room.
+
+An FPS meter sits top left (toggle in the `?` card). `?q=low|high`, `?dpr=`, `?msaa=0` and
+`?nogov` override for testing.
+
+## Performance test (`/profile`)
+
+https://the-backlog.games/profile runs a ~1 minute hands-off test. It tours all three rooms
+(moving, zooming, pulling a game out), then holds a view in each while switching effects off one
+at a time. It uploads device and GPU details, load timings and per-step frame/CPU/GPU stats to
+`/api/profile` (Workers KV). Read the results with:
+
+```sh
+bun scripts/profile/fetch.ts            # last 5 uploads, summarised (--local for the dev server, --raw for JSON)
+```
+
+## NEW! badges
+
+The sheet has no date-added column, so browsers report game ids the Worker's registry
+(`/api/seen`, KV) hasn't seen yet. The first report is the baseline. Games added, or moved from
+the wishlist into the collection, within `NEW_DAYS` (a wrangler var, default 30; `?newdays=` to
+preview) get:
+- a pulsing rim in the room's colour, a NEW! sticker and a floating NEW! tag
+- a "New · n" filter chip
+- "NEW · added <date>" in their info panel
+
+`?newtest=N` previews the look with N random games.
+
+## The Vault (hidden)
+
+Open it with the little safe on the den floor (by the vending machine) or `/vault`. It's behind a
+password the Worker checks; the password is the `VAULT_PASSWORD` secret, never in the repo.
+The collection's value is only served with the signed cookie that unlocks.
+
+It shows:
+- the estimated value, with the date it was valued
+- value over time
+- the most valuable games
+- value by platform
+- the six most valuable games on pedestals
+
+Prices come from PriceCharting snapshots stored in KV (`vault:index`, `vault:snap:<date>`).
+Each game is valued in its sheet "Condition" column (Loose / CIB / New / Graded / Box only /
+Manual), or loose when there isn't one. Backlog games on consoles are assumed physical unless an
+"Own Physical Copy?" column says otherwise; PC games count as digital.
+
+**To add a new valuation** (e.g. monthly), run the gentle, cached pricing script:
+
+```sh
+bun scripts/vault/price.ts --refresh --upload=remote   # see scripts/vault/README.md
+```
+
+It adds a dated snapshot, and the chart grows a point. Prices are never committed (the repo is
+public).
+
 ## Sound + music
 
 Interaction sounds and ambient loops are synthesized (Web Audio), except the Den's rain, which is

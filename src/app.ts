@@ -544,9 +544,13 @@ export class App {
   private frame = () => {
     // high-refresh screens: render every Nth animation frame so we aim for ~60 fps, not 144
     const rafNow = performance.now();
-    if (this.lastRaf && this.intervals.length < 90) {
+    if (this.lastRaf) {
+      // keep re-measuring: busy loading frames would hide a 120/144 Hz screen's real interval
       this.intervals.push(rafNow - this.lastRaf);
-      if (this.intervals.length === 90) this.every = refreshDivisor(this.intervals);
+      if (this.intervals.length >= 120) {
+        this.every = refreshDivisor(this.intervals);
+        this.intervals.length = 0;
+      }
     }
     this.lastRaf = rafNow;
     if (++this.tick % this.every) return;

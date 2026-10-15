@@ -328,10 +328,11 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
  */
 export function refreshDivisor(intervals: number[]): number {
   if (intervals.length < 20) return 1;
+  // the display's interval is the floor: a low percentile ignores slow (busy) frames
   const sorted = [...intervals].sort((a, b) => a - b);
-  const med = sorted[Math.floor(sorted.length / 2)];
-  if (med >= 12) return 1;
-  return Math.max(1, Math.floor(1000 / 60 / med + 0.15));
+  const base = sorted[Math.floor(sorted.length * 0.2)];
+  if (base >= 12) return 1;
+  return Math.max(1, Math.floor(1000 / 60 / base + 0.15));
 }
 
 // ---- what the switches act on ---------------------------------------------------------------

@@ -178,7 +178,7 @@ export async function runProfile(app: App) {
     backend: app.engine.backend,
     msaa: app.engine.msaa,
     every: (app as any).every,
-    refreshMs: +(((app as any).intervals as number[]).slice().sort((a, b) => a - b)[45] ?? 0).toFixed(2),
+    refreshMs: +((((app as any).intervals as number[]).slice().sort((a, b) => a - b)[Math.floor(((app as any).intervals.length || 1) * 0.2)] ?? 0) as number).toFixed(2),
     limits: r.backend?.device?.limits ? pick(r.backend.device.limits, ["maxTextureDimension2D", "maxBufferSize", "maxColorAttachments", "maxSampledTexturesPerShaderStage"]) : null,
     memory: (performance as any).memory ? { used: (performance as any).memory.usedJSHeapSize, limit: (performance as any).memory.jsHeapSizeLimit } : null,
     boot: (window as any).__boot ?? null,
