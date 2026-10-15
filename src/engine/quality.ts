@@ -163,6 +163,12 @@ export class Governor {
   private lastDown = -1e9;
   private trial: { key: keyof QualitySettings; prev: QualitySettings } | null = null;
   readonly log: { t: number; change: string; reason: string }[] = [];
+  /** main-thread time taken by long tasks (other than our frames) since the last window */
+  private longMs = 0;
+  /** Long tasks (PerformanceObserver "longtask", Chromium): background work, not rendering. */
+  noteLongTask(ms: number) {
+    this.longMs += ms;
+  }
   /** the last judged window (for the profiler / debugging) */
   stats = { slow: 0, cpu: 0, gpu: -1, good: 0, bad: 0 };
   readonly ladder: number[];
@@ -189,6 +195,16 @@ export class Governor {
     if (this.win.length < 60) return; // judge ~1 s windows
     const w = this.win;
     this.win = [];
+    const span = w.reduce((a, f) => a + f.dt, 0);
+    const busy = this.longMs / Math.max(1, span);
+    this.longMs = 0;
+    // a window dominated by background work (building other rooms, decoding...) says nothing
+    // about how heavy the rendering is: don't judge it
+    if (busy > 0.25) {
+      this.bad = 0;
+      this.good = 0;
+      return;
+    }
     const slow = w.filter((f) => f.dt > this.budget * 1.3).length / w.length;
     const gpuKnown = w.filter((f) => f.gpu >= 0);
     let gpuAvg = gpuKnown.length ? gpuKnown.reduce((a, f) => a + f.gpu, 0) / gpuKnown.length : -1;
@@ -207,9 +223,13 @@ export class Governor {
     }
     if (slow > 0.25) {
       this.good = 0;
-      if (++this.bad >= 2) {
+      // badly slow (half the frames late): act on the first window, and take bigger steps
+      const severe = slow > 0.5;
+      if (++this.bad >= (severe ? 1 : 2)) {
         this.bad = 0;
-        this.stepDown(`${pct(slow)} of frames slow, cpu ${cpuAvg.toFixed(1)}ms, gpu ${gpuAvg < 0 ? "?" : gpuAvg.toFixed(1) + "ms"}`);
+        // CPU-bound (the frame's own work is most of the budget): resolution won't help
+        const cpuBound = cpuAvg > this.budget * 0.7;
+        this.stepDown(`${pct(slow)} of frames slow, cpu ${cpuAvg.toFixed(1)}ms, gpu ${gpuAvg < 0 ? "?" : gpuAvg.toFixed(1) + "ms"}`, severe, cpuBound);
       }
       return;
     }
@@ -231,17 +251,28 @@ export class Governor {
     this.commit(changed, reason, false);
   }
 
-  private stepDown(reason: string) {
+  private stepDown(reason: string, severe = false, cpuBound = false) {
     const s = this.settings;
     const i = this.ladder.indexOf(s.dpr);
     const bi = BLOOM_LADDER.indexOf(s.bloom);
     let key: keyof QualitySettings | null = null;
+    const floor = this.d.mobile ? 1.25 : 1;
     // order: what costs the most for the least visible loss
-    if (bi > 1) {
+    if (cpuBound && s.fx) {
+      // the frame's own work is the problem: fewer things to draw/update helps, pixels don't
+      s.fx = false;
+      this.cap.fx = false;
+      key = "fx";
+    } else if (severe && i > 0 && s.dpr > floor) {
+      s.dpr = this.ladder[Math.max(0, i - 2)];
+      if (s.dpr < floor && this.ladder.includes(floor)) s.dpr = floor;
+      this.cap.dpr = s.dpr;
+      key = "dpr";
+    } else if (bi > 1) {
       s.bloom = BLOOM_LADDER[bi - 1];
       this.cap.bloom = s.bloom;
       key = "bloom";
-    } else if (i > 0 && s.dpr > (this.d.mobile ? 1.25 : 1)) {
+    } else if (i > 0 && s.dpr > floor) {
       s.dpr = this.ladder[i - 1];
       this.cap.dpr = s.dpr;
       key = "dpr";

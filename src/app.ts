@@ -94,6 +94,12 @@ export class App {
         busy: () => this.loadingLevel || document.hidden || !this.active,
       });
       if (params.has("nogov")) this.governor.enabled = false;
+      try {
+        // background main-thread work (long tasks outside our frames) shouldn't cost resolution
+        new PerformanceObserver((list) => {
+          for (const e of list.getEntries()) if (e.duration > 50) this.governor.noteLongTask(e.duration);
+        }).observe({ type: "longtask", buffered: false });
+      } catch {}
       this.applyQuality(q0, ["dpr", "bloom", "fx", "decor", "hiRes"]);
       console.info(`[quality] ${remembered ? "remembered" : "first visit"}: ${JSON.stringify(q0)} · ${this.device.gpu.api} ${this.device.gpu.description || this.device.gpu.renderer || ""}`);
       this.fps = new FpsMeter(this.device.mobile);
