@@ -11,7 +11,7 @@
 //   the walls  : every priced game on gold display shelves, most valuable first, in value bands,
 //                each with a price tag (the camera rides round the walls, so scrolling shows
 //                them all; the room is as long as it needs to be to fit them)
-//   front wall : the vault door (open)
+//   front wall : the vault door, cracked ajar, with shelves either side
 
 import * as THREE from "three/webgpu";
 import { texture } from "three/tsl";
@@ -180,7 +180,7 @@ export default function vault(): Level {
         { color: "#ffb347", pos: [-4.5, 1.6, 0], size: [0.1, 1.6, D / 2], intensity: 1.2 },
         { color: "#9ab6ff", pos: [4.5, 1.6, 0], size: [0.1, 1.6, D / 2], intensity: 0.8 },
       ]);
-      for (const l of lamps) l.position.z = l.position.z < 0 ? -D / 2 + 2.4 : D / 2 - 3;
+      for (const l of lamps) l.position.z = l.position.z < 0 ? -D / 2 + 2.4 : D / 2 - 2.2;
 
       buildRoom(scene);
       await progress("Polishing the gold…");
@@ -427,8 +427,8 @@ export default function vault(): Level {
 
   /**
    * Wall runs that hold the collection, each running left to right as you face it: from just
-   * after "By Platform" on the right wall, along the front wall right of the door, then the left
-   * wall back to "Over Time". (The camera faces the wall, so its rail runs the other way.)
+   * after "By Platform" on the right wall, along the front wall either side of the door, then the
+   * left wall back to "Over Time". (The camera faces the wall, so its rail runs the other way.)
    */
   function wallRuns(): Run[] {
     const run = (x0: number, z0: number, x1: number, z1: number, nx: number, nz: number): Run => {
@@ -440,8 +440,9 @@ export default function vault(): Level {
     };
     return [
       run(W / 2, -D / 2 + 5.9, W / 2, D / 2 - 0.3, -1, 0), // right wall
-      run(W / 2 - 0.3, D / 2, 1.55, D / 2, 0, -1), // front wall, right of the door
-      run(-W / 2, D / 2 - 0.7, -W / 2, -D / 2 + 3.85, 1, 0), // left wall (the open door is in the corner)
+      run(W / 2 - 0.3, D / 2, 1.62, D / 2, 0, -1), // front wall, right of the door (as you face it)
+      run(-1.62, D / 2, -W / 2 + 0.3, D / 2, 0, -1), // front wall, left of the door
+      run(-W / 2, D / 2 - 0.3, -W / 2, -D / 2 + 3.85, 1, 0), // left wall
     ];
   }
 
@@ -673,8 +674,8 @@ export default function vault(): Level {
     for (const [x, z] of [
       [-2, -D / 2 + 2.4],
       [2, -D / 2 + 2.4],
-      [-2, D / 2 - 3],
-      [2, D / 2 - 3],
+      [-2, D / 2 - 2.2],
+      [2, D / 2 - 2.2],
     ]) {
       d.cyl(0.25, 0.32, 0.12, [x, H - 0.1, z], "#2a2520", { metal: 0.8, rough: 0.4 });
       d.cyl(0.22, 0.22, 0.02, [x, H - 0.17, z], "#ffe2a8", { glow: 2.2 });
@@ -684,24 +685,7 @@ export default function vault(): Level {
 
   function buildDecor(scene: THREE.Scene) {
     const d = new DecorBuilder({ atlasSize: 1024 });
-    // the vault door's round frame, and the door swung open flat against the wall to its left
-    const doorR = 1.25;
-    d.at([0, 1.45, D / 2 - 0.05], [0, Math.PI, 0], () => {
-      d.torus(doorR + 0.08, 0.1, [0, 0, 0], "#5c616a", { metal: 0.9, rough: 0.35, seg: 48 });
-      d.plane([doorR * 2, doorR * 2], [0, 0, 0.02], "#050505", { rough: 1 });
-    });
-    d.at([-(doorR + 0.18) - doorR - 0.05, 1.45, D / 2 - 0.32], [0, 0, 0], () => {
-      d.cyl(doorR, doorR, 0.45, [0, 0, 0], "#6f747d", { rot: [Math.PI / 2, 0, 0], metal: 0.95, rough: 0.3, seg: 48 });
-      for (let k = 0; k < 6; k++) {
-        const a = (k / 6) * Math.PI * 2;
-        d.box([0.05, doorR * 0.8, 0.05], [Math.cos(a) * doorR * 0.45, Math.sin(a) * doorR * 0.45, -0.26], "#c9a45c", { rot: [0, 0, a + Math.PI / 2], metal: 1, rough: 0.25 });
-      }
-      d.cyl(0.18, 0.18, 0.12, [0, 0, -0.28], "#c9a45c", { rot: [Math.PI / 2, 0, 0], metal: 1, rough: 0.2 });
-      for (let k = 0; k < 10; k++) {
-        const a = (k / 10) * Math.PI * 2;
-        d.cyl(0.07, 0.07, 0.5, [Math.cos(a) * (doorR - 0.12), Math.sin(a) * (doorR - 0.12), 0.05], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], metal: 1, rough: 0.3, seg: 10 });
-      }
-    });
+    buildDoor(d);
     // safe-deposit boxes on the back wall, either side of the big number
     const box = d.canvas(128, 64, (x, w, h) => {
       x.fillStyle = "#7a5f2a";
@@ -729,6 +713,103 @@ export default function vault(): Level {
     bars(-W / 2 + 0.9, -D / 2 + 0.45);
     bars(W / 2 - 0.9, -D / 2 + 0.45);
     scene.add(d.build("vault-decor"));
+  }
+
+  /**
+   * The vault door, cracked ajar: a riveted frame plate and a thick ring round the doorway, warm
+   * light from outside showing through the gap, and the door hung on a two-knuckle hinge (left,
+   * as you face it) with its bolt-work facing the room: locking bolts out of the rim, brass
+   * linkages to a central gear, a chrome hand wheel, a time lock with pipes, a maker's plate.
+   */
+  function buildDoor(d: DecorBuilder) {
+    const R = 1.2; // the door's radius (the doorway ring is a little bigger)
+    const steel = { metal: 0.7, rough: 0.33 };
+    const brass = { metal: 1, rough: 0.28, glow: 0.12 };
+    const chrome = { metal: 1, rough: 0.16 };
+    // (in this frame +z points into the room and +x is right as you face the door)
+    d.at([0, 1.45, D / 2], [0, Math.PI, 0], () => {
+      d.box([3.0, 3.0, 0.06], [0, 0, 0.03], "#4c5159", { metal: 0.6, rough: 0.45 });
+      for (let k = 0; k < 20; k++) {
+        const a = (k / 20) * Math.PI * 2;
+        d.cyl(0.025, 0.025, 0.03, [Math.cos(a) * 1.62, Math.sin(a) * 1.62, 0.07], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], ...chrome, seg: 8 });
+      }
+      d.torus(R + 0.13, 0.12, [0, 0, 0.12], "#8d929b", { ...steel, seg: 64 });
+      d.torus(R + 0.36, 0.014, [0, 0, 0.07], "#ffd28a", { glow: 1.6, seg: 64 });
+      // daylight from the corridor outside, seen through the gap
+      d.cyl(R + 0.02, R + 0.02, 0.01, [0, 0, 0.065], "#ffe2b0", { rot: [Math.PI / 2, 0, 0], glow: 2.4, seg: 48 });
+      // the hinge: two knuckles on the frame, the pin through them
+      const hx = -(R + 0.22), hz = 0.24;
+      for (const y of [-0.62, 0.62]) {
+        d.box([0.26, 0.36, 0.2], [hx - 0.06, y, 0.13], "#5c616a", steel);
+        d.cyl(0.1, 0.1, 0.36, [hx, y, hz], "#7a7f88", { ...steel, seg: 20 });
+        d.cyl(0.06, 0.06, 0.05, [hx, y + 0.205, hz], "#c9a45c", { ...brass, seg: 14 });
+      }
+      d.cyl(0.035, 0.035, 1.66, [hx, 0, hz], "#c7ccd3", { ...chrome, seg: 10 });
+      // the door, swung 18° into the room about the hinge
+      d.at([hx, 0, hz], [0, -0.314, 0], () => {
+        for (const y of [-0.62, 0.62]) d.box([0.46, 0.22, 0.09], [0.26, y, 0], "#6c7179", steel); // hinge arms
+        d.at([R + 0.22, 0, 0], null, () => {
+          d.cyl(R, R, 0.42, [0, 0, 0], "#8a9099", { rot: [Math.PI / 2, 0, 0], ...steel, seg: 64 });
+          d.torus(R, 0.035, [0, 0, 0.21], "#b3b9c1", { ...chrome, seg: 64 });
+          d.cyl(1.0, 1.0, 0.04, [0, 0, 0.23], "#666b73", { rot: [Math.PI / 2, 0, 0], ...steel, seg: 48 });
+          // locking bolts (retracted, just showing at the rim) and the linkages that throw them
+          for (let k = 0; k < 12; k++) {
+            const a = (k / 12) * Math.PI * 2 + Math.PI / 12;
+            const [c, sn] = [Math.cos(a), Math.sin(a)];
+            d.cyl(0.05, 0.05, 0.24, [c * (R + 0.02), sn * (R + 0.02), 0], "#c7ccd3", { rot: [0, 0, a - Math.PI / 2], ...chrome, seg: 10 });
+            d.box([0.56, 0.05, 0.03], [c * 0.66, sn * 0.66, 0.27], "#c9a45c", { rot: [0, 0, a], ...brass });
+            d.cyl(0.035, 0.035, 0.04, [c * 0.93, sn * 0.93, 0.28], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], ...chrome, seg: 8 });
+          }
+          d.torus(0.95, 0.025, [0, 0, 0.27], "#c9a45c", { ...brass, seg: 48 });
+          // the central gear
+          d.cyl(0.34, 0.34, 0.06, [0, 0, 0.28], "#a08c5a", { rot: [Math.PI / 2, 0, 0], ...brass, seg: 32 });
+          for (let k = 0; k < 20; k++) {
+            const a = (k / 20) * Math.PI * 2;
+            d.box([0.06, 0.07, 0.06], [Math.cos(a) * 0.37, Math.sin(a) * 0.37, 0.28], "#a08c5a", { rot: [0, 0, a], ...brass });
+          }
+          // the hand wheel on its hub
+          d.cyl(0.07, 0.07, 0.18, [0, 0, 0.37], "#d5d9de", { rot: [Math.PI / 2, 0, 0], ...chrome, seg: 14 });
+          d.torus(0.3, 0.026, [0, 0, 0.46], "#d5d9de", { ...chrome, seg: 40 });
+          for (let k = 0; k < 4; k++) {
+            const a = (k / 4) * Math.PI + Math.PI / 8;
+            d.box([0.6, 0.03, 0.03], [0, 0, 0.46], "#d5d9de", { rot: [0, 0, a], ...chrome });
+            for (const sgn of [-1, 1]) d.cyl(0.035, 0.035, 0.07, [Math.cos(a) * 0.3 * sgn, Math.sin(a) * 0.3 * sgn, 0.5], "#c9a45c", { rot: [Math.PI / 2, 0, 0], ...brass, seg: 10 });
+          }
+          // the time lock (three movements) and its pipes down to the gear housing
+          d.box([0.5, 0.22, 0.08], [0, 0.7, 0.28], "#34373c", { metal: 0.5, rough: 0.4 });
+          for (const x of [-0.15, 0, 0.15]) d.cyl(0.055, 0.055, 0.02, [x, 0.7, 0.33], "#f3e2b4", { rot: [Math.PI / 2, 0, 0], glow: 0.5, seg: 16 });
+          for (const sgn of [-1, 1])
+            d.tube(
+              [
+                [sgn * 0.25, 0.68, 0.3],
+                [sgn * 0.45, 0.58, 0.31],
+                [sgn * 0.5, 0.3, 0.31],
+                [sgn * 0.36, 0.08, 0.3],
+              ],
+              0.022,
+              "#b08f4a",
+              { ...brass, seg: 16 },
+            );
+          // the maker's plate
+          const plate = d.canvas(256, 64, (x, w, h) => {
+            x.fillStyle = "#2a2010";
+            x.fillRect(0, 0, w, h);
+            x.strokeStyle = "#c9a45c";
+            x.lineWidth = 3;
+            x.strokeRect(2, 2, w - 4, h - 4);
+            x.textAlign = "center";
+            x.textBaseline = "middle";
+            x.fillStyle = GOLD;
+            x.font = `700 22px "Cinzel", serif`;
+            x.fillText("BACKLOG SAFE CO.", w / 2, h * 0.4, w - 16);
+            x.fillStyle = "#b9a983";
+            x.font = `500 13px "Oswald", sans-serif`;
+            x.fillText("TIME LOCK · EST. 1971", w / 2, h * 0.76);
+          });
+          d.plane([0.42, 0.105], [0, -0.66, 0.305], "#ffffff", { tex: plate, glow: 0.3 }); // (in front of the linkages)
+        });
+      });
+    });
   }
 
   return level;

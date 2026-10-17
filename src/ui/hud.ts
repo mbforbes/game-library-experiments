@@ -243,7 +243,7 @@ export class Hud {
   setCredits(t: Track | null) {
     const el = this.help.querySelector(".credits") as HTMLElement;
     el.innerHTML = t
-      ? `♪ “${esc(t.title)}” by <a href="${t.link}" target="_blank" rel="noopener">${esc(t.artist)}</a>, <a href="${t.licenseUrl}" target="_blank" rel="noopener">${esc(t.license)}</a>, via <a href="https://breakingcopyright.com" target="_blank" rel="noopener">BreakingCopyright</a>`
+      ? `♪ “${esc(t.title)}” by <a href="${t.link}" target="_blank" rel="noopener">${esc(t.artist)}</a>, <a href="${t.licenseUrl}" target="_blank" rel="noopener">${esc(t.license)}</a>${t.via ? `, via <a href="${t.via.url}" target="_blank" rel="noopener">${esc(t.via.name)}</a>` : ""}`
       : "";
   }
 

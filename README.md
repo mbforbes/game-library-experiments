@@ -172,6 +172,7 @@ soft background track (credited in the in-app controls card):
 - Den: "Path Of The Fireflies" by AERØHEAD, CC BY-NC 3.0
 - Stacks: "Lands" by Alex Productions, CC BY 3.0
 - Lab: "Fragments" by AERØHEAD, CC BY-NC 3.0
+- Vault: "Spy Glass" by Kevin MacLeod (incompetech.com), CC BY 4.0
 
 Music powered by BreakingCopyright (https://breakingcopyright.com).
 
