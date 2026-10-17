@@ -127,12 +127,20 @@ class Cat {
   private c: HTMLCanvasElement;
   private x: number;
   private dir = 1;
-  private state: "hidden" | "walk" | "sit" = "hidden";
+  private state: "hidden" | "walk" | "sit" | "leave" = "hidden";
   private timer = 20;
   private frameT = 0;
   private frame = 0;
   private hop = 0;
   private alpha = uniform(0);
+
+  /** walking range of the sprite's centre: its paws stay on the bookcase tops (it's 0.32 wide) */
+  private get lo() {
+    return this.path.x0 + 0.17;
+  }
+  private get hi() {
+    return this.path.x1 - 0.17;
+  }
 
   constructor(private path: { y: number; z: number; x0: number; x1: number }) {
     [this.c] = canvas(16, 10);
@@ -175,13 +183,21 @@ class Cat {
       if (this.timer <= 0) {
         this.state = "walk";
         this.dir = Math.random() < 0.5 ? 1 : -1;
-        this.x = this.dir > 0 ? this.path.x0 : this.path.x1;
+        this.x = this.dir > 0 ? this.lo : this.hi;
         this.mesh.visible = true;
         this.timer = 4 + Math.random() * 4;
       }
       return;
     }
-    this.alpha.value = Math.min(1, this.alpha.value + dt * 2);
+    if (this.state === "leave") {
+      // fades out at the end of the bookcases (it used to stroll 30 cm on into thin air)
+      this.alpha.value = Math.max(0, this.alpha.value - dt * 2);
+      if (this.alpha.value <= 0) {
+        this.state = "hidden";
+        this.mesh.visible = false;
+        this.timer = 60 + Math.random() * 90;
+      }
+    } else this.alpha.value = Math.min(1, this.alpha.value + dt * 2);
     if (this.state === "walk") {
       this.x += this.dir * dt * 0.28;
       this.frameT += dt;
@@ -195,10 +211,9 @@ class Cat {
         this.timer = 3 + Math.random() * 4;
         this.draw(2);
       }
-      if (this.x > this.path.x1 + 0.3 || this.x < this.path.x0 - 0.3) {
-        this.state = "hidden";
-        this.mesh.visible = false;
-        this.timer = 60 + Math.random() * 90;
+      if (this.x >= this.hi || this.x <= this.lo) {
+        this.x = Math.min(this.hi, Math.max(this.lo, this.x));
+        this.state = "leave";
       }
     } else if (this.state === "sit" && this.timer <= 0) {
       this.state = "walk";
@@ -219,7 +234,8 @@ class VicViper {
   private trail: THREE.Mesh[] = [];
   private curve = new THREE.CatmullRomCurve3(
     [
-      [-5, 2.2, 2.5],
+      // starts and ends inside the room (it warps in and out) rather than flying through the walls
+      [-3.3, 2.3, 1.6],
       [-2, 2.4, -1.5],
       [1.5, 1.6, -2.2],
       [3.2, 1.2, 0],
@@ -227,7 +243,7 @@ class VicViper {
       [-2, 1.4, 1.2],
       [-1, 2.2, -1],
       [2, 2.6, -1.5],
-      [5.5, 2.5, -2.5],
+      [3.2, 2.5, -2.1],
     ].map(([x, y, z]) => new THREE.Vector3(x, y, z)),
   );
 
@@ -276,6 +292,10 @@ class VicViper {
       return;
     }
     const ship = this.group.children[0];
+    // warp in / out: grows from a point over the first and last 6% of the run
+    const k = Math.max(0.001, Math.min(1, this.t / 0.06, (1 - this.t) / 0.06));
+    ship.scale.setScalar(k);
+    this.group.children[1].scale.setScalar(k);
     const p = this.curve.getPointAt(this.t);
     const ahead = this.curve.getPointAt(Math.min(1, this.t + 0.01));
     ship.position.copy(p);

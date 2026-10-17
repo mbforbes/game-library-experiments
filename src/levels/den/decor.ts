@@ -41,6 +41,8 @@ export interface DenLayout {
   /** couch centre (z), facing -z, and the holo-table centre (z); both sit on x = 0 */
   couchZ: number;
   tableZ: number;
+  /** left end (x) of the LED ticker's housing high on the back wall (the string lights stop short of it) */
+  tickerX0?: number;
 }
 
 const PI = Math.PI;
@@ -1762,11 +1764,12 @@ function towerSpeaker(d: DecorBuilder) {
   rbox(d, [0.26, 0.92, 0.3], [0, 0.5, 0], C.walnut, { r: 0.025, axis: "y", rough: 0.4 });
   d.box([0.262, 0.012, 0.302], [0, 0.955, 0], "#1a1620", { rough: 0.3 });
   d.box([0.235, 0.88, 0.004], [0, 0.5, 0.151], "#0d0b12", { rough: 0.9 });
-  d.at([0, 0, 0.154], null, () => {
+  // (drivers inside the grille, 0.06..0.94: the woofer used to sit at y = 0, half under the floor)
+  d.at([0, 0.17, 0.154], null, () => {
     speakerDriver(d, 0.08);
-    d.at([0, 0.3, 0], null, () => speakerDriver(d, 0.08));
-    d.at([0, 0.56, 0], null, () => speakerDriver(d, 0.08));
-    d.at([0, 0.77, 0], null, () => speakerDriver(d, 0.03));
+    d.at([0, 0.22, 0], null, () => speakerDriver(d, 0.08));
+    d.at([0, 0.44, 0], null, () => speakerDriver(d, 0.08));
+    d.at([0, 0.65, 0], null, () => speakerDriver(d, 0.03));
   });
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) d.cyl(0.012, 0.004, 0.04, [sx * 0.1, 0.02, sz * 0.11], "#9aa0aa", { seg: 8, metal: 0.8 });
 }
@@ -1802,7 +1805,7 @@ function magazineRack(d: DecorBuilder, T: Tex) {
   const W = 0.5, wood = C.walnut, n = T.magCovers.length;
   const side = new THREE.Shape([new THREE.Vector2(-0.14, 0), new THREE.Vector2(0.14, 0), new THREE.Vector2(0.14, 0.1), new THREE.Vector2(0.01, 0.52), new THREE.Vector2(-0.13, 0.52), new THREE.Vector2(-0.14, 0.5)]);
   // shape x runs towards -z once turned onto the side
-  for (const sx of [-1, 1]) slabShape(d, side, 0.018, [(sx * (W - 0.018)) / 2, 0, 0], wood, { rot: [0, PI / 2, 0], rough: 0.45, bevel: 0.003 });
+  for (const sx of [-1, 1]) slabShape(d, side, 0.018, [(sx * (W - 0.018)) / 2, 0.003, 0], wood, { rot: [0, PI / 2, 0], rough: 0.45, bevel: 0.003 });
   d.box([W - 0.03, 0.018, 0.27], [0, 0.009, 0], wood, { rough: 0.5 });
   d.box([W - 0.03, 0.016, 0.13], [0, 0.15, -0.065], wood, { rough: 0.5 });
   d.at([0, 0.15, -0.125], [-0.12, 0, 0], () => d.box([W - 0.03, 0.36, 0.012], [0, 0.18, 0], wood, { rough: 0.5 }));
@@ -1862,12 +1865,13 @@ function snakePlant(d: DecorBuilder, pot: Color) {
   }
 }
 
-function monstera(d: DecorBuilder, leaf: UVRect, pot: Color, ring: Color) {
+/** `arc`: keep the leaves within this range of directions (radians, x = cos, z = sin), e.g. away from walls. */
+function monstera(d: DecorBuilder, leaf: UVRect, pot: Color, ring: Color, arc?: [number, number]) {
   d.lathe(potProfile(0.18, 0.4), [0, 0, 0], pot, { seg: 24, rough: 0.5 });
   d.torus(0.188, 0.005, [0, 0.33, 0], ring, { rot: [PI / 2, 0, 0], seg: 36, glow: 1.6 });
   d.cyl(0.165, 0.165, 0.01, [0, 0.355, 0], "#2a1c12", { seg: 20 });
   for (let i = 0; i < 12; i++) {
-    const a = i * 2.39996 + rnd() * 0.4;
+    const a = arc ? arc[0] + ((i * 0.618034 + rnd() * 0.08) % 1) * (arc[1] - arc[0]) : i * 2.39996 + rnd() * 0.4;
     const len = 0.35 + rnd() * 0.75;
     const out = 0.12 + rnd() * 0.3;
     const tip: Vec3 = [Math.cos(a) * out, 0.36 + len, Math.sin(a) * out];
@@ -1888,6 +1892,11 @@ function tableLamp(d: DecorBuilder, base: Color) {
   d.lathe(shade, [0, 0, 0], "#f2c48a", { seg: 24, glow: 0.45, rough: 0.9 });
   d.lathe([...shade].reverse(), [0, 0, 0], "#ffd9a0", { seg: 24, glow: 0.9, rough: 0.9, scale: [0.985, 1, 0.985] });
   d.sphere(0.028, [0, 0.33, 0], "#fff1d6", { seg: 10, glow: 2 });
+  // the spider that holds the shade on the socket (it floated round the bulb)
+  for (let k = 0; k < 3; k++) {
+    const a = (k / 3) * PI * 2 + 0.5;
+    rod(d, [0, 0.3, 0], [Math.cos(a) * 0.088, 0.428, Math.sin(a) * 0.088], 0.0018, "#c9ced8", { metal: 0.8, seg: 4 });
+  }
 }
 
 function tulipTable(d: DecorBuilder, top: Color, base: Color) {
@@ -1998,7 +2007,7 @@ async function tvNook(d: DecorBuilder, L: DenLayout, T: Tex, ctx: LevelCtx, anim
     // middle level: N64-ish left, PS1-ish with a slim black PS2-ish on top on the right
     d.at([-0.31, 0.2675, 0.0], [0, 0.05, 0], () => n64Like(d, "#e8a23a"));
     d.at([0.31, 0.2675, 0.0], [0, -0.03, 0], () => ps1Like(d));
-    d.at([0.31, 0.3275, 0.005], [0, 0.02, 0], () => ps2Like(d));
+    d.at([0.31, 0.3295, 0.005], [0, 0.02, 0], () => ps2Like(d)); // resting on the PS1's lid
     // bottom level: cube, docked hybrid, NES-ish with an SNES-ish on top
     d.at([-0.36, 0.04, 0.02], [0, 0.12, 0], () => cubeLike(d));
     d.at([-0.12, 0.04, 0.0], null, () => dockLike(d));
@@ -2013,9 +2022,10 @@ async function tvNook(d: DecorBuilder, L: DenLayout, T: Tex, ctx: LevelCtx, anim
     d.at([-0.385, 0.55, -0.1], [0, 0.4, 0], () => slimeFig(d, "#4fd8ff"));
     d.at([0.405, 0.55, 0.02], null, () => lavaLampBase(d));
     // controllers with cables, out onto the floor
-    cable(d, [[-0.335, 0.29, 0.096], [-0.33, 0.288, 0.16], [-0.3, 0.26, 0.24], [-0.27, 0.12, 0.27], [-0.22, 0.012, 0.33], [-0.05, 0.012, 0.55], [0.06, 0.04, 0.72], [0.1, 0.13, 0.82]], "#1a1a20");
+    // (lying on the shelf, over its edge, along the floor and up over the cushion to the pad on it)
+    cable(d, [[-0.335, 0.29, 0.096], [-0.333, 0.272, 0.15], [-0.322, 0.271, 0.215], [-0.305, 0.245, 0.24], [-0.29, 0.12, 0.258], [-0.275, 0.035, 0.282], [-0.25, 0.008, 0.318], [-0.2, 0.004, 0.38], [-0.12, 0.0042, 0.48], [-0.06, 0.0045, 0.55], [-0.025, 0.014, 0.6], [-0.005, 0.08, 0.622], [0.01, 0.128, 0.65], [0.045, 0.153, 0.74], [0.09, 0.158, 0.83]], "#1a1a20");
     d.at([0.12, 0.148, 0.88], [0, 0.5, 0.06], () => padModern(d, "#2a2a32", C.cyan));
-    cable(d, [[0.31, 0.062, 0.103], [0.31, 0.06, 0.18], [0.33, 0.03, 0.26], [0.36, 0.012, 0.33], [0.42, 0.012, 0.45], [0.38, 0.012, 0.56]], "#1a1a1e", 0.0028);
+    cable(d, [[0.31, 0.062, 0.103], [0.31, 0.046, 0.15], [0.312, 0.0435, 0.215], [0.322, 0.03, 0.245], [0.34, 0.007, 0.29], [0.37, 0.0035, 0.36], [0.405, 0.0033, 0.45], [0.39, 0.0033, 0.53], [0.371, 0.006, 0.574]], "#1a1a1e", 0.0028);
     d.at([0.36, 0, 0.6], [0, -0.35, 0], () => padClassic(d));
   });
   await tick();
@@ -2174,6 +2184,7 @@ async function backWall(d: DecorBuilder, L: DenLayout, T: Tex, ctx: LevelCtx, an
   }
   await tick();
   // ---- string lights swagged along the top of the wall ----
+  if (L.tickerX0 !== undefined) lightsTo = Math.min(lightsTo, L.tickerX0 - 0.06);
   if (lightsTo - x0 > 0.6) stringLights(d, [x0 - 0.05, wallTop + 0.02, z + 0.04], [lightsTo, wallTop + 0.02, z + 0.04], 3);
 }
 
@@ -2181,7 +2192,7 @@ async function credenza(d: DecorBuilder, T: Tex, cx: number, z: number, ctx: Lev
   const W = 1.4, H = 0.5, D = 0.42, y0 = 0.16, zc = 0.025 + D / 2;
   const bay = (W - 0.05) / 3, top = y0 + H;
   d.at([cx, 0, z], null, () => {
-    for (const sxx of [-1, 1]) for (const szz of [-1, 1]) rod(d, [sxx * (W / 2 - 0.1), y0, zc + szz * (D / 2 - 0.08)], [sxx * (W / 2 - 0.07), 0, zc + szz * (D / 2 - 0.05)], 0.022, C.walnutDark, { r2: 0.013 });
+    for (const sxx of [-1, 1]) for (const szz of [-1, 1]) rod(d, [sxx * (W / 2 - 0.1), y0, zc + szz * (D / 2 - 0.08)], [sxx * (W / 2 - 0.07), 0.0035, zc + szz * (D / 2 - 0.05)], 0.022, C.walnutDark, { r2: 0.013 });
     rbox(d, [W + 0.02, 0.03, D + 0.02], [0, y0 + H - 0.015, zc], C.walnut, { r: 0.012, axis: "y", rough: 0.45 });
     d.box([W - 0.02, 0.025, D], [0, y0 + 0.0125, zc], C.walnut, { rough: 0.5 });
     d.box([0.025, H - 0.03, D], [-W / 2 + 0.0125, y0 + H / 2 - 0.015, zc], C.walnut, { rough: 0.5 });
@@ -2361,7 +2372,7 @@ function catCorner(d: DecorBuilder, cx: number, z: number) {
     // a well-loved yarn ball and a fish toy
     d.sphere(0.04, [0.12, 0.084, 0.04], "#ff5aa8", { seg: 10, rough: 0.95 });
     for (let i = 0; i < 3; i++) d.torus(0.041, 0.003, [0.12, 0.084, 0.04], "#ff8ac8", { rot: [i * 1.1, i * 0.7, 0], seg: 16 });
-    d.tube([[0.12, 0.05, 0.075], [0.15, 0.012, 0.15], [0.25, 0.006, 0.22], [0.32, 0.006, 0.18]], 0.0025, "#ff5aa8", { seg: 16 });
+    d.tube([[0.12, 0.05, 0.075], [0.15, 0.014, 0.15], [0.25, 0.0035, 0.22], [0.32, 0.003, 0.18]], 0.0025, "#ff5aa8", { seg: 16 });
     const fish = new THREE.Shape();
     fish.moveTo(-0.05, 0);
     fish.quadraticCurveTo(-0.01, 0.03, 0.03, 0.0);
@@ -2369,7 +2380,7 @@ function catCorner(d: DecorBuilder, cx: number, z: number) {
     fish.lineTo(0.055, -0.02);
     fish.lineTo(0.03, 0.0);
     fish.quadraticCurveTo(-0.01, -0.03, -0.05, 0);
-    slabShape(d, fish, 0.018, [-0.16, 0.012, 0.24], "#4fd8ff", { rot: [-PI / 2, 0, 0.6], bevel: 0.004, segs: 4 });
+    slabShape(d, fish, 0.018, [-0.16, 0.0135, 0.24], "#4fd8ff", { rot: [-PI / 2, 0, 0.6], bevel: 0.004, segs: 4 });
   });
   // bowls
   for (const [bx, col, fill] of [[-0.06, "#ff3d9a", "#7a4a2a"], [0.1, "#4fd8ff", "#6fb8e8"]] as [number, string, string][]) {
@@ -2510,11 +2521,12 @@ async function battlestation(d: DecorBuilder, L: DenLayout, T: Tex) {
   await tick();
   frame(() => {
     // sticky notes on the monitor bezel and the desk
-    d.plane([0.045, 0.045], [0.183, 1.14, 0.5615], "#ffffff", { tex: T.notes[0], rot: [0, 0, 0.1], rough: 0.8 });
-    d.plane([0.04, 0.04], [-0.185, 0.87, 0.5615], "#ffffff", { tex: T.notes[1], rot: [0, 0, -0.12], rough: 0.8 });
+    // (on the bezel's front, x ±0.2 / y 0.81..1.19, clear of the screen: x ±0.155, y 0.88..1.12)
+    d.plane([0.042, 0.042], [0.172, 1.152, 0.5612], "#ffffff", { tex: T.notes[0], rot: [0, 0, 0.1], rough: 0.8 });
+    d.plane([0.036, 0.036], [-0.175, 0.85, 0.5612], "#ffffff", { tex: T.notes[1], rot: [0, 0, -0.12], rough: 0.8 });
     d.plane([0.06, 0.06], [-0.2, top + 0.0045, 0.68], "#ffffff", { tex: T.notes[2], rot: [-PI / 2, 0, 0.3], rough: 0.8 });
     // under-desk glow strip
-    d.box([1.1, 0.006, 0.006], [0, top - 0.025, 0.72], C.magenta, { glow: 1.6 });
+    d.box([1.1, 0.006, 0.006], [0, top - 0.043, 0.7], C.magenta, { glow: 1.6 }); // (under the 4 cm top, not inside it)
   });
   await tick();
   frame(() => {
@@ -2540,7 +2552,7 @@ async function battlestation(d: DecorBuilder, L: DenLayout, T: Tex) {
       d.lathe([[0, 0], [0.09, 0], [0.11, 0.26], [0.105, 0.26], [0.085, 0.01], [0, 0.01]], [0, 0, 0], "#2a2830", { seg: 18, rough: 0.5, metal: 0.4 });
       for (let i = 0; i < 4; i++) d.sphere(0.035, [(rnd() - 0.5) * 0.08, 0.22 + rnd() * 0.04, (rnd() - 0.5) * 0.08], "#f2f0ea", { seg: 5, rough: 0.9 });
     });
-    d.sphere(0.032, [0.5, 0.03, 0.6], "#f2f0ea", { seg: 5, rough: 0.9 });
+    d.sphere(0.032, [0.5, 0.032, 0.6], "#f2f0ea", { seg: 5, rough: 0.9 });
   });
   await tick();
   frame(() => {
@@ -2659,13 +2671,16 @@ async function rightSide(d: DecorBuilder, L: DenLayout, T: Tex) {
   await tick();
   // front-right corner beside the vending machine
   const vEdge = L.vendingX + 0.5;
-  if (L.X1 - vEdge > 0.5) d.at([L.X1 - 0.3, 0, L.Z1 - 0.32], null, () => monstera(d, T.leaf, "#1f1a2a", C.cyan));
+  // (tucked into the corner behind the safe, leaves turned to the room: clear of both walls and the machine)
+  if (L.X1 - vEdge > 0.5) d.at([L.X1 - 0.2, 0, L.Z1 - 0.2], null, () => monstera(d, T.leaf, "#1f1a2a", C.cyan, [1.08 * PI, 1.55 * PI]), [0.8, 0.8, 0.8]);
   await tick();
   // crate + boombox under the right-wall poster
   const zA = L.cartZ1 + 0.06, zB = L.Z1 - 0.95;
   if (zB - zA > 0.45) {
     d.at([L.X1, 0, (zA + zB) / 2], [0, -PI / 2, 0], () => {
       const W = 0.52, H = 0.32, D = 0.36;
+      // (the crate stands clear of the skirting LED strip on the wall)
+      d.at([0, 0, 0.012], null, () => {
       for (const s of [-1, 1]) d.box([0.02, H, D], [(s * (W - 0.02)) / 2, H / 2, D / 2 + 0.02], "#8a6440", { rough: 0.8 });
       for (let i = 0; i < 4; i++) {
         d.box([W, 0.05, 0.016], [0, 0.03 + i * 0.085, D + 0.012], "#9a7450", { rough: 0.8 });
@@ -2675,9 +2690,10 @@ async function rightSide(d: DecorBuilder, L: DenLayout, T: Tex) {
       for (let i = 0; i < 12; i++) d.box([0.31, 0.29, 0.006], [0, 0.16, 0.08 + i * 0.024], T.recColors[(i * 5 + 1) % T.recColors.length], { rot: [0.08 * (rnd() - 0.5), 0, 0], rough: 0.6 });
       // two more pulled out, leaning on the front of the crate
       const n = T.recSleeves.length;
-      d.at([-0.1, 0, D + 0.075], [-0.2, 0.06, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[3 % n], face: "front", rough: 0.5 }));
-      d.at([0.11, 0, D + 0.1], [-0.22, -0.1, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[4 % n], face: "front", rough: 0.5 }));
+      d.at([-0.1, 0.004, D + 0.075], [-0.2, 0.06, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[3 % n], face: "front", rough: 0.5 }));
+      d.at([0.11, 0.004, D + 0.1], [-0.22, -0.1, 0], () => d.box([0.3, 0.3, 0.004], [0, 0.15, 0], "#ffffff", { tex: T.recSleeves[4 % n], face: "front", rough: 0.5 }));
       d.at([0, H, D / 2 + 0.02], [0, 0.08, 0], () => boombox(d));
+      });
       d.at([W / 2 + 0.12, 0.42, 0], null, () => outlet(d, [[0, -0.1, 0.05], [-0.04, -0.12, 0.12], [-0.1, -0.06, 0.16], [-0.17, -0.02, 0.17]]));
 
     });
@@ -2713,6 +2729,12 @@ async function frontWall(d: DecorBuilder, L: DenLayout, T: Tex) {
       d.lathe(shade, [0, 0, 0], "#f2c48a", { seg: 26, glow: 0.4, rough: 0.9 });
       d.lathe([...shade].reverse(), [0, 0, 0], "#ffd9a0", { seg: 26, glow: 0.85, rough: 0.9, scale: [0.985, 1, 0.985] });
       d.sphere(0.03, [0, 1.5, 0], "#fff1d6", { seg: 10, glow: 2 });
+      // socket + the spider arms holding the shade's top ring (it floated round the bulb)
+      d.cyl(0.016, 0.014, 0.03, [0, 1.465, 0], C.brass, { seg: 10, metal: 0.9, rough: 0.25 });
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * PI * 2 + 0.4;
+        rod(d, [0, 1.47, 0], [Math.cos(a) * 0.138, 1.658, Math.sin(a) * 0.138], 0.0025, C.brass, { metal: 0.9, seg: 4 });
+      }
     });
     // wall above: the overflow perlers, or (with the gallery up) the Night Drive poster
     const wx = (1.45 + vL) / 2;
@@ -2731,7 +2753,8 @@ async function frontWall(d: DecorBuilder, L: DenLayout, T: Tex) {
   L.arcadeXs.forEach((x, i) => {
     d.at([x, 1.85, z - 0.22], [0, PI + (i - 1) * 0.3, 0], () => {
       if (i === 0) d.at([0, 0, 0], null, () => slimeFig(d, "#ff8ac8"), [1.8, 1.8, 1.8]);
-      if (i === 1) for (let k = 0; k < 4; k++) d.cyl(0.03, 0.026, 0.06, [-0.05 + k * 0.035, 0.03, (k % 2) * 0.03], k % 2 ? "#ffd23f" : "#ff3d9a", { seg: 12, rough: 0.4 });
+      // (side by side, not fused: 6 cm cups at least 6 cm apart)
+      if (i === 1) for (let k = 0; k < 4; k++) d.cyl(0.03, 0.026, 0.06, [-0.0675 + k * 0.045, 0.03, (k % 2) * 0.045 - 0.02], k % 2 ? "#ffd23f" : "#ff3d9a", { seg: 12, rough: 0.4 });
       if (i === 2) trophy(d);
     });
   });
@@ -2771,7 +2794,9 @@ async function centre(d: DecorBuilder, L: DenLayout, T: Tex) {
     d.at([0.12, 0.505, -0.08], [0, PI - 0.3, 0], () => sodaCan(d, T.cans[2]));
     d.at([0.07, 0.505, 0.11], [0, -0.5, 0], () => handheldFlat(d, T.screen));
     // charging cable: over the table edge, down the pedestal, along the floor to a power strip
-    cable(d, [[0.19, 0.513, 0.15], [0.23, 0.5, 0.17], [0.235, 0.4, 0.17], [0.2, 0.15, 0.16], [0.24, 0.01, 0.2], [0.35, 0.006, 0.35], [0.4, 0.006, 0.55]], "#f2f2f2", 0.0022);
+    // (ends in a plug in the strip's first socket)
+    cable(d, [[0.19, 0.513, 0.15], [0.23, 0.5, 0.17], [0.235, 0.4, 0.17], [0.2, 0.15, 0.16], [0.207, 0.06, 0.168], [0.225, 0.013, 0.19], [0.26, 0.004, 0.235], [0.35, 0.0032, 0.35], [0.38, 0.0034, 0.44], [0.393, 0.015, 0.49], [0.401, 0.046, 0.528]], "#f2f2f2", 0.0022);
+    d.at([0.402, 0.036, 0.532], [0, 0.2, 0], () => d.box([0.014, 0.012, 0.018], [0, 0.006, 0], "#f2f2f2", { rough: 0.5 }));
     d.at([0.42, 0, 0.62], [0, 0.2, 0], () => {
       rbox(d, [0.06, 0.035, 0.3], [0, 0.0175, 0], "#e8e4dc", { r: 0.01, axis: "y" });
       for (let k = 0; k < 4; k++) d.box([0.02, 0.002, 0.02], [0, 0.036, -0.09 + k * 0.055], "#2a2830");

@@ -34,6 +34,9 @@ export function poster(art: ArtStore, game: Game, height: number, frameColor = 0
       [-w / 2 - f / 2, 0, 0, f, h, 0.03],
       [w / 2 + f / 2, 0, 0, f, h, 0.03],
       [0, 0, -0.004, w, h, 0.01],
+      // the picture light's bracket: a post on the frame's top and an arm out to the lamp (it hung in the air)
+      [0, h / 2 + f + 0.0175, 0.008, 0.008, 0.035, 0.008],
+      [0, h / 2 + f + 0.035, 0.035, 0.008, 0.008, 0.055],
     ]);
     lamp.position.set(0, h / 2 + f + 0.04, 0.06);
     lamp.scale.x = Math.max(0.6, w / 0.2 * 0.6);

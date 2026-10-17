@@ -51,6 +51,9 @@ export default function den(): Level {
   let vending: VendingMachine;
   let eggs: DenEggs;
   let consoleField: MediaField, pcField: MediaField, cartField: MediaField;
+  let housing: THREE.MeshStandardNodeMaterial | null = null;
+  /** Dark satin housing behind the bare display panels (ticker, split-flap, bookcase LED panels). */
+  const housingMaterial = () => (housing ??= new THREE.MeshStandardNodeMaterial({ color: 0x0d0b14, roughness: 0.45, metalness: 0.35 }));
 
   const level: Level = {
     id: "den",
@@ -146,6 +149,10 @@ export default function den(): Level {
       );
       ticker.mesh.position.set(consoleCenterX, 2.62, Z0 + 0.04);
       scene.add(ticker.mesh);
+      // the dot-matrix board's housing, screwed to the wall (the display face sits just in front of it)
+      const tickerW = Math.max(2.6, consoleSpan);
+      const tickerBox = new THREE.Mesh(boxes([[consoleCenterX, 2.62, Z0 + 0.0195, tickerW + 0.04, 0.2, 0.039]]), housingMaterial());
+      scene.add(tickerBox);
       tickers.push((dt) => ticker.update(dt));
 
       // ---------------- back-left: TV nook ----------------
@@ -211,11 +218,12 @@ export default function den(): Level {
       );
       desk.position.set(X0 + 0.38, 0, deskZ);
       scene.add(desk);
+      // (front face at X0 + 0.56: the screen and the sticky notes in decor sit just in front of it)
       const mon = new THREE.Mesh(boxes([[0, 1.0, 0, 0.42, 0.38, 0.4]]), new THREE.MeshStandardNodeMaterial({ color: 0xd8d2c0, roughness: 0.6 }));
-      mon.position.set(X0 + 0.36, 0, deskZ);
+      mon.position.set(X0 + 0.35, 0, deskZ);
       scene.add(mon);
       const pcScreen = new CrtScreen(art, 0.31, 0.24, { curve: 0.16 });
-      pcScreen.mesh.position.set(X0 + 0.36 + 0.201, 1.0, deskZ);
+      pcScreen.mesh.position.set(X0 + 0.35 + 0.21 + 0.0015, 1.0, deskZ);
       pcScreen.mesh.rotation.y = Math.PI / 2;
       scene.add(pcScreen.mesh);
       pcScreen.setPlaylist(pc.filter((g) => g.status !== "backlog").slice(0, 80));
@@ -292,7 +300,8 @@ export default function den(): Level {
       const vendAt = new THREE.Vector3(2.75, 1.2, Z1 - 0.5);
       // a little safe on the floor beside the vending machine (the way into the vault)
       const safe = miniSafe();
-      safe.position.set(3.62, 0, Z1 - 0.42);
+      // (in front of the corner plant, clear of the machine's side and its front)
+      safe.position.set(3.55, 0, Z1 - 0.64);
       safe.rotation.y = Math.PI - 0.35;
       scene.add(safe);
       c.pickable(safe, () => c.openVault());
@@ -354,10 +363,14 @@ export default function den(): Level {
       });
 
       // NOW PLAYING split-flap board above the window
-      const flap = new SplitFlap(26, 6, 2.2);
-      flap.mesh.position.set(0, 2.6, Z1 - 0.03);
+      // sized to fit between the window frame's head (y 2.23) and the ceiling cove strip (y 2.95), with
+      // a housing behind it on the wall
+      const flap = new SplitFlap(26, 6, 1.99);
+      flap.mesh.position.set(0, 2.59, Z1 - 0.03);
       flap.mesh.rotation.y = Math.PI;
       scene.add(flap.mesh);
+      const flapH = (1.99 * 6 * 60) / (26 * 40);
+      scene.add(new THREE.Mesh(boxes([[0, 2.59, Z1 - 0.0145, 1.99 + 0.016, flapH + 0.012, 0.029]]), housingMaterial()));
       let flapPage = 0, flapT = 99;
       const playList = playing.slice();
       tickers.push((dt) => {
@@ -435,7 +448,7 @@ export default function den(): Level {
       });
 
       // ---------------- the lived-in layer: props, furniture, clutter (one merged mesh) ----------------
-      await decorateDen(c, { X0, X1, Z0, Z1, CEIL, nookX, consoleX0: consoleCenterX - consoleSpan / 2, pcZ0: pcCenterZ - pcSpan / 2, pcZ1: pcCenterZ + pcSpan / 2, deskZ, cartZ0: cartCenterZ - cartW / 2, cartZ1: cartCenterZ + cartW / 2, cartBase, arcadeXs: arcadePicks.map((_, i) => -3.45 + i * 0.74), vendingX: 2.75, couchZ: 1.75, tableZ: 0.2 }, () => progress("Making a mess…"));
+      await decorateDen(c, { X0, X1, Z0, Z1, CEIL, nookX, consoleX0: consoleCenterX - consoleSpan / 2, pcZ0: pcCenterZ - pcSpan / 2, pcZ1: pcCenterZ + pcSpan / 2, deskZ, cartZ0: cartCenterZ - cartW / 2, cartZ1: cartCenterZ + cartW / 2, cartBase, arcadeXs: arcadePicks.map((_, i) => -3.45 + i * 0.74), vendingX: 2.75, couchZ: 1.75, tableZ: 0.2, tickerX0: consoleCenterX - Math.max(2.6, consoleSpan) / 2 - 0.02 }, () => progress("Making a mess…"));
 
       // ---------------- camera rail + stations ----------------
       rail = wallRail(
@@ -530,16 +543,23 @@ export default function den(): Level {
   /** Shelf-edge labels at the start of each platform section. */
   function decorateSections(sections: ReturnType<typeof packShelves>["sections"], shelves: Shelf[], _name: string) {
     const seen = new Set<string>();
+    // where the last label on each shelf ends (distance along the shelf): a short section's label would
+    // otherwise run over the next one's (two coplanar plates, the text on top of each other)
+    const labelEnd = new Map<number, number>();
+    const LW = 0.15;
     for (const sec of sections) {
       const sh = shelves[sec.shelf];
       const first = !seen.has(sec.key);
       seen.add(sec.key);
       if (!first) continue;
+      const along0 = sec.start.clone().sub(sh.origin).dot(sh.dir);
+      const along = Math.max(0, Math.min(Math.max(along0, labelEnd.get(sec.shelf) ?? -1), sh.width - LW));
+      labelEnd.set(sec.shelf, along + LW + 0.004);
       const p = platformOf(sec.key === "bigbox" || sec.key === "slab" ? "Windows" : sec.key);
       const total = sec.key === "bigbox" ? "BIG BOX" : sec.key === "slab" ? "DIGITAL" : p.short;
       const count = sections.filter((x) => x.key === sec.key).reduce((a, x) => a + x.games.length, 0);
       const label = shelfLabel(`${total} · ${count}`, p.neon);
-      label.position.copy(sec.start).addScaledVector(sh.dir, 0.075).addScaledVector(UP, -0.012).addScaledVector(sh.normal, 0.003);
+      label.position.copy(sec.start).addScaledVector(sh.dir, along - along0 + LW / 2).addScaledVector(UP, -0.012).addScaledVector(sh.normal, 0.003);
       label.quaternion.copy(faceOut(sh.normal));
       ctx.scene.add(label);
     }
@@ -561,6 +581,11 @@ export default function den(): Level {
     panel.position.copy(g.position).add(new THREE.Vector3(0, bc.top + 0.15, 0)).addScaledVector(normal, -0.1);
     panel.quaternion.copy(faceOut(normal));
     ctx.scene.add(panel);
+    // the panel's housing stands on the bookcase top (the display face sits just in front of it)
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.29, 0.04), housingMaterial());
+    box.position.copy(g.position).add(new THREE.Vector3(0, bc.top + 0.145, 0)).addScaledVector(normal, -0.1 - 0.0205);
+    box.quaternion.copy(panel.quaternion);
+    ctx.scene.add(box);
   }
 
   function buildRoom(scene: THREE.Scene) {

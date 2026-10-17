@@ -183,7 +183,9 @@ export function arcadeCabinet(art: ArtStore, opts: { color: string; neon: string
     [-D / 2, 0],
     [D / 2 - 0.1, 0],
     [D / 2 - 0.1, 0.86],
-    [D / 2 + 0.05, 0.95],
+    // the control deck: the sides wrap the panel box (z to D/2 + 0.08, y 0.955..0.985)
+    [D / 2 + 0.08, 0.955],
+    [D / 2 + 0.08, 0.985],
     [D / 2 - 0.02, 1.02],
     [D / 2 - 0.16, 1.5],
     [D / 2 - 0.05, 1.56],
@@ -202,35 +204,60 @@ export function arcadeCabinet(art: ArtStore, opts: { color: string; neon: string
   }
   // body between the sides
   const bodyMat = new THREE.MeshStandardNodeMaterial({ color: 0x0c0c10, roughness: 0.6 });
-  const inner = W - 0.05;
+  // the sides are extruded outward from ±W/2 (to ±(W/2 + 0.025)), so the panels between them are W wide
+  // (at W - 0.05 they left a 2.5 cm slit down each side, straight through the cabinet)
+  const inner = W;
   g.add(
     new THREE.Mesh(
       boxes([
         [0, 0.43, D / 2 - 0.11, inner, 0.86, 0.02], // kick panel
         [0, 0.97, D / 2 - 0.02, inner, 0.03, 0.2], // control panel
-        [0, H - 0.01, 0, inner, 0.02, D - 0.2], // top
-        [0, H / 2, -D / 2 + 0.01, inner, H, 0.02], // back
+        [0, 1.0025, D / 2 - 0.03, inner, 0.035, 0.02], // riser between the deck and the screen's bottom edge
+        [0, H - 0.01, 0.025, inner, 0.02, D - 0.15], // top (out to the front edge)
+        [0, 0.75, -D / 2 + 0.01, inner, 1.5, 0.02], // back (up to where the profile slopes in)
+        [0, (1.56 + H) / 2, D / 2 - 0.06, inner, H - 1.56, 0.02], // marquee backing
       ]),
       bodyMat,
     ),
   );
+  // sloped boards between the sides: under the control deck, behind the screen (the bezel) and under the
+  // marquee, so there's no open slot into the cabinet
+  const slope = (a: [number, number], b: [number, number], t: number) => {
+    const dz = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dz, dy);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(inner, t, len), bodyMat);
+    // (inset by half its thickness so it stays inside the side profile)
+    m.position.set(0, (a[1] + b[1]) / 2 + (dz / len) * (t / 2), (a[0] + b[0]) / 2 - (dy / len) * (t / 2));
+    m.rotation.x = -Math.atan2(b[1] - a[1], b[0] - a[0]);
+    g.add(m);
+  };
+  slope([D / 2 - 0.1, 0.86], [D / 2 + 0.08, 0.955], 0.012);
+  slope([D / 2 - 0.16, 1.5], [D / 2 - 0.05, 1.56], 0.012);
+  slope([-D / 2 + 0.1, H], [-D / 2, 1.5], 0.02); // the sloped top of the back
   // joystick + buttons
+  // (on the deck in front of the screen: standing on the panel top at y 0.985, clear of the screen's edge)
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.06), new THREE.MeshStandardNodeMaterial({ color: 0x111111 }));
-  stick.position.set(-0.12, 1.03, D / 2 - 0.01);
+  stick.position.set(-0.12, 1.015, D / 2 + 0.035);
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 12), neonMaterial("#ff2040", 1.2));
-  ball.position.set(-0.12, 1.065, D / 2 - 0.01);
+  ball.position.set(-0.12, 1.06, D / 2 + 0.035);
   g.add(stick, ball);
   ["#ffd23f", "#3ddc84", "#38b6ff"].forEach((c, i) => {
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.012, 16), neonMaterial(c, 1.5));
-    b.position.set(0.04 + i * 0.05, 0.99, D / 2 - 0.01 - (i % 2) * 0.03);
+    b.position.set(0.04 + i * 0.05, 0.99, D / 2 + 0.04 - (i % 2) * 0.03);
     g.add(b);
   });
   // screen (tilted back, matching the profile)
   const screen = new CrtScreen(art, 0.5, 0.4, { curve: 0.14 });
   const s0 = new THREE.Vector3(0, 1.02, D / 2 - 0.02), s1 = new THREE.Vector3(0, 1.5, D / 2 - 0.16);
-  screen.mesh.position.copy(s0.clone().lerp(s1, 0.5)).add(new THREE.Vector3(0, 0, 0.01));
   screen.mesh.rotation.x = -Math.atan2(s0.z - s1.z, s1.y - s0.y);
+  // recessed a few mm between the sides (it stood 1 cm proud of them), in a bezel board that fills the
+  // slope so there's no open slot above or below the tube
+  const sn = new THREE.Vector3(0, 0, 1).applyEuler(screen.mesh.rotation);
+  screen.mesh.position.copy(s0.clone().lerp(s1, 0.5)).addScaledVector(sn, -0.004);
   g.add(screen.mesh);
+  const bezel = new THREE.Mesh(new THREE.BoxGeometry(inner, s0.distanceTo(s1), 0.008), bodyMat);
+  bezel.position.copy(s0.clone().lerp(s1, 0.5)).addScaledVector(sn, -0.0095);
+  bezel.rotation.x = screen.mesh.rotation.x;
+  g.add(bezel);
   // marquee
   const [mc, mctx] = canvas(512, 128);
   const grad = mctx.createLinearGradient(0, 0, 512, 0);
@@ -258,7 +285,7 @@ export function arcadeCabinet(art: ArtStore, opts: { color: string; neon: string
   mm.colorNode = vec3(0);
   mm.emissiveNode = texture(mt).rgb.mul(2.2);
   const marquee = new THREE.Mesh(new THREE.PlaneGeometry(inner, 0.2), mm);
-  marquee.position.set(0, 1.7, D / 2 - 0.04);
+  marquee.position.set(0, 1.7, D / 2 - 0.049); // on its backing, flush with the sides' front edge
   g.add(marquee);
   return { group: g, screen, marquee };
 }
