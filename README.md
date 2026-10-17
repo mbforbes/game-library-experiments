@@ -140,7 +140,11 @@ It shows:
 - value over time
 - the most valuable games
 - value by platform
-- the six most valuable games on pedestals
+- every priced game on gold display shelves round the walls, most valuable first, in value bands
+  ($100 and up, $50-99, $25-49, $10-24, under $10), each with a price tag (rank, price, * when
+  assumed physical). Each band has a stop in the station bar. The room grows longer if the
+  collection needs more wall. Opening a game shows its value, rank, complete-in-box and sealed
+  prices in the info panel.
 
 Prices come from PriceCharting snapshots stored in KV (`vault:index`, `vault:snap:<date>`).
 Each game is valued in its sheet "Condition" column (Loose / CIB / New / Graded / Box only /

@@ -15,7 +15,9 @@ export function neonEnvironment(renderer: THREE.WebGPURenderer, panels: { color:
     scene.add(m);
   }
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const tex = pmrem.fromScene(scene, 0.03).texture;
+  // (in isolation: drawn once, so every pipeline it needs now, and the renderer's own state)
+  const isolated = (renderer as any).__isolated as (<T>(fn: () => T) => T) | undefined;
+  const tex = (isolated ? isolated(() => pmrem.fromScene(scene, 0.03)) : pmrem.fromScene(scene, 0.03)).texture;
   pmrem.dispose();
   return tex;
 }

@@ -109,6 +109,7 @@ export class App {
       document.body.appendChild(this.fps.el);
       this.applyQuality(q0, []); // (sets the meter's note)
       this.hud.bindFps(() => this.fps.on, (on) => (this.fps.on = on));
+      this.hud.factsHook = (g) => this.level?.facts?.(g) ?? [];
       const tEngine = performance.now();
       this.art = new ArtStore(this.device.mobile ? "lo" : "hi");
       this.hud.art = this.art;

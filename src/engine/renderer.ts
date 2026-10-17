@@ -354,7 +354,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
     const inflight = new Set<Promise<unknown>>();
     pipes.getForRender = function (ro: any, promises: any[] | null = null) {
       const c = pipes.__collect as { list: Promise<unknown>[]; limit: number } | undefined;
-      if (!promises) return getForRender.call(pipes, ro, []); // render path: async, never stall
+      if (!promises) return getForRender.call(pipes, ro, pipes.__sync ? null : []); // render path: async, never stall (except isolated renders, below)
       if (!c) return getForRender.call(pipes, ro, promises);
       const mine: Promise<unknown>[] = [];
       const r = getForRender.call(pipes, ro, mine);
@@ -392,6 +392,23 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
       return getAsync.call(nodes, ro);
     };
   }
+  // One-shot offscreen renders (environment maps: PMREMGenerator.fromScene) are drawn once and
+  // never again, so they can't skip objects whose pipeline is still compiling, and they need the
+  // renderer's own state, not a compile's main-pass MRT / target (an environment generated during
+  // a compile got shaders with no outputs). Few pipelines, created the first time only.
+  (renderer as any).__isolated = <T>(fn: () => T): T => {
+    const rt = renderer.getRenderTarget(), m = renderer.getMRT();
+    renderer.setRenderTarget(null);
+    renderer.setMRT(null);
+    pipes.__sync = (pipes.__sync ?? 0) + 1;
+    try {
+      return fn();
+    } finally {
+      pipes.__sync--;
+      renderer.setRenderTarget(rt);
+      renderer.setMRT(m);
+    }
+  };
   // learn the call depth the scene pass renders at (see precompile)
   let passDepth = 1;
   {

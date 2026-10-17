@@ -297,6 +297,9 @@ export class Hud {
     return window.innerWidth > 820 && window.innerWidth > window.innerHeight;
   }
 
+  /** the world on screen can add lines to a game's info panel (the vault: what it's worth) */
+  factsHook?: (g: Game) => [string, string][];
+
   showGame(g: Game | null) {
     if (!g) {
       this.panel.classList.remove("open");
@@ -304,7 +307,7 @@ export class Hud {
     }
     const p = platformOf(g.platform);
     const year = this.art.year(g);
-    const facts: [string, string][] = [];
+    const facts: [string, string][] = [...(this.factsHook?.(g) ?? [])];
     if (g.developer) facts.push(["Developer", g.developer]);
     const e = this.art.entry(g);
     if (e?.pub && e.pub !== g.developer) facts.push(["Publisher", e.pub]);

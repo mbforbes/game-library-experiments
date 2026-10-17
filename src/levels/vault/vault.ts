@@ -5,11 +5,13 @@
 // snapshots kept in Workers KV by scripts/vault/price.ts. Each game is valued in its recorded
 // condition (the sheet's optional "Condition" column), loose when none is recorded.
 //
-//   back wall  : the big number, with the date it was valued (front and centre)
-//   left wall  : value over time (one point per valuation snapshot)
-//   right wall : the most valuable games + value by platform
-//   centre     : the six most valuable games on lit pedestals, with price plaques
-//   front wall : the vault door (open), deposit boxes, gold bars
+//   back wall  : the big number, with the date it was valued (front and centre), deposit boxes
+//   left wall  : value over time (one point per valuation snapshot), then the collection
+//   right wall : the most valuable games + value by platform, then the collection
+//   the walls  : every priced game on gold display shelves, most valuable first, in value bands,
+//                each with a price tag (the camera rides round the walls, so scrolling shows
+//                them all; the room is as long as it needs to be to fit them)
+//   front wall : the vault door (open)
 
 import * as THREE from "three/webgpu";
 import { texture } from "three/tsl";
@@ -19,10 +21,12 @@ import { wallRail, type Rail } from "../../engine/rail";
 import { MediaField, templateOf, type Placement } from "../../media/field";
 import { neonEnvironment } from "../../world/kit/env";
 import { canvas, canvasTexture } from "../../world/kit/common";
-import { DecorBuilder, roundedRect } from "../../world/kit/decorkit";
+import { DecorBuilder, roundedRect, type Vec3 } from "../../world/kit/decorkit";
 import type { Level, LevelCtx, Station } from "../types";
 
-const W = 8, D = 6.4, H = 3.6;
+const W = 8, H = 3.6;
+/** room depth: at least 12 m, longer when the collection needs more wall (see layoutCollection) */
+let D = 12;
 const GOLD = "#ffcc55";
 
 export interface VaultItem {
@@ -59,11 +63,43 @@ const money = (v: number) => "$" + Math.round(v).toLocaleString("en-US");
 const longDate = (iso: string) => new Date(iso + (iso.length === 10 ? "T12:00:00" : "")).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 const COND_LABEL: Record<Condition, string> = { loose: "loose", cib: "complete in box", new: "new / sealed", graded: "graded", box: "box only", manual: "manual only" };
 
+type Valued = { it: VaultItem; g: Game | undefined; cond: Condition; condRecorded: boolean; price: number };
+
+// the collection's display shelves: 8 rows, a game every 20 cm, value bands with a gap between
+const ROWS = 8, COL = 0.2, ROW = 0.285, BASE = 0.42, GAP = 0.3;
+const TOP = BASE + ROWS * ROW; // the shelves' top cap
+const BANDS = [
+  { min: 100, label: "$100 AND UP", short: "$100+" },
+  { min: 50, label: "$50 – $99", short: "$50–99" },
+  { min: 25, label: "$25 – $49", short: "$25–49" },
+  { min: 10, label: "$10 – $24", short: "$10–24" },
+  { min: 0, label: "UNDER $10", short: "Under $10" },
+];
+type Band = (typeof BANDS)[number];
+/** a straight run of wall holding shelves: from `a` along `dir`, facing the room along `nrm` */
+interface Run {
+  a: THREE.Vector3;
+  dir: THREE.Vector3;
+  nrm: THREE.Vector3;
+  len: number;
+  rot: number;
+}
+interface Layout {
+  runs: Run[];
+  cols: { run: Run; at: number; items: Valued[] }[];
+  bands: { band: Band; run: Run; at: number; n: number; value: number; width: number }[];
+}
+
 export default function vault(): Level {
   let ctx: LevelCtx;
   const fields: MediaField[] = [];
   const stations: Station[] = [];
   const tickers: ((dt: number, t: number) => void)[] = [];
+  const lamps: THREE.PointLight[] = [];
+  /** priced games by id, with their rank (for the info panel) */
+  const byId = new Map<string, { v: Valued; rank: number }>();
+  let ranked = 0;
+  let snapDate = "";
   let rail: Rail;
 
   const level: Level = {
@@ -80,13 +116,9 @@ export default function vault(): Level {
       engine.post.bloomRadius.value = 0.4;
       engine.post.vignette.value = 0.55;
       engine.post.exposure.value = 1.0;
+      D = 12;
       scene.background = new THREE.Color(0x06070a);
       scene.fog = new THREE.FogExp2(0x07080b, 0.02);
-      scene.environment = neonEnvironment(engine.renderer, [
-        { color: "#ffd27a", pos: [0, 4, 0], size: [5, 0.1, 4], intensity: 2.4 },
-        { color: "#ffb347", pos: [-4.5, 1.6, 0], size: [0.1, 1.6, 2], intensity: 1.2 },
-        { color: "#9ab6ff", pos: [4.5, 1.6, 0], size: [0.1, 1.6, 2], intensity: 0.8 },
-      ]);
       scene.environmentIntensity = 0.7;
       scene.add(new THREE.HemisphereLight(0xfff0d8, 0x2a2018, 1.5));
       for (const [x, z] of [
@@ -98,6 +130,7 @@ export default function vault(): Level {
         const l = new THREE.PointLight(0xffd59a, 11, 8, 1.4);
         l.position.set(x, H - 0.3, z);
         scene.add(l);
+        lamps.push(l);
       }
       await progress("Spinning the dial…");
 
@@ -121,7 +154,7 @@ export default function vault(): Level {
         const p = it.prices[cond] ?? fallback(it);
         return isFinite(p) ? p : 0;
       };
-      const valued = (snap?.items ?? []).map((it) => {
+      const valued: Valued[] = (snap?.items ?? []).map((it) => {
         const g = store.byId.get(it.id);
         const cond: Condition = g?.condition ?? "loose";
         return { it, g, cond, condRecorded: !!g?.condition, price: priceOf(it, cond) };
@@ -131,6 +164,23 @@ export default function vault(): Level {
       const assumed = valued.filter((v) => v.it.physical === "assumed").length;
       const sum = (k: Condition) => (snap?.items ?? []).reduce((a, it) => a + priceOf(it, k), 0);
       const top = [...valued].sort((a, b) => b.price - a.price);
+      top.forEach((v, i) => byId.set(v.it.id, { v, rank: i + 1 }));
+      ranked = top.length;
+      snapDate = snap?.date ?? "";
+
+      // every priced game that's still in the sheet goes on the walls: make the room long enough
+      const shown = top.filter((v) => v.g);
+      let lay = layoutCollection(shown);
+      while (!lay && D < 40) {
+        D += 1;
+        lay = layoutCollection(shown);
+      }
+      scene.environment = neonEnvironment(engine.renderer, [
+        { color: "#ffd27a", pos: [0, 4, 0], size: [6, 0.1, D - 2], intensity: 2.4 },
+        { color: "#ffb347", pos: [-4.5, 1.6, 0], size: [0.1, 1.6, D / 2], intensity: 1.2 },
+        { color: "#9ab6ff", pos: [4.5, 1.6, 0], size: [0.1, 1.6, D / 2], intensity: 0.8 },
+      ]);
+      for (const l of lamps) l.position.z = l.position.z < 0 ? -D / 2 + 2.4 : D / 2 - 3;
 
       buildRoom(scene);
       await progress("Polishing the gold…");
@@ -244,7 +294,7 @@ export default function vault(): Level {
           x.fillText("the first valuation: later ones extend this line", w / 2, h * 0.97);
         }
       });
-      history.position.set(-W / 2 + 0.04, 1.7, -0.4);
+      history.position.set(-W / 2 + 0.04, 1.7, -D / 2 + 2.1);
       history.rotation.y = Math.PI / 2;
       scene.add(history);
 
@@ -270,7 +320,7 @@ export default function vault(): Level {
           x.textAlign = "left";
         });
       });
-      ranking.position.set(W / 2 - 0.04, 1.75, -1.2);
+      ranking.position.set(W / 2 - 0.04, 1.75, -D / 2 + 1.75);
       ranking.rotation.y = -Math.PI / 2;
       scene.add(ranking);
 
@@ -296,33 +346,15 @@ export default function vault(): Level {
           x.fillText(money(v), w * 0.95, y + h * 0.037);
         });
       });
-      platforms.position.set(W / 2 - 0.04, 1.6, 1.55);
+      platforms.position.set(W / 2 - 0.04, 1.6, -D / 2 + 4.45);
       platforms.rotation.y = -Math.PI / 2;
       scene.add(platforms);
 
-      // ---- centre: the six most valuable games on pedestals ----
-      await progress("Opening the display cases…");
-      const showcase = top.filter((v) => v.g).slice(0, 6);
-      const placements: Placement[] = [];
-      const plaques: THREE.Object3D[] = [];
-      showcase.forEach((v, i) => {
-        const [px, pz] = pedestalAt(i);
-        const [w, hgt] = templateOf(v.g!, ctx.art).size;
-        const sc = Math.min(1.9, 0.3 / Math.max(w, hgt));
-        // standing on the pedestal, facing back into the room
-        placements.push({ game: v.g!, position: new THREE.Vector3(px, 0.93, pz), quaternion: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0)), scale: sc });
-        const pl = plaque(`${v.it.title}`, `${money(v.price)} · ${COND_LABEL[v.cond]}`);
-        pl.position.set(px, 0.86, pz - 0.29);
-        pl.rotation.set(0.55, Math.PI, 0);
-        plaques.push(pl);
-      });
-      if (placements.length) {
-        const f = new MediaField(ctx.kit, placements, { name: "vault" });
-        scene.add(f.group);
-        fields.push(f);
-      }
-      for (const p of plaques) scene.add(p);
-      buildDecor(scene, showcase.length);
+      // ---- the walls: the whole collection ----
+      await progress("Stocking the shelves…");
+      if (lay) buildCollection(scene, lay);
+
+      buildDecor(scene);
 
       // ---- rail: a loop round the walls ----
       rail = wallRail(
@@ -341,7 +373,18 @@ export default function vault(): Level {
         { id: "history", label: "Over Time", go: () => c.rig.goTo({ s: rail.project(history.position), h: 1.7, d: 2.6 }) },
         { id: "top", label: "Most Valuable", go: () => c.rig.goTo({ s: rail.project(ranking.position), h: 1.75, d: 2.6 }) },
         { id: "platforms", label: "By Platform", go: () => c.rig.goTo({ s: rail.project(platforms.position), h: 1.6, d: 2.3 }) },
-        { id: "showcase", label: "Showcase", go: () => c.rig.goFree(new THREE.Vector3(0, 1.85, -1.75), new THREE.Vector3(0.3, 0.95, 1.4)) },
+        // the collection, band by band: far enough back for all the shelves and the band's plate,
+        // with the band's first games near the left edge of the screen (whatever its shape)
+        ...(lay?.bands ?? []).map((b) => ({
+          id: `band-${b.band.min}`,
+          label: b.band.short,
+          go: () => {
+            const dd = 2.9;
+            const seen = 2 * dd * Math.tan(THREE.MathUtils.degToRad(c.rig.camera.fov / 2)) * (innerWidth / innerHeight);
+            const into = Math.max(0.2, Math.min(b.width / 2, seen / 2 - 0.25));
+            c.rig.goTo({ s: rail.project(b.run.a.clone().addScaledVector(b.run.dir, b.at + into)), h: 1.68, d: dd });
+          },
+        })),
         { id: "door", label: "The Door", go: () => c.rig.goTo({ s: rail.project(new THREE.Vector3(0, 0, D / 2)), h: 1.5, d: 3.6 }) },
       );
     },
@@ -354,9 +397,25 @@ export default function vault(): Level {
       for (const f of fields) {
         const p = f.centerOf(g.id);
         if (!p) continue;
-        ctx.rig.goFree(p.clone().add(new THREE.Vector3(0, 0.25, 0.75)), p);
+        // ride the rail round the walls to it
+        ctx.rig.goTo({ s: rail.project(p), h: p.y, d: 0.85 });
         return;
       }
+    },
+
+    facts(g) {
+      const e = byId.get(g.id);
+      if (!e) return [];
+      const { v, rank } = e;
+      const f: [string, string][] = [
+        ["Value", `${money(v.price)} · ${COND_LABEL[v.cond]}${v.condRecorded ? "" : " (assumed)"}`],
+        ["Rank", `#${rank} of ${ranked}`],
+      ];
+      if (v.it.prices.cib != null && v.cond !== "cib") f.push(["Complete in box", money(v.it.prices.cib)]);
+      if (v.it.prices.new != null && v.cond !== "new") f.push(["New / sealed", money(v.it.prices.new)]);
+      if (v.it.physical === "assumed") f.push(["Physical copy", "assumed (the sheet doesn't say)"]);
+      if (snapDate) f.push(["Valued", `${longDate(snapDate)} · PriceCharting`]);
+      return f;
     },
 
     dispose() {
@@ -364,10 +423,159 @@ export default function vault(): Level {
     },
   };
 
-  /** Showcase pedestals: two rows in the front half of the room, in front of the vault door. */
-  function pedestalAt(i: number): [number, number] {
-    const col = i % 3, row = Math.floor(i / 3);
-    return [(col - 1) * 1.2 + (row ? 0.6 : 0), 0.85 + row * 1.0];
+  // ---- the collection on the walls ---------------------------------------------------------------
+
+  /**
+   * Wall runs that hold the collection, each running left to right as you face it: from just
+   * after "By Platform" on the right wall, along the front wall right of the door, then the left
+   * wall back to "Over Time". (The camera faces the wall, so its rail runs the other way.)
+   */
+  function wallRuns(): Run[] {
+    const run = (x0: number, z0: number, x1: number, z1: number, nx: number, nz: number): Run => {
+      const a = new THREE.Vector3(x0, 0, z0);
+      const dir = new THREE.Vector3(x1 - x0, 0, z1 - z0);
+      const len = dir.length();
+      dir.normalize();
+      return { a, dir, nrm: new THREE.Vector3(nx, 0, nz), len, rot: Math.atan2(nx, nz) };
+    };
+    return [
+      run(W / 2, -D / 2 + 5.9, W / 2, D / 2 - 0.3, -1, 0), // right wall
+      run(W / 2 - 0.3, D / 2, 1.55, D / 2, 0, -1), // front wall, right of the door
+      run(-W / 2, D / 2 - 0.7, -W / 2, -D / 2 + 3.85, 1, 0), // left wall (the open door is in the corner)
+    ];
+  }
+
+  /** Columns of ROWS games, band by band, most valuable first; null if they don't fit. */
+  function layoutCollection(items: Valued[]): Layout | null {
+    const runs = wallRuns();
+    let ri = 0, off = 0;
+    const next = () => {
+      while (ri < runs.length && off + COL > runs[ri].len + 1e-6) {
+        ri++;
+        off = 0;
+      }
+      if (ri >= runs.length) return null;
+      const c = { run: runs[ri], at: off + COL / 2 };
+      off += COL;
+      return c;
+    };
+    const lay: Layout = { runs, cols: [], bands: [] };
+    for (const [bi, band] of BANDS.entries()) {
+      const hi = bi ? BANDS[bi - 1].min : Infinity;
+      const inBand = items.filter((v) => v.price >= band.min && v.price < hi);
+      if (!inBand.length) continue;
+      if (lay.bands.length && off > 0) off += GAP;
+      // don't start a band in the last few columns of a wall: it starts on the next one
+      if (ri < runs.length - 1 && runs[ri].len - off < 4 * COL && inBand.length > ROWS * Math.floor((runs[ri].len - off) / COL)) {
+        ri++;
+        off = 0;
+      }
+      for (let k = 0; k < inBand.length; k += ROWS) {
+        const c = next();
+        if (!c) return null;
+        if (k === 0) lay.bands.push({ band, run: c.run, at: c.at - COL / 2, n: inBand.length, value: inBand.reduce((a, v) => a + v.price, 0), width: Math.ceil(inBand.length / ROWS) * COL });
+        lay.cols.push({ ...c, items: inBand.slice(k, k + ROWS) });
+      }
+    }
+    return lay;
+  }
+
+  /** Shelves (one merged mesh), the games (one field) and their price tags. */
+  function buildCollection(scene: THREE.Scene, lay: Layout) {
+    const at = (r: Run, along: number, y: number, out: number): Vec3 => {
+      const p = r.a.clone().addScaledVector(r.dir, along).addScaledVector(r.nrm, out);
+      return [p.x, y, p.z];
+    };
+    const d = new DecorBuilder({ atlasSize: 1024 });
+    for (const r of lay.runs) {
+      const cols = lay.cols.filter((c) => c.run === r);
+      if (!cols.length) continue;
+      const a0 = cols[0].at - COL / 2 - 0.05, a1 = cols[cols.length - 1].at + COL / 2 + 0.05;
+      const len = a1 - a0, mid = (a0 + a1) / 2;
+      const rot: Vec3 = [0, r.rot, 0];
+      const put = (along: number, y: number, out: number, fn: () => void) => d.at(at(r, along, y, out), rot, fn);
+      // velvet back, a closed base, gold-trimmed shelves with a light under each, a top cap
+      put(mid, (BASE + TOP) / 2, 0.012, () => d.plane([len, TOP - BASE + 0.06], [0, 0, 0], "#4a1018", { rough: 0.95 }));
+      put(mid, BASE / 2, 0.11, () => d.box([len, BASE, 0.2], [0, 0, 0], "#1d1a15", { rough: 0.4, metal: 0.2 }));
+      for (let k = 0; k <= ROWS; k++) {
+        const y = BASE + k * ROW;
+        put(mid, y - 0.01, 0.1, () => d.box([len, 0.02, 0.18], [0, 0, 0], k === ROWS ? "#8a6a2c" : "#2a241b", { rough: 0.35, metal: k === ROWS ? 1 : 0.3 }));
+        put(mid, y - 0.0225, 0.193, () => d.box([len, 0.045, 0.008], [0, 0, 0], "#8a6a2c", { metal: 1, rough: 0.3 }));
+        if (k > 0) put(mid, y - 0.032, 0.16, () => d.box([len, 0.006, 0.012], [0, 0, 0], "#fff1c9", { glow: 1.6 }));
+      }
+      for (const e of [a0, a1]) put(e, TOP / 2, 0.1, () => d.box([0.04, TOP, 0.2], [0, 0, 0], "#8a6a2c", { metal: 1, rough: 0.3 }));
+    }
+    // a gold plate above the start of each band
+    for (const b of lay.bands) {
+      const w = Math.max(0.6, Math.min(1.4, b.width));
+      const tex = d.canvas(Math.round(w * 400), 72, (x, cw, ch) => {
+        x.fillStyle = "#2a2010";
+        x.fillRect(0, 0, cw, ch);
+        x.strokeStyle = "#c9a45c";
+        x.lineWidth = 3;
+        x.strokeRect(2, 2, cw - 4, ch - 4);
+        x.textBaseline = "middle";
+        x.textAlign = "left";
+        x.fillStyle = GOLD;
+        x.font = `700 30px "Cinzel", serif`;
+        x.fillText(b.band.label, 12, ch * 0.38, cw - 24);
+        x.fillStyle = "#b9a983";
+        x.font = `500 18px "Oswald", sans-serif`;
+        x.fillText(`${b.n} game${b.n > 1 ? "s" : ""} · ${money(b.value)}`, 12, ch * 0.76, cw - 24);
+      });
+      d.at(at(b.run, b.at + w / 2, TOP + 0.13, 0.04), [0, b.run.rot, 0], () => d.plane([w, 0.18], [0, 0, 0], "#ffffff", { tex, glow: 0.45 }));
+    }
+    scene.add(d.build("vault-shelves", { essential: true }));
+
+    // the games, standing on the shelves facing the room, and a tag on the shelf edge under each
+    const placements: Placement[] = [];
+    const UP = new THREE.Vector3(0, 1, 0);
+    let tags = new DecorBuilder({ atlasSize: 2048 }), nTags = 0;
+    for (const c of lay.cols)
+      c.items.forEach((v, row) => {
+        const y = BASE + (ROWS - 1 - row) * ROW;
+        const [w, h, dep] = templateOf(v.g!, ctx.art).size;
+        const sc = Math.min(1.1, 0.17 / w, 0.215 / h);
+        const [px, , pz] = at(c.run, c.at, 0, 0.04 + (dep * sc) / 2);
+        placements.push({ game: v.g!, position: new THREE.Vector3(px, y, pz), quaternion: new THREE.Quaternion().setFromAxisAngle(UP, c.run.rot), scale: sc });
+        if (nTags === 750) {
+          scene.add(tags.build("vault-tags", { essential: true }));
+          tags = new DecorBuilder({ atlasSize: 2048 });
+          nTags = 0;
+        }
+        const rank = byId.get(v.it.id)?.rank ?? 0;
+        const uv = tags.canvas(132, 34, (x, tw, th) => drawTag(x, tw, th, v, rank));
+        tags.at(at(c.run, c.at, y - 0.0225, 0.198), [0, c.run.rot, 0], () => tags.plane([0.17, 0.042], [0, 0, 0], "#ffffff", { tex: uv, glow: 0.35 }));
+        nTags++;
+      });
+    if (nTags) scene.add(tags.build("vault-tags", { essential: true }));
+    if (placements.length) {
+      const f = new MediaField(ctx.kit, placements, { name: "collection" });
+      scene.add(f.group);
+      fields.push(f);
+    }
+  }
+
+  /** A brass price tag: rank on the left, price on the right (* = assumed to be a physical copy). */
+  function drawTag(x: CanvasRenderingContext2D, w: number, h: number, v: Valued, rank: number) {
+    const g = x.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, "#3a2c12");
+    g.addColorStop(1, "#1e160a");
+    x.fillStyle = g;
+    x.fillRect(0, 0, w, h);
+    x.strokeStyle = "#c9a45c";
+    x.lineWidth = 2;
+    x.strokeRect(1, 1, w - 2, h - 2);
+    x.textBaseline = "middle";
+    x.textAlign = "left";
+    x.fillStyle = "#a8956b";
+    x.font = `500 14px "Oswald", sans-serif`;
+    x.fillText(`#${rank}`, 7, h / 2 + 1);
+    x.textAlign = "right";
+    x.fillStyle = GOLD;
+    x.font = `600 22px "Oswald", sans-serif`;
+    const price = v.price < 100 ? `$${v.price.toFixed(2)}` : money(v.price);
+    x.fillText(price + (v.it.physical === "assumed" ? "*" : ""), w - 7, h / 2 + 1, w - 48);
   }
 
   // ---- drawing helpers --------------------------------------------------------------------------
@@ -414,27 +622,6 @@ export default function vault(): Level {
     }
   }
 
-  function plaque(title: string, line: string) {
-    const [cv, x] = canvas(640, 160);
-    x.fillStyle = "#1a1408";
-    x.fillRect(0, 0, 640, 160);
-    x.strokeStyle = "#b8903f";
-    x.lineWidth = 6;
-    x.strokeRect(6, 6, 628, 148);
-    x.textAlign = "center";
-    x.fillStyle = "#f3e2b4";
-    x.font = `600 44px "Cinzel", serif`;
-    x.fillText(title, 320, 70, 600);
-    x.fillStyle = GOLD;
-    x.font = `600 40px "Oswald", sans-serif`;
-    x.fillText(line, 320, 125, 600);
-    const tex = canvasTexture(cv);
-    const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.4, metalness: 0.4 });
-    m.colorNode = texture(tex).rgb;
-    m.emissiveNode = texture(tex).rgb.mul(0.35);
-    return new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.105), m);
-  }
-
   // ---- the room ---------------------------------------------------------------------------------
 
   function buildRoom(scene: THREE.Scene) {
@@ -479,14 +666,15 @@ export default function vault(): Level {
     wall(0, D / 2, Math.PI, W);
     // floor: dark polished stone with gold inlay lines; ceiling: coffered dark steel
     d.plane([W, D], [0, 0, 0], "#141210", { rot: [-Math.PI / 2, 0, 0], rough: 0.25, metal: 0.2 });
-    for (let k = -2; k <= 2; k++) d.box([W, 0.004, 0.025], [0, 0.002, k * 1.2], "#a07c35", { metal: 1, rough: 0.3 });
+    for (let z = -D / 2 + 1.2; z < D / 2 - 0.1; z += 1.2) d.box([W, 0.004, 0.025], [0, 0.002, z], "#a07c35", { metal: 1, rough: 0.3 });
     d.plane([W, D], [0, H, 0], "#0e0f12", { rot: [Math.PI / 2, 0, 0], rough: 0.8 });
     for (let k = -3; k <= 3; k++) d.box([0.08, 0.12, D], [k * 1.15, H - 0.06, 0], "#22252b", { metal: 0.6, rough: 0.5 });
     // warm ceiling lamps
     for (const [x, z] of [
-      [-2, -1.2],
-      [2, -1.2],
-      [0, 1.4],
+      [-2, -D / 2 + 2.4],
+      [2, -D / 2 + 2.4],
+      [-2, D / 2 - 3],
+      [2, D / 2 - 3],
     ]) {
       d.cyl(0.25, 0.32, 0.12, [x, H - 0.1, z], "#2a2520", { metal: 0.8, rough: 0.4 });
       d.cyl(0.22, 0.22, 0.02, [x, H - 0.17, z], "#ffe2a8", { glow: 2.2 });
@@ -494,31 +682,15 @@ export default function vault(): Level {
     scene.add(d.build("vault-room", { essential: true }));
   }
 
-  function buildDecor(scene: THREE.Scene, pedestals: number) {
+  function buildDecor(scene: THREE.Scene) {
     const d = new DecorBuilder({ atlasSize: 1024 });
-    // pedestals with glass-case frames
-    for (let i = 0; i < pedestals; i++) {
-      const [px, pz] = pedestalAt(i);
-      d.box([0.5, 0.88, 0.5], [px, 0.44, pz], "#1d1a15", { rough: 0.35, metal: 0.2 });
-      d.box([0.56, 0.05, 0.56], [px, 0.9, pz], "#8a6a2c", { metal: 1, rough: 0.3 });
-      d.box([0.56, 0.05, 0.56], [px, 0.025, pz], "#8a6a2c", { metal: 1, rough: 0.3 });
-      for (const [sx, sz] of [
-        [-1, -1],
-        [1, -1],
-        [-1, 1],
-        [1, 1],
-      ])
-        d.box([0.015, 0.62, 0.015], [px + sx * 0.25, 1.23, pz + sz * 0.25], "#c9a45c", { metal: 1, rough: 0.25 });
-      d.box([0.52, 0.015, 0.52], [px, 1.545, pz], "#c9a45c", { metal: 1, rough: 0.25 });
-      d.cyl(0.04, 0.05, 0.02, [px, 1.53, pz], "#fff1c9", { glow: 2 });
-    }
-    // the vault door (open, swung against the front wall) + its round frame
+    // the vault door's round frame, and the door swung open flat against the wall to its left
     const doorR = 1.25;
     d.at([0, 1.45, D / 2 - 0.05], [0, Math.PI, 0], () => {
       d.torus(doorR + 0.08, 0.1, [0, 0, 0], "#5c616a", { metal: 0.9, rough: 0.35, seg: 48 });
       d.plane([doorR * 2, doorR * 2], [0, 0, 0.02], "#050505", { rough: 1 });
     });
-    d.at([-doorR - 0.55, 1.45, D / 2 - 0.6], [0, -1.25, 0], () => {
+    d.at([-(doorR + 0.18) - doorR - 0.05, 1.45, D / 2 - 0.32], [0, 0, 0], () => {
       d.cyl(doorR, doorR, 0.45, [0, 0, 0], "#6f747d", { rot: [Math.PI / 2, 0, 0], metal: 0.95, rough: 0.3, seg: 48 });
       for (let k = 0; k < 6; k++) {
         const a = (k / 6) * Math.PI * 2;
@@ -530,7 +702,7 @@ export default function vault(): Level {
         d.cyl(0.07, 0.07, 0.5, [Math.cos(a) * (doorR - 0.12), Math.sin(a) * (doorR - 0.12), 0.05], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], metal: 1, rough: 0.3, seg: 10 });
       }
     });
-    // safe-deposit boxes along the front-right wall
+    // safe-deposit boxes on the back wall, either side of the big number
     const box = d.canvas(128, 64, (x, w, h) => {
       x.fillStyle = "#7a5f2a";
       x.fillRect(0, 0, w, h);
@@ -545,8 +717,9 @@ export default function vault(): Level {
       x.fillStyle = "#2a1f0a";
       x.fillText(String(100 + Math.floor(Math.random() * 800)), 10, h / 2 + 6);
     });
-    for (let r = 0; r < 7; r++)
-      for (let cI = 0; cI < 5; cI++) d.box([0.3, 0.16, 0.05], [W / 2 - 0.5 - cI * 0.32, 0.35 + r * 0.18, D / 2 - 0.05], "#ffffff", { tex: box, face: "back", metal: 0.6, rough: 0.35 });
+    for (const side of [-1, 1])
+      for (let r = 0; r < 7; r++)
+        for (let cI = 0; cI < 5; cI++) d.box([0.3, 0.16, 0.05], [side * (W / 2 - 0.5 - cI * 0.32), 0.35 + r * 0.18, -D / 2 + 0.05], "#ffffff", { tex: box, face: "front", metal: 0.6, rough: 0.35 });
     // gold bar stacks in the back corners
     const bars = (cx: number, cz: number) => {
       for (let l = 0; l < 5; l++)

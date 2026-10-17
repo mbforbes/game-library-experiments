@@ -58,6 +58,8 @@ export interface Level {
   onKey?(e: KeyboardEvent): boolean;
   /** Gesture hook (e.g. a close-up mode that uses drags itself); return true if handled. */
   onGesture?(g: Gesture): boolean;
+  /** Extra lines for a game's info panel in this world (label, value), shown first. */
+  facts?(game: Game): [string, string][];
   dispose(): void;
 }
 
