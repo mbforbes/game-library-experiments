@@ -256,12 +256,12 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
   function distillation(at: Vec3) {
     b.at(at, null, () => {
       b.box([0.14, 0.012, 0.2], [0, 0.006, -0.03], P.dark, METAL); // stand base
-      b.cyl(0.006, 0.006, 0.52, [0, 0.26, -0.11], P.steel, { ...METAL, seg: 8 });
-      for (const y of [0.235, 0.43]) {
+      b.cyl(0.006, 0.006, 0.45, [0, 0.225, -0.11], P.steel, { ...METAL, seg: 8 }); // stops under the reagent shelf
+      for (const y of [0.22, 0.43]) {
         b.box([0.022, 0.025, 0.025], [0, y, -0.11], P.dark);
         b.box([0.008, 0.008, 0.08], [0, y, -0.065], P.steel, METAL);
       }
-      b.torus(0.05, 0.005, [0, 0.235, 0.02], P.steel, { ...METAL, rot: [Math.PI / 2, 0, 0], seg: 16 });
+      b.torus(0.05, 0.005, [0, 0.22, 0.02], P.steel, { ...METAL, rot: [Math.PI / 2, 0, 0], seg: 16 }); // the flask rests on it
       bunsen([0, 0.012, 0.02]);
       rbFlask([0, 0.2, 0.02], 0.06, 0.07, 0.55, P.orange);
       // condenser (glass jacket) down to a receiving flask
@@ -351,8 +351,8 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
         b.box([0.012, 0.007, 0.006], [-(w - 0.1) / 2 + 0.035 + j * 0.022, yc, dep + 0.005], col, { glow: 2.2, blink: j === 0 ? 0 : 2 + rnd() * 9 });
       }
     });
-    // cable bundle out of the roof up to the ceiling tray
-    for (let k = 0; k < 3; k++) b.tube([[-0.15 + k * 0.05, y0 + h, 0.2], [-0.15 + k * 0.05, y0 + h + 0.3, 0.15 + k * 0.02], [-0.12 + k * 0.05, 4.6, 0.1]], 0.012, k === 1 ? P.blue : P.black, { seg: 14 });
+    // cable bundle out of the roof up to the cable tray (on the side away from the corner's PA horn)
+    for (let k = 0; k < 3; k++) b.tube([[0.15 - k * 0.05, y0 + h, 0.2], [0.15 - k * 0.05, y0 + h + 0.3, 0.15 + k * 0.02], [0.12 - k * 0.05, 4.6, 0.1]], 0.012, k === 1 ? P.blue : P.black, { seg: 14 });
   }
   function fumeHood() {
     const L = 1.4, dep = 0.75;
@@ -520,13 +520,20 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
       }
     }
   }
-  /** Bundle of cables sagging between J-hooks along a side wall. */
-  function cableRun(x: number, z0: number, z1: number, y: number, inward: number) {
+  /**
+   * Bundle of cables sagging between J-hooks along a side wall, from one wall-mounted pull box to
+   * another (`box0` / `box1`: the boxes' z extents; the bundle's ends run into them).
+   */
+  function cableRun(x: number, z0: number, z1: number, y: number, inward: number, box0: [number, number], box1: [number, number]) {
     const hooks = Math.max(2, Math.round((z1 - z0) / 1.4));
-    for (let k = 0; k <= hooks; k++) {
+    for (let k = 1; k < hooks; k++) {
       const z = z0 + ((z1 - z0) * k) / hooks;
       b.box([0.12, 0.015, 0.03], [x + inward * 0.05, y + 0.06, z], P.dark, METAL);
       b.box([0.015, 0.08, 0.03], [x + inward * 0.11, y + 0.025, z], P.dark, METAL);
+    }
+    for (const [za, zb] of [box0, box1]) {
+      b.box([0.13, 0.13, zb - za], [x + inward * 0.065, y - 0.04, (za + zb) / 2], P.grey, METAL);
+      b.box([0.134, 0.01, zb - za + 0.004], [x + inward * 0.065, y + 0.02, (za + zb) / 2], P.dark, METAL); // lid seam
     }
     const cols: Color[] = [P.black, P.dark, P.orange, P.blue];
     cols.forEach((col, ci) => {
@@ -569,7 +576,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
         b.cyl(0.05, 0.05, 0.03, [0, 0.035, 0], P.red, { glow: 0.3, seg: 20, rough: 0.3 });
         b.torus(0.062, 0.005, [0, 0.026, 0], P.dark, { rot: [Math.PI / 2, 0, 0], seg: 20 });
       });
-      b.tube([[0, 0.01, -0.15], [0, 0.005, -0.4], [0.2, 0.005, -0.8]], 0.012, P.black, { seg: 12 });
+      b.tube([[0, 0.012, -0.15], [-0.1, 0.012, -0.45], [-0.42, 0.012, -0.85], [-0.5, 0.012, -0.975]], 0.012, P.black, { seg: 16 }); // into the wall beside the exit door
     });
   }
   /** Weighted storage cube (grey, dark corners, round emblems). */
@@ -586,7 +593,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
   /** Cube dispenser hanging from the ceiling point `at` (a caged cube waiting inside). */
   function dispenser(at: Vec3) {
     b.at(at, null, () => {
-      b.cyl(0.5, 0.5, 0.04, [0, -0.02, 0], P.grey, { seg: 24, ...FRAME });
+      b.cyl(0.47, 0.47, 0.04, [0, -0.02, 0], P.grey, { seg: 24, ...FRAME }); // (clear of the troffer next to it)
       b.cyl(0.42, 0.42, 0.32, [0, -0.2, 0], P.white, { seg: 24, rough: 0.4 });
       b.cyl(0.44, 0.44, 0.05, [0, -0.385, 0], P.dark, { seg: 24 });
       for (let k = 0; k < 10; k++) {
@@ -692,7 +699,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
     b.at(at, [0, rotY, 0], () => {
       for (const s of [-1, 1])
         b.at([0, 0.62, 0], [-s * 0.18, 0, 0], () => {
-          b.box([0.3, 0.62, 0.012], [0, -0.31, s * 0.006], P.yellow, { rough: 0.4 });
+          b.box([0.3, 0.63, 0.012], [0, -0.315, s * 0.006], P.yellow, { rough: 0.4 }); // 0.62 / cos(0.18): feet on the floor
           b.plane([0.26, 0.48], [0, -0.33, s * 0.0125], "#fff", { tex: tx.wet, rough: 0.4, rot: [0, s > 0 ? 0 : Math.PI, 0] });
         });
       b.box([0.32, 0.03, 0.03], [0, 0.62, 0], P.dark);
@@ -725,7 +732,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
     slab(0.22, 0.34, 0.03, 0.02, [0, 0, 0], P.panel, PLAST);
     for (let k = 0; k < 5; k++) b.box([0.13, 0.008, 0.004], [0, 0.1 - k * 0.02, 0.031], P.dark);
     zcyl(0.025, 0.02, [0, -0.06, 0.04], P.red, { rough: 0.35, seg: 14 });
-    b.box([0.012, 0.012, 0.006], [0.07, -0.12, 0.033], P.green, { glow: 1.6, blink: 1.1 });
+    b.box([0.012, 0.012, 0.006], [0.07, -0.06, 0.033], P.green, { glow: 1.6, blink: 1.1 }); // beside the button, clear of the label
     b.plane([0.16, 0.04], [0, -0.13, 0.031], "#fff", { tex: tx.talk, rough: 0.6 });
   }
   /** A row of ten status lights: the first `frac` of them lit (wall frame, centred). */
@@ -800,10 +807,10 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
         b.box([w, 0.04, 0.01], [0, y + 0.02, dp / 2], P.steel, METAL);
       }
       for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
-        b.cyl(0.012, 0.012, 0.8, [(x * (w - 0.03)) / 2, 0.47, (z * (dp - 0.03)) / 2], P.chrome, { ...METAL, seg: 8 });
+        b.cyl(0.012, 0.012, 0.82, [(x * (w - 0.03)) / 2, 0.46, (z * (dp - 0.03)) / 2], P.chrome, { ...METAL, seg: 8 }); // caster to handle
         b.sphere(0.03, [(x * (w - 0.03)) / 2, 0.03, (z * (dp - 0.03)) / 2], P.dark, { seg: 8 });
       }
-      xcyl(0.012, w, [0, 0.9, -dp / 2], P.chrome, { ...METAL, seg: 8 });
+      xcyl(0.012, w, [0, 0.865, -(dp - 0.03) / 2], P.chrome, { ...METAL, seg: 8 }); // on top of the back posts
       b.at([0, 0.79, 0], null, () => {
         gloveBox([-0.1, 0, 0.05], 0.1);
         beaker([0.14, 0, -0.06], 0.035, 0.09, 0.5, P.green);
@@ -824,19 +831,25 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
   function common(i: number) {
     baseboards();
     // pipes along the top of the side and front walls, hung from the ceiling
-    pipeRun([-W / 2 + 0.12, 5.05, -D / 2], [-W / 2 + 0.12, 5.05, D / 2], 0.055, P.steel);
+    pipeRun([-W / 2 + 0.18, 5.05, -D / 2], [-W / 2 + 0.18, 5.05, D / 2], 0.055, P.steel); // (clear of the front-left corner pipe)
     pipeRun([-W / 2 + 0.3, 5.08, -D / 2], [-W / 2 + 0.3, 5.08, D / 2], 0.035, P.white, P.orange);
     pipeRun([W / 2 - 0.13, 5.03, -D / 2], [W / 2 - 0.13, 5.03, D / 2], 0.07, P.white, P.blue);
-    pipeRun([-W / 2, 4.78, D / 2 - 0.12], [W / 2, 4.78, D / 2 - 0.12], 0.06, P.grey, P.yellow);
-    cableRun(-W / 2, -D / 2 + 0.1, D / 2 - 0.1, 4.62, 1);
-    cableRun(W / 2, -D / 2 + 0.1, D / 2 - 0.1, 4.62, -1);
+    // the front pipe elbows into the front wall short of the floor-to-ceiling corner pipe
+    pipeRun([-W / 2 + 0.3, 4.78, D / 2 - 0.12], [W / 2, 4.78, D / 2 - 0.12], 0.06, P.grey, P.yellow);
+    b.sphere(0.06, [-W / 2 + 0.3, 4.78, D / 2 - 0.12], P.grey, { rough: 0.35, metal: 0.6, seg: 12 });
+    zcyl(0.06, 0.12, [-W / 2 + 0.3, 4.78, D / 2 - 0.06], P.grey, { rough: 0.35, metal: 0.6, seg: 12 });
+    zcyl(0.08, 0.02, [-W / 2 + 0.3, 4.78, D / 2 - 0.01], P.dark, { seg: 12 });
+    // cable bundles between pull boxes: the back ones sit on the corner conduits; the front-left one
+    // stops short of the corner pipe
+    cableRun(-W / 2, -D / 2 + 0.1, D / 2 - 0.24, 4.62, 1, [-D / 2, -D / 2 + 0.16], [D / 2 - 0.3, D / 2 - 0.18]);
+    cableRun(W / 2, -D / 2 + 0.1, D / 2 - 0.1, 4.62, -1, [-D / 2, -D / 2 + 0.16], [D / 2 - 0.16, D / 2]);
     for (const [x, z] of [[-2.5, -1.5], [2.5, -1.5], [-2.5, 1.5], [2.5, 1.5]]) troffer(x, z);
     ceilingVent(-2.5, 0);
     ceilingVent(0, -0.4);
     // back corners: recessed light strips and a conduit, beyond the edges of the game grid
     for (const s of [-1, 1]) {
       wall("back", s * 4.22, 2.9, () => lightStrip(3.0));
-      b.cyl(0.035, 0.035, H, [s * 4.42, H / 2, -D / 2 + 0.07], P.grey, { ...METAL, seg: 10 });
+      b.cyl(0.035, 0.035, 4.53, [s * 4.42, 4.53 / 2, -D / 2 + 0.07], P.grey, { ...METAL, seg: 10 }); // up into the pull box
       for (const y of [0.8, 2.4, 4.0]) b.box([0.1, 0.03, 0.09], [s * 4.42, y, -D / 2 + 0.045], P.dark, METAL);
     }
     // right wall, clear of the chamber sign and the stats boards
@@ -884,14 +897,20 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
     });
     wall("left", -1.45, 1.98, () => whiteboard(2.0, 1.0));
     wall("left", -1.45, 3.2, clock);
-    wall("left", 2.36, 0, rack);
-    wall("left", 2.98, 0, rack);
+    wall("left", 2.34, 0, rack);
+    wall("left", 2.96, 0, rack);
     // front wall, above the boards: the observation room
     wall("front", 0.5, 4.08, () => obsWindow(2.8, 0.9));
     // front-right corner pocket: gas cylinders chained to the wall
     gasCylinder([4.33, 0, 3.33], "#4a7a52", P.white);
     gasCylinder([4.05, 0, 3.36], P.white, P.blue, 1.32);
-    for (const y of [0.75, 1.1]) b.tube([[3.92, y, 3.5], [3.98, y - 0.02, 3.2], [4.2, y - 0.03, 3.19], [4.45, y, 3.22], [4.5, y, 3.3]], 0.006, P.steel, { ...METAL, seg: 16 });
+    {
+      // a chain from the front wall, round the fronts of both cylinders (r 0.11 + clearance), to the right wall
+      const R = 0.12, arc = (cx: number, cz: number, a0: number, a1: number, n: number) =>
+        Array.from({ length: n + 1 }, (_, k) => a0 + ((a1 - a0) * k) / n).map((a): [number, number] => [cx + R * Math.cos(a), cz + R * Math.sin(a)]);
+      const path: [number, number][] = [[3.93, 3.505], [3.93, 3.42], ...arc(4.05, 3.36, Math.PI, Math.PI * 1.5, 4), [4.19, 3.228], ...arc(4.33, 3.33, Math.PI * 1.5, Math.PI * 1.9, 4), [4.505, 3.31]];
+      for (const y of [0.75, 1.1]) b.tube(path.map(([x, z]): Vec3 => [x, y, z]), 0.006, P.steel, { ...METAL, seg: 48 });
+    }
     // the cube dispenser hangs right over the companion cube, inside a drop zone
     dispenser([2.7, H, 2.3]);
     hazardRect(2.7, 2.3, 1.05, 1.05, 0.07);
@@ -908,12 +927,12 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
     trolley([4.15, 0, -3.15], -Math.PI / 2);
     wall("front", -4.0, 3.65, () => b.at([0, 0, 0], null, () => beacon(P.red), [1.5, 1.5, 1.5]));
     wall("left", -1.45, 1.98, () => {
-      sticky([0.86, 0.36, 0.022], 0.12);
-      sticky([0.95, 0.3, 0.023], -0.18);
+      sticky([0.03, 0.375, 0.022], 0.12); // a clear patch right of the title, not over the writing
+      sticky([0.115, 0.345, 0.023], -0.18);
     });
     // security camera mount in the back-right corner (head pans, see below)
-    wall("right", -3.2, 4.45, camMount);
-    camPivot = new THREE.Vector3(W / 2 - 0.22, 4.45, -3.2).add(o);
+    wall("right", -3.2, 4.3, camMount); // below the cable bundle
+    camPivot = new THREE.Vector3(W / 2 - 0.22, 4.3, -3.2).add(o);
   }
 
   // ---- chamber 02: results -----------------------------------------------------------------------
@@ -933,7 +952,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
         mug([0.72, 0, 0.5], 0.4);
         bottle([0.9, 0, 0.2], 0.035, 0.2, "#8a4a14", P.black);
         bottle([0.98, 0, 0.32], 0.028, 0.16, "#2a5fa8", P.white);
-        notebook([0.02, 0, 0.47], 0.2, P.blue);
+        notebook([-0.08, 0, 0.535], 0.2, P.blue); // in front of the receiving flask, not under it
         goggles([-0.55, 0, 0.56], -0.3);
         gloveBox([0.93, 0, 0.53], 0.15);
       });
@@ -959,7 +978,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
     // front-right corner pocket: liquid nitrogen
     dewar([4.2, 0, 3.24]);
     // hard-light bridge across the top of the front wall
-    lightBridge(3.8, 3.05);
+    lightBridge(3.8, 2.83); // emitter clear of the corner pipe and the front wall
     // aerial faith plate + its launch stencil; a robotic arm services it from the ceiling
     faithPlate([1.3, 0, 0.75], 0);
     stencil(tx.stLaunch, 1.3, 1.72, 1.3, 0.16);
@@ -976,7 +995,7 @@ export async function decorateLab(c: LevelCtx, opts: LabDecorOpts) {
     cardboard([3.32, 0.38, 3.22], [0.36, 0.3, 0.32], 0.15);
     wall("front", -2.15, 3.05, () => b.at([0, 0, 0], null, () => beacon(P.red), [1.5, 1.5, 1.5]));
     drain(-0.6, 0.2);
-    staticCam("left", -3.3, 4.5, -0.62, 0.5);
+    staticCam("left", -3.2, 4.3, -0.62, 0.5); // below the cable bundle, clear of its pull box
   }
 
   // ---- build -----------------------------------------------------------------------------------
@@ -1153,11 +1172,14 @@ function makeTextures(d: DecorBuilder, s: Stats) {
     write(`${s.backlog} games × ~${avgH} h ≈ ${s.backlogHours.toLocaleString()} h`, 28, 102, -0.01);
     write(`÷ 24 = ${days.toLocaleString()} days (no sleep)`, 46, 140, 0.006);
     pen("#1b1d22", 29);
-    write(`pace ≈ ${s.pace} / yr  →  done in ${s.clearYear ?? "????"}`, 28, 186, -0.012);
+    const paceTxt = `pace ≈ ${s.pace} / yr  →  done in `, yearTxt = `${s.clearYear ?? "????"}`;
+    write(paceTxt + yearTxt, 28, 186, -0.012);
+    // ring the year itself (a fixed ellipse cut through the neighbouring letters when the text width changed)
+    const yx = 28 + g.measureText(paceTxt).width, yw = g.measureText(yearTxt).width;
     g.strokeStyle = "#d0302a";
     g.lineWidth = 3;
     g.beginPath();
-    g.ellipse(306, 176, 44, 22, -0.05, 0, Math.PI * 2);
+    g.ellipse(yx + yw / 2, 176 - (yx + yw / 2 - 28) * 0.012, yw / 2 + 5, 22, -0.05, 0, Math.PI * 2);
     g.stroke();
     pen("#d0302a", 28);
     write(`+ ${s.wishlist} on the wishlist ($${s.wishlistLoose.toLocaleString()}) !!`, 28, 232, 0.01);

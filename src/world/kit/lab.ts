@@ -137,7 +137,13 @@ export function chamberSign(opts: { number: string; caption: string; progress: n
   const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.6 });
   m.colorNode = texture(tex).rgb;
   m.emissiveNode = texture(tex).rgb.mul(0.25);
-  return new THREE.Mesh(new THREE.PlaneGeometry(w, (w * H) / W), m);
+  const h = (w * H) / W;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  // the enamel panel itself, back to the wall (the sign hangs 2 cm off it)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.03, h + 0.03, 0.0185), new THREE.MeshStandardNodeMaterial({ color: 0xc9ccd0, roughness: 0.5, metalness: 0.2 }));
+  back.position.z = -0.0095;
+  mesh.add(back);
+  return mesh;
 }
 
 /**
@@ -174,7 +180,7 @@ export function legendStrip(opts: { title?: string; items?: { color: string; lab
     }
     return w;
   };
-  k = Math.min(1, (CW - pad) / total(1));
+  while (k > 0.3 && total(k) > CW) k *= 0.98;
   let x = pad;
   const cy = CH / 2 + CH * 0.02;
   if (opts.title) {
@@ -210,7 +216,24 @@ export function legendStrip(opts: { title?: string; items?: { color: string; lab
   m.colorNode = texture(tex).rgb;
   m.opacityNode = texture(tex).a;
   m.emissiveNode = texture(tex).rgb.mul(0.45);
-  return new THREE.Mesh(new THREE.PlaneGeometry(opts.width, (opts.width * CH) / CW), m);
+  const w = opts.width, h = (opts.width * CH) / CW;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  // a rounded body behind the face, 2 cm deep (place the strip 2.1 cm off its wall)
+  const r = (Math.min(40, CH * 0.2) * w) / CW;
+  const sh = new THREE.Shape();
+  sh.moveTo(-w / 2 + r, -h / 2);
+  sh.lineTo(w / 2 - r, -h / 2);
+  sh.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+  sh.lineTo(w / 2, h / 2 - r);
+  sh.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+  sh.lineTo(-w / 2 + r, h / 2);
+  sh.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+  sh.lineTo(-w / 2, -h / 2 + r);
+  sh.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth: 0.02, bevelEnabled: false, curveSegments: 4 }), new THREE.MeshStandardNodeMaterial({ color: 0x17191e, roughness: 0.5 }));
+  body.position.z = -0.0203;
+  mesh.add(body);
+  return mesh;
 }
 
 /**
@@ -356,7 +379,7 @@ export class Archivist {
     this.core = new THREE.Group();
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 40, 30), shell);
     const band = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.04, 12, 48), dark);
-    band.rotation.y = Math.PI / 2;
+    band.rotation.x = Math.PI / 4; // a tilted seam passing 45° above the eye
     const socket = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.08, 32).rotateX(Math.PI / 2), dark);
     socket.position.z = 0.4;
     const em = new THREE.MeshBasicNodeMaterial();
@@ -368,7 +391,7 @@ export class Archivist {
     this.eye.position.z = 0.445;
     this.core.add(body, band, socket, this.eye);
     // arm up into the ceiling
-    const arm = new THREE.Mesh(boxes([[0, 0.9, -0.1, 0.12, 1.4, 0.12], [0, 1.6, -0.1, 0.5, 0.12, 0.5]]), dark);
+    const arm = new THREE.Mesh(boxes([[0, 0.9, 0, 0.12, 1.4, 0.12], [0, 1.6, 0, 0.5, 0.12, 0.5]]), dark);
     this.group.add(this.core, arm);
   }
 

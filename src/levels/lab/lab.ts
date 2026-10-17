@@ -105,7 +105,7 @@ export default function lab(): Level {
       const gridB = buildGrid(results, B_OFFSET.clone().add(new THREE.Vector3(0, 0, -D / 2)), (g) => GRADE_COLORS[g.grade ?? "C"] ?? "#cccccc");
       const fieldA = new MediaField(c.kit, gridA.placements, { name: "queue" });
       const fieldB = new MediaField(c.kit, gridB.placements, { name: "results" });
-      scene.add(fieldA.group, fieldB.group, gridA.frames.frame, gridA.frames.light, gridB.frames.frame, gridB.frames.light);
+      scene.add(fieldA.group, fieldB.group, gridA.frames.frame, gridA.frames.light, gridB.frames.frame, gridB.frames.light, gridA.backing, gridB.backing);
       fields.push(fieldA, fieldB);
 
       // title + colour key strips along the foot of each wall (neon on white walls washed out)
@@ -119,7 +119,7 @@ export default function lab(): Level {
         note: "IN PROGRESS FIRST, THEN PRIORITY P1 → P5, THEN A → Z",
         width: gridA.width,
       });
-      keyA.position.set(0, 0.27, -D / 2 + 0.02);
+      keyA.position.set(0, 0.27, -D / 2 + 0.021); // its backing reaches the wall
       const GRADE_WORDS: Record<string, string> = { "A+": "EXCEPTIONAL", A: "GREAT", B: "GOOD", C: "MIXED", D: "POOR", F: "FAILED" };
       const keyB = legendStrip({
         title: "TEST RESULTS",
@@ -127,7 +127,7 @@ export default function lab(): Level {
         note: "BY GRADE, NEWEST FIRST",
         width: gridB.width,
       });
-      keyB.position.copy(B_OFFSET).add(new THREE.Vector3(0, 0.27, -D / 2 + 0.02));
+      keyB.position.copy(B_OFFSET).add(new THREE.Vector3(0, 0.27, -D / 2 + 0.021));
       scene.add(keyA, keyB);
 
       // chamber signs
@@ -210,6 +210,13 @@ export default function lab(): Level {
       const captionB = new DotMatrix({ width: 4.2, height: 0.18, rows: 14, color: "#ffb84a", off: "#2a2010", speed: 22 });
       captionB.mesh.position.copy(B_OFFSET).add(new THREE.Vector3(0, H - 0.3, -D / 2 + 0.03));
       scene.add(captionB.mesh);
+      // the LED panels sit in a housing on the wall (a bare plane would float 3 cm off it)
+      const housingMat = new THREE.MeshStandardNodeMaterial({ color: 0x1a1b1f, roughness: 0.45, metalness: 0.5 });
+      for (const o of [new THREE.Vector3(), B_OFFSET]) {
+        const housing = new THREE.Mesh(boxes([[0, 0, 0, 4.28, 0.26, 0.028]]), housingMat);
+        housing.position.copy(o).add(new THREE.Vector3(0, H - 0.3, -D / 2 + 0.014));
+        scene.add(housing);
+      }
       tickers.push((dt, t) => {
         caption.update(dt);
         captionB.update(dt);
@@ -234,7 +241,7 @@ export default function lab(): Level {
       await progress("Pressurizing tubes…");
       const wish = store.games.filter((g) => g.status === "wishlist");
       for (const x of tubeX) {
-        const tb = tube(H - 0.2, 0.17);
+        const tb = tube(H, 0.17); // floor to ceiling: the top collar meets the ceiling
         tb.position.set(x, 0, D / 2 - 0.5);
         scene.add(tb);
       }
@@ -247,7 +254,7 @@ export default function lab(): Level {
       fields.push(tf);
       tubeField = { field: tf, items };
       const tubeSign = legendStrip({ title: "PENDING ACQUISITION", note: `${wish.length} SUBJECTS · $${store.stats.wishlistLoose.toLocaleString()}`, width: 1.9, height: 0.2 });
-      tubeSign.position.set(tubeX[1], 2.75, D / 2 - 0.03);
+      tubeSign.position.set(tubeX[1], 2.75, D / 2 - 0.021); // its backing reaches the wall
       tubeSign.rotation.y = Math.PI;
       scene.add(tubeSign);
 
@@ -255,7 +262,7 @@ export default function lab(): Level {
       const ped = new THREE.Mesh(boxes([[0, 0.25, 0, 0.6, 0.5, 0.6]]), new THREE.MeshStandardNodeMaterial({ color: 0x3a3c42, roughness: 0.4, metalness: 0.5 }));
       ped.position.set(2.7, 0, 2.3);
       const cube = companionCube(0.4);
-      cube.position.set(2.7, 0.72, 2.3);
+      cube.position.set(2.7, 0.7, 2.3); // resting on the pedestal top (0.5) — it hovered 2 cm
       cube.rotation.y = 0.4;
       scene.add(ped, cube);
       const cubeLines = ["The cube does not want to be in your backlog either.", "It has been with you through every test. It will not be playing any of them.", "Please do not attempt to transfer your feelings to the backlog."];
@@ -602,7 +609,7 @@ export default function lab(): Level {
     g.add(lights);
     // chamber number stencil
     const n = neonSign(num, { font: `"Oswald", sans-serif`, height: 0.9, color: "#2b2d33", intensity: 0.0 });
-    n.position.set(W / 2 - 0.01, 3.9, 1.8);
+    n.position.set(W / 2 - 0.005, 3.9, 1.8);
     n.rotation.y = -Math.PI / 2;
     g.add(n);
     scene.add(g);
@@ -630,7 +637,15 @@ export default function lab(): Level {
       cells.push({ pos: center, quat: new THREE.Quaternion(), color: new THREE.Color(colorOf(g)).convertSRGBToLinear(), size: CELL });
       centers.set(g.id, center);
     });
-    return { placements, frames: cellFrames(cells), top, width, centers };
+    // a solid cabinet behind the cells, from the wall to their back plates: the frames used to float
+    // 10 cm off the wall (and deep cases like arcade cabinets poked out behind the plates)
+    const full = Math.floor(games.length / cols), rem = games.length % cols, depth = 0.106;
+    const parts: [number, number, number, number, number, number][] = [];
+    if (full) parts.push([0, top - (full * CELL) / 2, depth / 2 - 0.0005, width, full * CELL, depth + 0.001]);
+    if (rem) parts.push([-width / 2 + (rem * CELL) / 2, top - full * CELL - CELL / 2, depth / 2 - 0.0005, rem * CELL, CELL, depth + 0.001]);
+    const backing = new THREE.Mesh(boxes(parts), new THREE.MeshStandardNodeMaterial({ color: 0x24262b, roughness: 0.5, metalness: 0.4 }));
+    backing.position.copy(wallCenter);
+    return { placements, frames: cellFrames(cells), top, width, centers, backing };
   }
 
   return level;
