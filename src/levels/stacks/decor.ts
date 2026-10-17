@@ -211,21 +211,25 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     // bookend
     b.box([0.012, 0.1, 0.07], [-0.006, 0.05, 0], C.bronze, MET);
     b.box([0.05, 0.006, 0.07], [0.02, 0.003, 0], C.bronze, MET);
-    let x = 0.001;
+    let x = 0.001, hPrev = 0.1;
     for (let i = 0; i < n; i++) {
       const w = 0.02 + r() * 0.02, h = 0.14 + r() * 0.08, dp = 0.1 + r() * 0.03;
       if (i === n - 1) {
-        // the last one leans on its neighbour
-        const lean = -0.32;
-        uprightBook(b, x + h * Math.sin(-lean) * 0.5 + w * 0.6, 0, 0, w, h, dp, leather(r, dusty), lean);
-      } else uprightBook(b, x + w / 2, 0, 0, w, h, dp, leather(r, dusty));
+        // the last one leans on its neighbour: tipped towards it on its bottom edge, its side
+        // resting on the neighbour's top corner (it used to lean the other way, onto nothing)
+        const lean = 0.32;
+        const t = Math.min(h, hPrev / Math.cos(lean)); // where along its side it touches
+        b.at([x + t * Math.sin(lean), 0, 0], [0, 0, lean], () => uprightBook(b, w / 2, 0, 0, w, h, dp, leather(r, dusty)));
+      } else uprightBook(b, x + w / 2, x < 0.045 ? 0.006 : 0, 0, w, h, dp, leather(r, dusty)); // (on the bookend's foot)
       x += w + 0.001;
+      hPrev = h + (x - w - 0.001 < 0.045 ? 0.006 : 0);
     }
   };
 
   // ---- curios ----------------------------------------------------------------------------------
+  // (the jaw is the lowest part: it rests on what's below instead of hovering 4 mm over it)
   const skull = (b: D, x: number, y: number, z: number, s = 1, rotY = 0) =>
-    b.at([x, y, z], [0, rotY, 0], () => {
+    b.at([x, y - 0.004 * s, z], [0, rotY, 0], () => {
       b.sphere(0.034, [0, 0.042, -0.006], C.bone, { seg: 9, rough: 0.6, scale: [0.9, 0.86, 1.1] });
       b.box([0.044, 0.026, 0.034], [0, 0.017, 0.014], C.bone, { rough: 0.6 });
       b.sphere(0.0095, [-0.013, 0.035, 0.027], "#120c08", { seg: 5 });
@@ -296,13 +300,17 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     b.box([0.07, 0.006, 0.045], [-0.05, 0.004, 0.06], "#e6d6ae", { rot: [0, 0.4, 0], rough: 0.9 });
     b.cyl(0.009, 0.009, 0.003, [-0.05, 0.008, 0.06], "#9a1414", { seg: 8, rough: 0.4 });
   };
-  const chest = (b: D, w: number, h: number, dp: number, col = C.wood, coins = false) => {
+  /** `room`: free space behind the chest (an open lid swings back only until it meets the wall) */
+  const chest = (b: D, w: number, h: number, dp: number, col = C.wood, coins = false, room = Infinity) => {
     b.box([w, h, dp], [0, h / 2, 0], col, { rough: 0.65 });
     if (coins) {
-      // open: a heap of gold inside, the lid thrown back
+      // open: a heap of gold inside, the lid thrown back (as far as the wall lets it: swung back
+      // by ψ its dome reaches dp/2·(1 − cos ψ) behind the hinge; it used to sink into the wall)
+      const back = Math.min(1.9, Math.acos(THREE.MathUtils.clamp(1 - (room - 0.005) / (dp / 2), -1, 1)));
       b.sphere(1, [0, h, 0], C.gold, { seg: 10, scale: [w * 0.46, dp * 0.18, dp * 0.42], metal: 0.7, rough: 0.3 });
-      b.at([0, h, -dp / 2], [-1.9, 0, 0], () => {
+      b.at([0, h, -dp / 2], [-back, 0, 0], () => {
         b.geo(new THREE.CylinderGeometry(dp / 2, dp / 2, w, 10, 1, false, 0, Math.PI), [0, 0, dp / 2], col, { rot: [0, 0, Math.PI / 2], rough: 0.65 });
+        b.box([w, 0.008, dp], [0, 0.004, dp / 2], C.woodDark, { rough: 0.7 }); // the lid's inside
       });
     } else {
       b.geo(new THREE.CylinderGeometry(dp / 2, dp / 2, w, 10, 1, false, 0, Math.PI), [0, h, 0], col, { rot: [0, 0, Math.PI / 2], rough: 0.65 });
@@ -362,12 +370,20 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       b.box([0.008, 0.016, 0.012], [0, 0.178, 0.036], stone, o);
       ring(b, 0.031, 0.004, [0, 0.198, 0], C.gold, MET, [Math.PI / 2 + 0.15, 0, 0], TAU, 12); // laurels
     }, [s, s, s]);
-  const ladder = (b: D, h: number) => {
+  /** a library ladder of length h; `rail`: the brass rail's centre in the ladder's frame, and how far the ladder leans back */
+  const ladder = (b: D, h: number, rail: { y: number; z: number; lean: number }) => {
     for (const x of [-0.17, 0.17]) b.box([0.032, h, 0.022], [x, h / 2, 0], C.oak, { rough: 0.6 });
     for (let y = 0.12; y < h - 0.05; y += 0.2) b.cyl(0.011, 0.011, 0.34, [0, y, 0], C.oak, { seg: 6, rot: [0, 0, Math.PI / 2] });
     for (const x of [-0.17, 0.17]) {
-      tube(b, [[x, h - 0.02, -0.005], [x, h + 0.04, -0.01], [x, h + 0.04, -0.05], [x, h + 0.005, -0.055]], 0.006, C.brass, 8, MET, 5);
+      // a hook from the top of each stile up, over the rail and down behind it (upright, about the
+      // rail's centre; they used to pass through the rail instead of over it)
+      b.at([x, rail.y, rail.z], [rail.lean, 0, 0], () => {
+        const k = 0.0165, c = k * Math.SQRT1_2;
+        tube(b, [[0, -0.035, 0.016], [0, 0, k], [0, c, c], [0, k, 0], [0, c, -c], [0, 0, -k], [0, -0.016, -k]], 0.006, C.brass, 16, MET, 5);
+      });
+      // wheels, on axles through the stiles
       b.cyl(0.032, 0.032, 0.016, [x + Math.sign(x) * 0.026, 0.032, 0.0], C.iron, { seg: 10, rot: [0, 0, Math.PI / 2], ...IRN });
+      b.cyl(0.006, 0.006, 0.03, [x + Math.sign(x) * 0.012, 0.032, 0.0], C.iron, { seg: 6, rot: [0, 0, Math.PI / 2], ...IRN });
     }
   };
 
@@ -402,12 +418,16 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
   };
   const extrudeFlat = (s: THREE.Shape, depth: number, curve = 5) => new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: curve });
   /** a heraldic banner on an iron pole; local origin at the pole's centre, cloth hanging below (+z faces the viewer) */
-  const banner = (b: D, w: number, h: number, tex: UVRect) => {
+  const banner = (b: D, w: number, h: number, tex: UVRect, wall = 0.03) => {
     b.cyl(0.009, 0.009, w + 0.12, [0, 0, 0.02], C.iron, { seg: 6, rot: [0, 0, Math.PI / 2], ...IRN });
     for (const s of [-1, 1]) {
       b.sphere(0.017, [s * (w / 2 + 0.07), 0, 0.02], C.brass, { seg: 6, ...MET });
       tube(b, [[s * (w / 2 + 0.03), 0, 0.02], [s * w * 0.25, 0.1, 0.01], [0, 0.16, 0]], 0.003, "#6a5030", 4, {}, 3);
     }
+    // the cord hangs on an iron nail driven into the wall `wall` behind the pole (its peak used to
+    // be tied to thin air)
+    b.cyl(0.0035, 0.0035, wall + 0.012, [0, 0.155, (0.006 - wall) / 2], C.iron, { seg: 5, rot: [Math.PI / 2, 0, 0], ...IRN });
+    b.sphere(0.0065, [0, 0.155, 0.006], C.iron, { seg: 5, ...IRN });
     const g = new THREE.PlaneGeometry(w, h, 8, 1);
     const P = g.getAttribute("position") as THREE.BufferAttribute;
     for (let i = 0; i < P.count; i++) P.setZ(i, Math.sin((P.getX(i) / w) * TAU * 1.5 + 0.7) * 0.012);
@@ -432,7 +452,8 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
   };
   const roundel = (b: D, theta: number, y: number, r: number, tex: UVRect) => {
     b.geo(bend(new THREE.TorusGeometry(r + 0.012, 0.016, 4, 16), theta, y), [0, 0, 0], C.stoneLight, STN);
-    b.geo(bend(new THREE.CircleGeometry(r, 16), theta, y, RW - 0.004), [0, 0, 0], "#ffffff", { tex, glow: 0.35, rough: 0.2 });
+    // (the tower wall is a 64-gon whose flats lie 4 mm inside RW: glass at RW - 0.004 z-fought them)
+    b.geo(bend(new THREE.CircleGeometry(r, 16), theta, y, RW - 0.008), [0, 0, 0], "#ffffff", { tex, glow: 0.35, rough: 0.2 });
   };
   const pinnedSheet = (b: D, theta: number, y: number, w: number, h: number, tex: UVRect, tilt = 0) =>
     at(b, theta, y, RW - 0.006, () => {
@@ -506,8 +527,12 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
 
   // the carved stone cornice under every band (the edge of the "stair")
   {
-    const prof: P2[] = [[RW, -0.075], [3.0, -0.075], [3.0, -0.075], [2.962, -0.056], [2.95, -0.034], [2.958, -0.012], [2.972, 0], [3.0, 0]];
-    d.geo(helixSweep(prof, L.a0 - 0.15, L.a1 + 0.2, 0.1, thetaY), [0, 0, 0], C.stone, STN);
+    // (closed on top, where it shows between the bays, and capped at both ends: it used to be an
+    // open strip you could see into, and through)
+    const prof: P2[] = [[RW, -0.075], [3.0, -0.075], [3.0, -0.075], [2.962, -0.056], [2.95, -0.034], [2.958, -0.012], [2.972, 0], [3.0, 0], [3.0, 0], [RW, 0]];
+    const c0 = L.a0 - 0.15, c1 = L.a1 + 0.2;
+    d.geo(helixSweep(prof, c0, c1, 0.1, thetaY), [0, 0, 0], C.stone, STN);
+    for (const [a, out] of [[c0, -1], [c1, 1]]) d.geo(profileCap(prof, a, thetaY(a), out), [0, 0, 0], C.stone, STN);
   }
 
   mark("cornice");
@@ -546,11 +571,13 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     });
     // the wall over a decorative bay (no plaque there): maps, crests, rose windows, star charts
     if ((dusty || ghost) && roomy) {
-      const yC = bay.y + BAND + (PITCH - BAND) * 0.48;
+      // (low enough, and small enough, to sit inside the arch: their tops used to run up behind its
+      // moulding, which is solid stone standing proud of the wall)
+      const yC = bay.y + BAND + 0.14;
       if (dusty) {
         if (bay.i % 2 === 0) pinnedSheet(d, bay.theta, yC, 0.22, 0.165, T.maps[mapK++ % T.maps.length], (r() - 0.5) * 0.12);
         else crest(bay.theta, yC, crestK++);
-      } else if (bay.i % 2 === 0) roundel(d, bay.theta, yC, 0.11, T.roses[bay.i % T.roses.length]);
+      } else if (bay.i % 2 === 0) roundel(d, bay.theta, yC, 0.095, T.roses[bay.i % T.roses.length]);
       else pinnedSheet(d, bay.theta, yC, 0.18, 0.18, T.chart, (r() - 0.5) * 0.1);
     }
     // cobwebs in the dusty bays' corners
@@ -571,9 +598,13 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     const a = all[i], b = all[i + 1];
     {
       // a carved pilaster over the two posts where the bays meet
+      // (set back onto the posts' faces: the bays are flat chords, so at their ends the posts stand
+      // ~3 cm behind the circle of radius R and the pilaster used to float in front of them; and
+      // down into the cornice instead of stopping short over a slot of daylight)
       const th = (a.theta + a.w / 2 / R + b.theta - b.w / 2 / R) / 2, y = (a.y + b.y) / 2;
-      at(d, th, y, R, () => {
-        d.box([0.062, BAND - 0.07, 0.012], [0, BAND / 2 + 0.01, 0.016], C.woodDark, { rough: 0.6 });
+      const postR = (q: Bay) => Math.hypot(R - 0.01, q.w / 2 + 0.02); // a post's outer front corner, from the axis
+      at(d, th, y, Math.min(postR(a), postR(b)) + 0.0085, () => {
+        d.box([0.062, BAND - 0.015, 0.012], [0, (BAND - 0.035) / 2, 0.016], C.woodDark, { rough: 0.6 });
         d.box([0.022, BAND - 0.2, 0.008], [0, BAND / 2 + 0.01, 0.025], C.oak, { rough: 0.55 });
         d.box([0.078, 0.035, 0.026], [0, BAND - 0.03, 0.016], "#5a3a1e", { rough: 0.6 });
       });
@@ -609,7 +640,7 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       } else if (k < 0.36) scrollPile(d, r, true);
       else if (k < 0.5) {
         skull(d, 0, 0, 0, 1.1, (r() - 0.5) * 1.2);
-        candle(d, 0, 0.083, -0.005, 0.03 + r() * 0.03, 0.01, lit, C.waxOld);
+        candle(d, 0, 0.07, -0.005, 0.03 + r() * 0.03, 0.01, lit, C.waxOld);
       } else if (k < 0.62) candleCluster(r, lit, C.waxOld);
       else if (k < 0.72) hourglass(d, 0, 0, 0, 1.1);
       else if (k < 0.84) chest(d, 0.15, 0.07, 0.09, C.wood, false);
@@ -647,7 +678,7 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     else if (k < 0.8) globe(d, 0, 0, 0, 0.055);
     else if (k < 0.86) {
       skull(d, 0, 0, 0, 1.1, (r() - 0.5) * 1.2);
-      candle(d, 0, 0.083, -0.005, 0.05, 0.011, lit);
+      candle(d, 0, 0.07, -0.005, 0.05, 0.011, lit);
     } else if (k < 0.92) chest(d, 0.16, 0.075, 0.1, C.wood, false);
     else hourglass(d, 0, 0, 0, 1.2);
   }
@@ -666,25 +697,41 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
   }
   function candleCluster(r: Rnd, lit: boolean, wax: string) {
     d.cyl(0.06, 0.062, 0.006, [0, 0.003, 0], "#8a8478", { seg: 8, ...MET });
+    // one in the middle, the rest evenly round it, all on the plate and none melted into another
+    // (they used to be scattered at random angles, often through each other)
     const n = 3 + Math.floor(r() * 2);
     for (let i = 0; i < n; i++) {
-      const a = i * 2.4 + r(), rr = i === 0 ? 0 : 0.035;
-      candle(d, Math.cos(a) * rr, 0.006, Math.sin(a) * rr, 0.04 + r() * 0.09, 0.014 + r() * 0.008, lit && r() < 0.85, wax);
+      const a = ((i - 1) / (n - 1)) * TAU + (r() - 0.5) * 0.5, rr = i === 0 ? 0 : 0.04;
+      candle(d, Math.cos(a) * rr, 0.006, Math.sin(a) * rr, 0.04 + r() * 0.09, Math.min(0.019, 0.014 + r() * 0.008), lit && r() < 0.85, wax);
     }
   }
   function potions(r: Rnd, glowChance: number) {
+    // a staggered row (front, back, front…) spaced by each bottle's real girth: they used to be set
+    // 5 cm apart whatever their size, so the fat flasks stood inside each other
     const n = 3 + Math.floor(r() * 2);
+    const row: { jx: number; z: number; k: number; col: string; s: number; glow: number; rad: number; x: number }[] = [];
     for (let i = 0; i < n; i++) {
-      const x = (i - (n - 1) / 2) * 0.05 + (r() - 0.5) * 0.01, z = (r() - 0.5) * 0.05;
-      bottle(d, x, 0, z, Math.floor(r() * BOTTLES.length), pick(r, GLASS), 0.85 + r() * 0.4, r() < glowChance ? 0.35 : 0);
+      const jx = r(), jz = r(), k = Math.floor(r() * BOTTLES.length), col = pick(r, GLASS), s = 0.85 + r() * 0.4, glow = r() < glowChance ? 0.35 : 0;
+      const z = (i % 2 ? -0.026 : 0.026) + (jz - 0.5) * 0.008;
+      row.push({ jx, z, k, col, s, glow, rad: Math.max(...BOTTLES[k].map((p) => p[0])) * s, x: 0 });
     }
+    row.forEach((b, i) => {
+      if (!i) return;
+      const a = row[i - 1], gap = 0.004 + b.jx * 0.004;
+      const dz = b.z - a.z, need = a.rad + b.rad + gap;
+      b.x = a.x + Math.sqrt(Math.max(0, need * need - dz * dz));
+      if (i > 1) b.x = Math.max(b.x, row[i - 2].x + row[i - 2].rad + b.rad + gap);
+    });
+    const mid = (row[0].x + row[n - 1].x) / 2;
+    for (const b of row) bottle(d, b.x - mid, 0, b.z, b.k, b.col, b.s, b.glow);
   }
   function jars(r: Rnd) {
     for (let i = 0; i < 3; i++) {
       const x = (i - 1) * 0.06, h = 0.07 + r() * 0.04, rr = 0.024;
-      d.lathe([[0, 0], [rr, 0], [rr + 0.003, 0.01], [rr + 0.003, h * 0.85], [rr * 0.7, h], [0, h]], [x, 0, 0], pick(r, ["#5a4a3a", "#3a4a5a", "#6a5a3a"]), { seg: 8, rough: 0.35, metal: 0.1 });
+      d.lathe([[0, 0], [rr, 0], [rr + 0.003, 0.01], [rr + 0.003, h * 0.85], [rr * 0.7, h], [0, h]], [x, 0, 0], pick(r, ["#5a4a3a", "#3a4a5a", "#6a5a3a"]), { seg: 12, rough: 0.35, metal: 0.1 });
       d.cyl(rr * 0.85, rr * 0.75, 0.012, [x, h + 0.005, 0], C.cork, { seg: 6 });
-      d.plane([0.03, 0.022], [x, h * 0.5, rr + 0.0035], "#ffffff", { tex: T.labels[i % T.labels.length], rough: 0.9 });
+      // the label wraps round the jar (a flat card stood off its sides)
+      d.geo(new THREE.CylinderGeometry(rr + 0.0035, rr + 0.0035, 0.022, 6, 1, true, -0.6, 1.2), [x, h * 0.5, 0], "#ffffff", { tex: T.labels[i % T.labels.length], rough: 0.9 });
     }
   }
   function sconce(b: D, lit = true) {
@@ -707,7 +754,7 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     s.quadraticCurveTo(0.065, -0.06, 0, -0.095);
     s.quadraticCurveTo(-0.065, -0.06, -0.07, 0.0);
     s.lineTo(-0.07, 0.08);
-    at(d, theta, y, RW, () => {
+    at(d, theta, y, RW, () => d.at([0, 0, 0], null, () => {
       // crossed swords behind a heater shield
       for (const sgn of [-1, 1])
         d.at([0, 0, 0.012], [0, 0, sgn * 0.75], () => {
@@ -717,8 +764,8 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
           d.box([0.014, 0.014, 0.014], [0, -0.195, 0], C.brass, MET);
         });
       d.geo(extrudeFlat(s, 0.012, 4), [0, 0, 0.018], C.wood, { rough: 0.6 });
-      d.plane([0.13, 0.165], [0, -0.006, 0.0305], "#ffffff", { tex: T.shields[k % T.shields.length], rough: 0.6 });
-    });
+      d.plane([0.13, 0.165], [0, -0.006, 0.0315], "#ffffff", { tex: T.shields[k % T.shields.length], rough: 0.6 });
+    }, [0.8, 0.8, 0.8])); // (scaled to fit under the arch)
   }
 
   // ======================================================================================
@@ -754,9 +801,12 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     const ladderTop = yb + 2.15;
     {
       const pts: Vec3[] = [];
-      for (let a = ladderAz - 0.4; a <= ladderAz + 0.4 + 1e-3; a += 0.05) pts.push([Math.cos(a) * (RW - 0.05), ladderTop, Math.sin(a) * (RW - 0.05)]);
+      // (it stops short of the lowest bookcase, which it used to run straight through, and has
+      // knobs on its ends instead of open tube)
+      for (let a = ladderAz - 0.4; a <= ladderAz + 0.18 + 1e-3; a += 0.0725) pts.push([Math.cos(a) * (RW - 0.05), ladderTop, Math.sin(a) * (RW - 0.05)]);
       tube(d, pts, 0.01, C.brass, pts.length * 2, MET, 6);
-      for (const a of [ladderAz - 0.38, ladderAz, ladderAz + 0.38]) at(d, a, ladderTop, RW, () => d.box([0.02, 0.03, 0.06], [0, 0, 0.025], C.brass, MET));
+      for (const p of [pts[0], pts[pts.length - 1]]) d.sphere(0.017, p, C.brass, { seg: 8, ...MET });
+      for (const a of [ladderAz - 0.38, ladderAz, ladderAz + 0.16]) at(d, a, ladderTop, RW, () => d.box([0.02, 0.03, 0.06], [0, 0, 0.025], C.brass, MET));
     }
     const arcH = 0.92, colR = 0.065, rise = 0.46; // columns, then pointed arches (apex just under the lowest shelves)
     for (let k = 0; k < N; k++) {
@@ -772,21 +822,25 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       if (k === 3) door(mid, yb, span);
       else if (slot === 1 || slot === 5) at(d, mid, yb + arcH + 0.12, RW - 0.03, () => banner(d, 0.55, 0.85, T.tapestries[(k >> 1) % T.tapestries.length]));
       else if (slot === 0) at(d, mid, yb, RW - 0.25, () => lectern(true));
-      else if (slot === 2) at(d, mid, yb, RW - 0.32, () => chest(d, 0.62, 0.3, 0.38, C.oak, k % 2 === 0));
+      else if (slot === 2) at(d, mid, yb, RW - 0.36, () => chest(d, 0.62, 0.3, 0.38, C.oak, k % 2 === 0, 0.36 - 0.19 - 0.004)); // (room behind it: to the wall's flats)
       else if (slot === 4 && k < 7) at(d, mid, yb, RW - 0.24, () => scrollRack());
-      else if (slot === 4) at(d, mid, yb, RW - 0.3, () => d.at([0, 0, 0], [0, 0.3, 0], () => globe(d, 0, 0, 0, 0.3)));
+      else if (slot === 4) at(d, mid, yb, RW - 0.36, () => d.at([0, 0, 0], [0, 0.3, 0], () => globe(d, 0, 0, 0, 0.3))); // (its ball used to touch the wall)
       else if (slot === 6) at(d, mid, yb, RW - 0.3, () => floorCandelabra(k));
       else if (k === ladderK) {
         // the rolling library ladder: wheels on the floor, hooks over a brass rail high on the wall
-        const lh = ladderTop - yb;
-        at(d, mid, yb, RW - 0.04, () => d.at([0, 0, 0.42], [-Math.atan2(0.4, lh), 0, 0], () => ladder(d, Math.hypot(lh, 0.4) - 0.03)));
+        const lh = ladderTop - yb, lean = Math.atan2(0.4, lh);
+        // the rail's centre (0.01 out from this frame, lh up) seen from the leaning ladder's foot
+        const ry = lh, rz = 0.01 - 0.42;
+        const rail = { y: ry * Math.cos(lean) - rz * Math.sin(lean), z: ry * Math.sin(lean) + rz * Math.cos(lean), lean };
+        at(d, mid, yb, RW - 0.04, () => d.at([0, 0, 0.42], [-lean, 0, 0], () => ladder(d, Math.hypot(lh, 0.4) - 0.03, rail)));
       }
       // torches between arches
-      if (k % 2 === 0) at(d, a, yb + 0.6, RW - 0.15, () => sconce(d, true));
+      // (its back plate against the column's face: it used to stand 1.6 cm in front of it)
+      if (k % 2 === 0) at(d, a, yb + 0.6, RW - colR - 0.01 - colR * 0.912 + 0.0015, () => sconce(d, true));
     }
     // carpet runner from the door to the fountain
     const doorA = ((3 + 0.5) / N) * TAU;
-    at(d, doorA, yb + 0.004, 2.18, () => {
+    at(d, doorA, yb + 0.005, 2.18, () => { // (1 mm higher: the flagstone ring's crest grazed its top)
       d.box([0.7, 0.008, 2.25], [0, 0.004, 0], "#5e1416", { rough: 0.95 });
       for (const s of [-1, 1]) d.box([0.05, 0.009, 2.25], [s * 0.3, 0.005, 0], "#b08a3a", { rough: 0.8 });
     });
@@ -802,7 +856,8 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       if (Math.abs(Math.atan2(Math.sin(a - ladderAz), Math.cos(a - ladderAz))) < 0.5) continue; // the ladder's spot
       const bottom = yb + arcH + rise + 0.05;
       const free = thetaY(a) - 0.09 - bottom;
-      if (free > 0.75) at(d, a, bottom + free - 0.04, RW - 0.03, () => banner(d, 0.48, Math.min(0.95, free - 0.1), cyc(T.banners, a * 10)));
+      // (hung low enough that its cord and nail sit under the cornice, not up inside it)
+      if (free > 0.75) at(d, a, bottom + free - 0.155, RW - 0.03, () => banner(d, 0.48, Math.min(0.95, free - 0.16), cyc(T.banners, a * 10)));
       else if (free > 0.3) pinnedSheet(d, a, bottom + free / 2, 0.3, 0.225, cyc(T.maps, a * 7), (rnd() - 0.5) * 0.1);
     }
   }
@@ -833,10 +888,22 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       for (const s of [-1, 1]) d.box([0.19, 0.018, 0.27], [s * 0.1, 0.032, 0], C.pageEdge, { rough: 0.9, rot: [0, 0, s * 0.06] });
       d.plane([0.4, 0.27], [0, 0.0425, 0], "#ffffff", { tex: T.pages, rot: [-Math.PI / 2, 0, 0], rough: 0.9 });
       d.box([0.012, 0.002, 0.12], [0.02, 0.044, 0.18], "#8a1414", { rot: [0.5, 0, 0] });
-      if (chained) {
-        for (let i = 0; i < 7; i++) ring(d, 0.012, 0.0025, [-0.2, -0.02 - i * 0.018, 0.1 - i * 0.02], C.iron, IRN, [0, i % 2 ? Math.PI / 2 : 0, 0], TAU, 8);
-      }
     });
+    if (chained) {
+      // the chain droops from under the desk's edge to a staple on the post (it used to run off
+      // sideways, parallel to the tilted desk, and end in mid-air)
+      const tilt = 0.45, ya = -0.0245, za = 0.1; // just under the desk board, in its tilted frame
+      const a = new THREE.Vector3(-0.2, 0.93 + ya * Math.cos(tilt) - za * Math.sin(tilt), ya * Math.sin(tilt) + za * Math.cos(tilt));
+      const b2 = new THREE.Vector3(-0.056, 0.7, 0), n = 12, v = b2.clone().sub(a).normalize();
+      const side = new THREE.Vector3().crossVectors(v, new THREE.Vector3(0, 1, 0)).normalize(), up = new THREE.Vector3().crossVectors(side, v);
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) / n, p = a.clone().lerp(b2, t);
+        p.y -= 0.03 * Math.sin(Math.PI * t);
+        const nrm = i % 2 ? side : up; // alternate links at right angles, each lying along the chain
+        const e = new THREE.Euler().setFromRotationMatrix(new THREE.Matrix4().makeBasis(v, new THREE.Vector3().crossVectors(nrm, v), nrm));
+        d.geo(new THREE.TorusGeometry(0.009, 0.0025, 4, 8), [p.x, p.y, p.z], C.iron, { ...IRN, rot: [e.x, e.y, e.z], scale: [1.5, 1, 1] });
+      }
+    }
   }
   function scrollRack() {
     const W = 0.72, H = 0.9, Dp = 0.3, n = 4, m = 4;
@@ -847,10 +914,12 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     for (let j = 1; j < m; j++) d.box([W, 0.02, Dp], [0, (j * H) / m, 0], C.wood, { rough: 0.6 });
     for (let i = 0; i < n; i++)
       for (let j = 0; j < m; j++) {
-        const cx = -W / 2 + ((i + 0.5) * W) / n, cy = ((j + 0.5) * H) / m;
+        // three scrolls to a cubby, two on its floor and one on top of them (they used to hover
+        // 3-6 cm up in the middle of the cubby)
+        const cx = -W / 2 + ((i + 0.5) * W) / n, floor = j === 0 ? 0.04 : (j * H) / m + 0.01;
         for (let k = 0; k < 3; k++) {
-          const ox = (k - 1) * 0.045, oy = k === 1 ? 0.02 : -0.02;
-          d.cyl(0.02, 0.02, Dp - 0.04, [cx + ox, cy + oy, 0.0], new THREE.Color(C.parchment).multiplyScalar(0.8 + rnd() * 0.25), { seg: 6, rot: [Math.PI / 2, 0, 0], rough: 0.85 });
+          const ox = (k - 1) * 0.0215, oy = k === 1 ? 0.02 + 0.0337 : 0.02;
+          d.cyl(0.02, 0.02, Dp - 0.04, [cx + ox, floor + oy, 0.0], new THREE.Color(C.parchment).multiplyScalar(0.8 + rnd() * 0.25), { seg: 6, rot: [Math.PI / 2, 0, 0], rough: 0.85 });
         }
       }
   }
@@ -942,7 +1011,8 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     const items = ["telescope", "lectern", "chest", "potionCabinet", "globeBig", "desk", "scrollRack", "armillaryBig", "books", "candelabra", "chestGold", "bust"];
     items.forEach((kind, k) => {
       const a = ((k + 0.25) / items.length) * TAU;
-      const rr = 3.05;
+      // (the gold chest stands a little forward so its lid can open against the wall)
+      const rr = kind === "chestGold" ? 3.01 : 3.05;
       at(d, a, yG, rr, () => galleryItem(kind, a, yG, rr));
     });
     await pause("Glazing the windows…");
@@ -952,7 +1022,7 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       const a = (k / nWin) * TAU + 0.2;
       lancet(d, a, wy, ww, wh, T.glass[k % T.glass.length]);
       const ab = a + TAU / nWin / 2;
-      at(d, ab, wy + 1.9, RW - 0.04, () => banner(d, 0.42, 1.25, T.banners[k % T.banners.length]));
+      at(d, ab, wy + 1.9, RW - 0.04, () => banner(d, 0.42, 1.25, T.banners[k % T.banners.length], 0.04));
       if (k % 2 === 0) ivy(d, rnd, [Math.cos(a + 0.13) * RW, wy + wh * 0.8, Math.sin(a + 0.13) * RW], 0.9 + rnd() * 0.5, a + 0.13, 0.8);
     }
     // string course, gargoyles at the springing of the vault
@@ -989,7 +1059,7 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
     d.lathe([[0.15, -0.06], [0.16, -0.02], [0.12, 0.0], [0, 0]], [0, bellTop, 0], C.bronze, { seg: 12, ...MET });
     d.cyl(0.012, 0.012, 0.5, [0, bellTop - 0.3, 0], C.iron, { seg: 6, ...IRN });
     d.sphere(0.06, [0, bellTop - 0.58, 0], C.iron, { seg: 10, ...IRN });
-    d.tube([[0.1, bellTop - 0.4, 0], [0.5, bellTop - 0.9, 0.05], [0.55, bellTop - 1.6, 0.0], [0.6, bellTop - 2.2, 0.05]], 0.01, "#8a7050", { seg: 20 }); // bell rope
+    d.tube([[0.013, bellTop - 0.42, 0], [0.5, bellTop - 0.9, 0.05], [0.55, bellTop - 1.6, 0.0], [0.6, bellTop - 2.2, 0.05]], 0.01, "#8a7050", { seg: 20 }); // bell rope (tied to the clapper's shaft)
 
     await pause("Painting the stars…");
     // the great chandelier (sways gently): an iron wheel of candles on four chains from the oculus ring
@@ -1034,22 +1104,26 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
 
     function galleryItem(kind: string, a: number, y: number, rr: number) {
       if (kind === "telescope") {
+        // (a tripod whose feet all land on the gallery floor: one used to stand in the wall)
         for (let i = 0; i < 3; i++) {
-          const la = (i / 3) * TAU + 0.4;
-          d.tube([[0, 1.0, 0], [Math.cos(la) * 0.3, 0, Math.sin(la) * 0.3]], 0.012, C.oak, { seg: 1 });
+          const la = (i / 3) * TAU;
+          d.tube([[0, 1.0, 0], [Math.cos(la) * 0.28, 0, Math.sin(la) * 0.28]], 0.012, C.oak, { seg: 1 });
         }
         d.cyl(0.04, 0.04, 0.06, [0, 1.0, 0], C.brass, { seg: 10, ...MET });
-        // the tube points up at the oculus
-        d.at([0, 1.04, 0], [-0.95, 0, 0], () => {
+        // the tube points up at the oculus (it used to lean back into the stained glass behind it)
+        d.at([0, 1.04, 0], [0.6, 0, 0], () => {
           d.lathe([[0, -0.35], [0.022, -0.35], [0.022, -0.2], [0.03, -0.2], [0.03, 0.05], [0.038, 0.05], [0.042, 0.42], [0.05, 0.44], [0.05, 0.47], [0, 0.47]], [0, 0, 0], C.brass, { seg: 12, ...MET });
           d.cyl(0.039, 0.039, 0.18, [0, 0.0, 0], "#3a2416", { seg: 12, rough: 0.6 });
         });
       } else if (kind === "lectern") lectern(true);
       else if (kind === "chest") chest(d, 0.62, 0.3, 0.38, C.wood, false);
       else if (kind === "chestGold") {
-        chest(d, 0.6, 0.3, 0.36, C.oak, true);
-        for (let i = 0; i < 14; i++) d.cyl(0.014, 0.014, 0.004, [(rnd() - 0.5) * 0.7, 0.003, 0.22 + rnd() * 0.15], C.gold, { seg: 8, ...MET, rot: [(rnd() - 0.5) * 0.4, 0, (rnd() - 0.5) * 0.4] });
-        for (let i = 0; i < 4; i++) d.geo(new THREE.OctahedronGeometry(0.018), [(rnd() - 0.5) * 0.5, 0.012, 0.25 + rnd() * 0.1], pick(rnd, ["#c01830", "#18a040", "#2050d0"]), { rough: 0.1, metal: 0.2 });
+        chest(d, 0.6, 0.3, 0.36, C.oak, true, RW - 0.004 - (rr + 0.18));
+        // spilled gold on the rug either side (in front there's only the balustrade's kerb: they
+        // used to lie out past the gallery's edge, over the drop)
+        const side = (u: number, lo: number, hi: number) => Math.sign(u - 0.5 || 1) * (lo + Math.abs(u - 0.5) * 2 * (hi - lo));
+        for (let i = 0; i < 14; i++) d.cyl(0.014, 0.014, 0.004, [side(rnd(), 0.33, 0.55), 0.0075, -0.14 + rnd() * 0.3], C.gold, { seg: 8, ...MET, rot: [(rnd() - 0.5) * 0.4, 0, (rnd() - 0.5) * 0.4] });
+        for (let i = 0; i < 4; i++) d.geo(new THREE.OctahedronGeometry(0.018), [side(rnd(), 0.34, 0.5), 0.016, -0.1 + rnd() * 0.2], pick(rnd, ["#c01830", "#18a040", "#2050d0"]), { rough: 0.1, metal: 0.2 });
       } else if (kind === "potionCabinet") {
         const W = 0.62, H = 1.05, Dp = 0.26;
         d.box([W, H, 0.02], [0, H / 2, -Dp / 2], C.woodDark, { rough: 0.6 });
@@ -1065,6 +1139,7 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
         d.lathe([[0, 0], [0.22, 0], [0.2, 0.04], [0.06, 0.1], [0.05, 0.45], [0.09, 0.5], [0.05, 0.56], [0, 0.56]], [0, 0, 0], C.oak, { seg: 10 });
         d.torus(0.3, 0.012, [0, 0.82, 0], C.brass, { seg: 32, rot: [Math.PI / 2, 0, 0], ...MET }); // horizon ring
         for (const s of [-1, 1]) d.box([0.02, 0.3, 0.02], [s * 0.3, 0.67, 0], C.oak);
+        d.box([0.62, 0.022, 0.022], [0, 0.52, 0], C.oak); // (a cross-bar through the stem: the ring's legs used to stop in mid-air)
         ring(d, 0.29, 0.008, [0, 0.82, 0], C.brass, MET, [0, 0, 0.41], TAU, 28);
         // the sphere itself turns
         const gs = d.sub();
@@ -1086,8 +1161,9 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
         d.at([0.28, 0.76, -0.05], null, () => inkAndQuill(d, rnd));
         d.at([0.3, 0.76, -0.12], null, () => candlestick(d, 0, 0, 0, 0.14, 0.1, true));
         d.at([-0.3, 0.76, -0.1], [0, 0.4, 0], () => skull(d, 0, 0, 0, 1.2));
-        // a chair
-        d.at([0, 0, 0.45], [0, Math.PI + 0.2, 0], () => {
+        // a chair, pulled round to the end of the desk (there's no room in front of it: the chair
+        // used to stand out past the balustrade, over the drop)
+        d.at([0.72, 0, 0], [0, -Math.PI / 2 - 0.2, 0], () => {
           d.box([0.42, 0.04, 0.4], [0, 0.46, 0], C.woodDark);
           for (const sx of [-1, 1]) for (const sz of [-1, 1]) d.box([0.035, 0.46, 0.035], [sx * 0.18, 0.23, sz * 0.17], C.woodDark);
           d.box([0.42, 0.5, 0.035], [0, 0.73, -0.19], C.woodDark);
@@ -1153,6 +1229,23 @@ export async function decorateStacks(c: LevelCtx, L: StacksDecorLayout, progress
       `${Math.round(busy)}ms of work in slices of ≤${Math.round(worst)}ms over ${Math.round(performance.now() - t0)}ms`,
   );
   return { mesh, triangles: d.triangles + subTris };
+}
+
+/** A flat end cap for a helixSweep of `profile`, at angle `a`, facing along (+1) or against (−1) the sweep. */
+function profileCap(profile: P2[], a: number, y: number, out: number) {
+  const pts = profile.filter((p, i) => i === 0 || p[0] !== profile[i - 1][0] || p[1] !== profile[i - 1][1]);
+  const g = new THREE.ShapeGeometry(new THREE.Shape(pts.map(([r, dy]) => new THREE.Vector2(r, dy))));
+  const P = g.getAttribute("position") as THREE.BufferAttribute, N = g.getAttribute("normal") as THREE.BufferAttribute;
+  const co = Math.cos(a), si = Math.sin(a);
+  for (let i = 0; i < P.count; i++) {
+    const u = P.getX(i), v = P.getY(i);
+    P.setXYZ(i, co * u, y + v, si * u);
+    N.setXYZ(i, -si * out, 0, co * out);
+  }
+  // (a shape faces +z, which lands on +tangent here: flip the other end)
+  const idx = g.index?.array;
+  if (out < 0 && idx) for (let i = 0; i < idx.length; i += 3) [idx[i], idx[i + 1]] = [idx[i + 1], idx[i]];
+  return g;
 }
 
 /** Sweep a [radius, dy] profile along the helix y = thetaY(a): a carved band that follows the stair. */

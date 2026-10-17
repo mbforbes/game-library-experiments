@@ -117,6 +117,10 @@ export default function stacks(): Level {
       const seenYear = new Set<string>();
       const bayYears = new Map<number, number[]>();
       for (const sec of pack.sections) {
+        // (the packer opens a section at the end of a shelf and, when its first game doesn't fit
+        // there, re-opens it on the next shelf: skip the empty one, or its tag ends up half inside
+        // the post and its year on the wrong bay's plaque)
+        if (!sec.games.length) continue;
         const bay = Math.floor(sec.shelf / ROWS.length);
         const yr = +sec.key;
         if (!bayYears.has(bay)) bayYears.set(bay, []);
@@ -159,12 +163,36 @@ export default function stacks(): Level {
       const candlePos: THREE.Vector3[] = [];
       for (let k = 0; k < 70; k++) {
         const a = k * 2.399;
-        const r = 0.5 + ((k * 37) % 100) / 100 * (R - 1.0);
+        // (clear of the Codex on the axis: it is 1.6 m across and used to sweep through them)
+        const r = 1.0 + ((k * 37) % 100) / 100 * (R - 1.5);
         candlePos.push(new THREE.Vector3(Math.cos(a) * r, yBot + 1 + ((k * 0.618) % 1) * (yTop - yBot - 2), Math.sin(a) * r));
       }
       const cs = candles(candlePos);
       scene.add(cs.group);
-      tickers.push((_, t) => bobCandles(cs, t));
+      floating = cs;
+      // they float out of your way as you pass (instead of through the lens), and out from
+      // between you and the Codex while you read it; then drift home
+      const home = candlePos.map((p) => p.clone()), shy = candlePos.map(() => new THREE.Vector3());
+      const at = new THREE.Vector3(), push = new THREE.Vector3();
+      tickers.push((dt, t) => {
+        const cam = c.camera.position, ease = Math.exp(-dt * 0.8);
+        home.forEach((h, k) => {
+          const o = shy[k];
+          at.copy(h).add(o).y += 0.08; // the middle of the candle
+          push.set(0, 0, 0);
+          dodge(at, cam, 0.55, push, 1);
+          if (codexView) dodgeSegment(at, codex.group.position, cam, 0.85, push);
+          o.addScaledVector(push, 0.6).multiplyScalar(ease);
+          at.copy(h).add(o);
+          const r = Math.hypot(at.x, at.z), rc = THREE.MathUtils.clamp(r, 1.0, R - 0.25);
+          if (rc !== r) {
+            o.x += (at.x / r) * (rc - r);
+            o.z += (at.z / r) * (rc - r);
+          }
+          cs.positions[k].copy(h).add(o);
+        });
+        bobCandles(cs, t);
+      });
       scene.add(lightShaft(new THREE.Vector3(0.4, yTop + 4, 0.15), new THREE.Vector3(-0.2, yBot, 0.1), 0.6, "#a8c4ff", 0.1));
       scene.add(lightShaft(new THREE.Vector3(-0.5, yTop + 4, -0.3), new THREE.Vector3(0.3, yBot + 2, -0.15), 0.42, "#c8b4ff", 0.07));
       scene.add(dust(engine.quality.mobile ? 250 : 600, R - 0.3, yBot, yTop));
@@ -198,7 +226,7 @@ export default function stacks(): Level {
       await progress("Releasing the wishes…");
       const wish = store.games.filter((g) => g.status === "wishlist");
       const yWish = thetaY(thetaEnd) + 1.6;
-      const orbits = wish.map((_, k) => ({ r: 0.7 + ((k * 0.381) % 1) * (R - 1.2), y: yWish + ((k * 0.7071) % 1) * 3.2, speed: 0.08 + ((k * 0.13) % 1) * 0.12, phase: k * 2.399, tilt: ((k * 0.29) % 1) * 0.6 - 0.3 }));
+      const orbits = wish.map((_, k) => ({ r: 1.0 + ((k * 0.381) % 1) * (R - 1.5), y: yWish + ((k * 0.7071) % 1) * 3.2, speed: 0.08 + ((k * 0.13) % 1) * 0.12, phase: k * 2.399, tilt: ((k * 0.29) % 1) * 0.6 - 0.3 }));
       const wf = new MediaField(c.kit, wish.map((g, k) => ({ game: g, position: new THREE.Vector3(0, orbits[k].y, 0), quaternion: new THREE.Quaternion(), scale: 0.8 })), { holo: true, name: "wishes" });
       scene.add(wf.group);
       fields.push(wf);
@@ -275,17 +303,7 @@ export default function stacks(): Level {
         lantern.intensity = 9 + Math.sin(t * 9) * 0.25 + Math.sin(t * 23) * 0.15;
       }
       // the wishlist flock circles
-      if (flock) {
-        const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(0.8, 0.8, 0.8);
-        flock.field.games.forEach((g, k) => {
-          const o = flock!.orbits[flock!.field.order.indexOf(g)] ?? flock!.orbits[k];
-          const a = o.phase + t * o.speed;
-          p.set(Math.cos(a) * o.r, o.y + Math.sin(t * 0.6 + o.phase) * 0.15, Math.sin(a) * o.r);
-          q.setFromEuler(new THREE.Euler(o.tilt + Math.sin(t + o.phase) * 0.2, -a, Math.sin(t * 1.3 + o.phase) * 0.25));
-          m.compose(p, q, s);
-          flock!.field.setMatrix(g.id, m);
-        });
-      }
+      if (flock) flyFlock(dt, t);
     },
 
     focusGame(g) {
@@ -342,6 +360,101 @@ export default function stacks(): Level {
       neonFx.rainbow.value = 0;
     },
   };
+
+  // ---- the wishlist flock ---------------------------------------------------------------------
+  // Every book keeps to its own orbit, but swerves (up/down/in/out, never along its path, so
+  // nobody gets stuck behind anybody) around the other books, the floating candles, the camera
+  // and the Codex instead of flying through them. The swerve eases back once the way is clear.
+  let flockState: { games: Game[]; orb: { r: number; y: number; speed: number; phase: number; tilt: number }[]; raw: THREE.Vector3[]; p: THREE.Vector3[]; off: THREE.Vector3[]; acc: THREE.Vector3[] } | null = null;
+  let floating: ReturnType<typeof candles> | null = null;
+  const BOOK_GAP = 0.22; // two books' clearance (bounding spheres of the 0.8-scale cases)
+  // Spatial hash of books and candles, in cells twice the avoidance distance: whatever is within
+  // reach of a book lies in the 8 cells round the corner of its cell it's nearest to. Lists are
+  // reused frame to frame (no garbage), keys stay small integers (fast maps), books (k) and candles
+  // (~i) share one grid, and each frame a third of the books work out their swerves (round robin,
+  // so the cost is even; the swerves ease, so it doesn't show).
+  const CELL = 2 * BOOK_GAP;
+  const grid = new Map<number, number[]>();
+  const cellKey = (x: number, y: number, z: number) => x + 64 + (z + 64) * 128 + (y + 512) * 16384;
+  const cellOf = (p: THREE.Vector3) => cellKey(Math.floor(p.x / CELL), Math.floor(p.y / CELL), Math.floor(p.z / CELL));
+  const filled: number[][] = []; // the lists in use this frame (only those get emptied)
+  const put = (g: Map<number, number[]>, key: number, k: number) => {
+    let list = g.get(key);
+    if (!list) g.set(key, (list = []));
+    if (!list.length) filled.push(list);
+    list.push(k);
+  };
+  const resetGrid = () => {
+    for (const l of filled) l.length = 0;
+    filled.length = 0;
+  };
+  let flockFrame = 0;
+  const candleAt = new THREE.Vector3();
+  const fm = new THREE.Matrix4(), fq = new THREE.Quaternion(), fs = new THREE.Vector3(0.8, 0.8, 0.8), fe = new THREE.Euler(), fv = new THREE.Vector3();
+
+  function flyFlock(dt: number, t: number) {
+    const F = flock!;
+    if (!flockState) {
+      const games = F.field.games;
+      flockState = { games, orb: games.map((g, k) => F.orbits[F.field.order.indexOf(g)] ?? F.orbits[k]), raw: games.map(() => new THREE.Vector3()), p: games.map(() => new THREE.Vector3()), off: games.map(() => new THREE.Vector3()), acc: games.map(() => new THREE.Vector3()) };
+    }
+    const S = flockState, n = S.games.length, cam = ctx.camera.position;
+    // (the grid is rebuilt every third frame: in three frames nothing moves more than a couple
+    // of cm, against 44 cm cells, and neighbours are measured at their current positions anyway)
+    const turn = flockFrame++ % 3;
+    if (turn === 0) resetGrid();
+    for (let k = 0; k < n; k++) {
+      const o = S.orb[k], a = o.phase + t * o.speed;
+      S.raw[k].set(Math.cos(a) * o.r, o.y + Math.sin(t * 0.6 + o.phase) * 0.15, Math.sin(a) * o.r);
+      S.p[k].copy(S.raw[k]).add(S.off[k]);
+      if (turn === 0) put(grid, cellOf(S.p[k]), k);
+    }
+    if (turn === 0 && floating) floating.positions.forEach((c, i) => put(grid, cellOf(candleAt.set(c.x, c.y + 0.08, c.z)), ~i));
+    for (let k = turn; k < n; k += 3) {
+      S.acc[k].set(0, 0, 0);
+      const p = S.p[k];
+      const fx = p.x / CELL, fy = p.y / CELL, fz = p.z / CELL;
+      const cx = Math.floor(fx), cy = Math.floor(fy), cz = Math.floor(fz);
+      // the cells on this book's side of its own (the 2×2×2 block round its nearest corner)
+      const sx = fx - cx < 0.5 ? -1 : 1, sy = fy - cy < 0.5 ? -1 : 1, sz = fz - cz < 0.5 ? -1 : 1;
+      for (let c8 = 0; c8 < 8; c8++) {
+        const dx = c8 & 1 ? sx : 0, dy = c8 & 2 ? sy : 0, dz = c8 & 4 ? sz : 0;
+        const list = grid.get(cellKey(cx + dx, cy + dy, cz + dz));
+        if (!list || !list.length) continue;
+        for (const j of list) {
+          if (j < 0) {
+            // a floating candle (a candle and its flame: ~0.16 m tall)
+            const c = floating!.positions[~j];
+            dodge(p, fv.set(c.x, c.y + 0.08, c.z), BOOK_GAP / 2 + 0.07, S.acc[k], 1);
+            continue;
+          }
+          if (j === k) continue;
+          // each takes half the swerve (the other book takes its half on its own turn; the
+          // tie-break sends the two opposite ways)
+          fv.set(0, 0, 0);
+          if (dodge(p, S.p[j], BOOK_GAP, fv, k < j ? 1 : -1)) S.acc[k].addScaledVector(fv, 0.5);
+        }
+      }
+      // the camera (close enough to read a wish you flew to, never inside one)
+      dodge(p, cam, 0.3, S.acc[k], 1);
+      if (codexView) dodgeSegment(p, codex.group.position, cam, 0.85, S.acc[k]);
+    }
+    const ease = Math.exp(-dt * 0.5);
+    for (let k = 0; k < n; k++) {
+      const off = S.off[k].addScaledVector(S.acc[k], 0.6).multiplyScalar(ease);
+      const p = S.p[k].copy(S.raw[k]).add(off);
+      // never into the Codex on the axis, nor out to the shelves
+      const r = Math.hypot(p.x, p.z), rc = THREE.MathUtils.clamp(r, 0.95, R - 0.4);
+      if (rc !== r) {
+        off.x += (p.x / r) * (rc - r);
+        off.z += (p.z / r) * (rc - r);
+        p.copy(S.raw[k]).add(off);
+      }
+      const o = S.orb[k], a = o.phase + t * o.speed;
+      fq.setFromEuler(fe.set(o.tilt + Math.sin(t + o.phase) * 0.2, -a, Math.sin(t * 1.3 + o.phase) * 0.25));
+      flock!.field.setMatrix(S.games[k].id, fm.compose(p, fq, fs));
+    }
+  }
 
   // ---- the Codex close-up -----------------------------------------------------------------
   // Framed to fit the whole open book on any screen (backing up as far as the tower allows and
@@ -455,7 +568,9 @@ export default function stacks(): Level {
     m.colorNode = texture(tex).rgb;
     m.emissiveNode = texture(tex).rgb.mul(0.15);
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.021), m);
-    mesh.position.copy(at).addScaledVector(shelf.dir, 0.032).add(new THREE.Vector3(0, -0.013, 0)).addScaledVector(shelf.normal, 0.004);
+    // pinned flat to the board's front edge, and kept clear of the posts at either end
+    const along = THREE.MathUtils.clamp(at.clone().sub(shelf.origin).dot(shelf.dir) + 0.032, 0.032, shelf.width - 0.032);
+    mesh.position.copy(shelf.origin).addScaledVector(shelf.dir, along).add(new THREE.Vector3(0, -0.013, 0)).addScaledVector(shelf.normal, 0.0015);
     mesh.quaternion.copy(faceOut(shelf.normal));
     scene.add(mesh);
   }
@@ -504,6 +619,9 @@ export default function stacks(): Level {
       parts.length = 0;
       let yy = y + 0.04;
       parts.push([0, y + 0.02, -DEPTH / 2, w, 0.04, DEPTH]);
+      // a recessed plinth down into the stone cornice: the bay is level but the cornice follows
+      // the helix, so without it the bay's low end hovered over a wedge of daylight
+      parts.push([0, y - 0.02, -DEPTH / 2 - 0.005, w + 0.036, 0.04, DEPTH - 0.01]);
       for (const h of ROWS) {
         yy += h;
         parts.push([0, yy + BOARD / 2, -DEPTH / 2, w, BOARD, DEPTH]);
@@ -553,10 +671,14 @@ export default function stacks(): Level {
         while (x < d.w / 2 - 0.05) {
           k++;
           const tw = 0.025 + ((k * 0.618) % 1) * 0.035;
+          if (x + tw > d.w / 2 - 0.022) break; // (the last one used to run into the post)
           const th = h * (0.7 + ((k * 0.414) % 1) * 0.25);
           if ((k * 0.7548) % 1 > 0.08) {
-            const pos = onWall(d.theta, yy).addScaledVector(right, x + tw / 2).addScaledVector(n, 0.03 + 0.11);
-            const item = { pos, quat: q, size: new THREE.Vector3(tw, th, 0.2 + ((k * 0.3) % 1) * 0.05), color: leather[k % leather.length] };
+            // standing ON the shelf, spines 1.5 cm back from its front edge (they used to stand
+            // in mid-air in front of the bookcase)
+            const tdp = 0.2 + ((k * 0.3) % 1) * 0.05;
+            const pos = onWall(d.theta, yy).addScaledVector(right, x + tw / 2).addScaledVector(n, -(0.015 + tdp / 2));
+            const item = { pos, quat: q, size: new THREE.Vector3(tw, th, tdp), color: leather[k % leather.length] };
             (d.ghost ? ghosts : dusty).push(item);
           }
           x += tw + 0.002;
@@ -569,6 +691,24 @@ export default function stacks(): Level {
   }
 
   function buildPlaques(scene: THREE.Scene, plaques: { year: number; theta: number; y: number; label: string }[]) {
+    // Each plaque is a brass plate standing in a little brass foot on the bookcase's top moulding
+    // (it used to hang in mid-air 2.5 cm above the bookcase and 2 cm in front of it).
+    const TOP = ROWS.reduce((a, h) => a + h + BOARD, 0.04); // top of the bookcase, above the bay's bottom
+    const RAIL = TOP + 0.027; // top of the moulding along its front edge (decor.ts)
+    const W = 0.2, H = 0.075;
+    const yFace = RAIL + 0.008 + H / 2;
+    const mounts: THREE.BufferGeometry[] = [];
+    for (const p of plaques) {
+      if (p.year === 9999) continue;
+      const g = boxes([
+        [0, RAIL + 0.004, 0.004, W - 0.03, 0.008, 0.02], // foot, on the moulding
+        [0, yFace, 0.004, W + 0.006, H + 0.006, 0.006], // the plate, a little proud of its engraved face
+      ]);
+      const n = inward(p.theta);
+      g.applyMatrix4(new THREE.Matrix4().makeBasis(UP.clone().cross(n), UP, n).setPosition(onWall(p.theta, p.y)));
+      mounts.push(g);
+    }
+    if (mounts.length) scene.add(new THREE.Mesh(mergeAll(mounts), new THREE.MeshStandardNodeMaterial({ color: 0x8a6424, roughness: 0.35, metalness: 0.85 })));
     for (const p of plaques) {
       if (p.year === 9999) continue;
       const [cv, cx] = canvas(256, 96);
@@ -590,15 +730,53 @@ export default function stacks(): Level {
       const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.35, metalness: 0.8 });
       m.colorNode = texture(tex).rgb;
       m.emissiveNode = texture(tex).rgb.mul(0.12);
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.075), m);
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(W, H), m);
       const n = inward(p.theta);
-      mesh.position.copy(onWall(p.theta, p.y + BAND + 0.07)).addScaledVector(n, 0.02);
+      mesh.position.copy(onWall(p.theta, p.y + yFace)).addScaledVector(n, 0.0075);
       mesh.quaternion.copy(faceOut(n));
       scene.add(mesh);
     }
   }
 
   return level;
+}
+
+const _d = new THREE.Vector3(), _t = new THREE.Vector3(), _n = new THREE.Vector3(), _q = new THREE.Vector3();
+
+/**
+ * Push `p` (something circling the tower's axis) out of a ball of radius `rad` around `q`,
+ * sideways to its path (so a pass becomes a swerve, never a shove along the way). Adds the
+ * offset to `acc`; returns whether it had to. `sign` picks up or down for a dead-centre hit.
+ */
+function dodge(p: THREE.Vector3, q: THREE.Vector3, rad: number, acc: THREE.Vector3, sign: number) {
+  _d.copy(p).sub(q);
+  if (_d.lengthSq() >= rad * rad) return false;
+  _t.set(-p.z, 0, p.x);
+  const tl = _t.length();
+  const along = tl > 1e-6 ? _d.dot(_t.divideScalar(tl)) : 0;
+  _n.copy(_d);
+  if (tl > 1e-6) _n.addScaledVector(_t, -along);
+  let side = _n.length();
+  if (side < 1e-4) {
+    _n.set(0, sign, 0);
+    side = 0;
+  } else _n.divideScalar(side);
+  acc.addScaledVector(_n, Math.sqrt(Math.max(0, rad * rad - along * along)) - side);
+  return true;
+}
+
+/** Push `p` out of a cylinder of radius `rad` around the segment a–b (a line of sight). */
+function dodgeSegment(p: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3, rad: number, acc: THREE.Vector3) {
+  _q.copy(b).sub(a);
+  const len2 = _q.lengthSq();
+  const s = len2 > 1e-9 ? THREE.MathUtils.clamp(_d.copy(p).sub(a).dot(_q) / len2, 0, 1) : 0;
+  _q.multiplyScalar(s).add(a);
+  _d.copy(p).sub(_q);
+  const L = _d.length();
+  if (L >= rad) return;
+  if (L < 1e-4) _d.set(0, 1, 0);
+  else _d.divideScalar(L);
+  acc.addScaledVector(_d, rad - L);
 }
 
 function mergeAll(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
