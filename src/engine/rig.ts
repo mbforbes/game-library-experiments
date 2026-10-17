@@ -108,11 +108,12 @@ export class CameraRig {
     this.poke();
   }
 
-  /** Fly to an arbitrary pose (off-rail). Panning returns to the rail. */
-  goFree(pos: THREE.Vector3, target: THREE.Vector3) {
+  /** Fly to an arbitrary pose (off-rail); `snap` puts the camera there at once. Panning returns to the rail. */
+  goFree(pos: THREE.Vector3, target: THREE.Vector3, snap = false) {
     this.free.pos.copy(pos);
     this.free.target.copy(target);
     this.free.goalWeight = 1;
+    if (snap) this.free.weight = 1;
     this.flight = null;
     this.poke();
   }

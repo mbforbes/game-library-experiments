@@ -180,7 +180,10 @@ export default function vault(): Level {
         { color: "#ffb347", pos: [-4.5, 1.6, 0], size: [0.1, 1.6, D / 2], intensity: 1.2 },
         { color: "#9ab6ff", pos: [4.5, 1.6, 0], size: [0.1, 1.6, D / 2], intensity: 0.8 },
       ]);
-      for (const l of lamps) l.position.z = l.position.z < 0 ? -D / 2 + 2.4 : D / 2 - 2.2;
+      for (const l of lamps) {
+        l.position.z = l.position.z < 0 ? -D / 2 + 2.4 : D / 2 - 2.2;
+        l.position.x = Math.sign(l.position.x) * 1.73; // under the lamps, between the ceiling beams
+      }
 
       buildRoom(scene);
       await progress("Polishing the gold…");
@@ -364,12 +367,25 @@ export default function vault(): Level {
           [-W / 2 + 0.4, -D / 2 + 0.4],
           [-W / 2 + 0.4, D / 2 - 0.4],
         ],
-        { closed: true, h: [0.6, 3.0], d: [0.5, 4.6], h0: 1.7, d0: 3.2, lift: 0.1, round: 0.8 },
+        // (never closer than 0.75 m to a wall: the ajar door reaches ~1.05 m into the room)
+        { closed: true, h: [0.6, 3.0], d: [0.75, 4.6], h0: 1.7, d0: 3.2, lift: 0.1, round: 0.8 },
       );
       const sBack = rail.project(new THREE.Vector3(0, 0, -D / 2));
-      c.rig.setRail(rail, { s: sBack, h: 1.75, d: 2.7 });
+      // the opening view: back far enough to see the board in its room (narrow screens: as far as
+      // the rail allows, the board is wide)
+      const valueD = () => Math.min(4.6, Math.max(3.9, 4.6 / (2 * Math.tan(THREE.MathUtils.degToRad(c.rig.camera.fov / 2)) * (innerWidth / innerHeight))));
+      // (portrait screens: the 3.6 m board needs more room than the rail has, so look at it from
+      // down the room, far enough to fit its width)
+      const valueView = (snap = false) => {
+        const aspect = innerWidth / innerHeight;
+        if (aspect >= 1) return c.rig.goTo({ s: sBack, h: 1.7, d: valueD() });
+        const dist = Math.min(D - 1.5, 3.9 / (2 * Math.tan(THREE.MathUtils.degToRad(c.rig.camera.fov / 2)) * aspect));
+        c.rig.goFree(new THREE.Vector3(0, 1.75, -D / 2 + dist), new THREE.Vector3(0, 1.75, -D / 2), snap);
+      };
+      c.rig.setRail(rail, { s: sBack, h: 1.7, d: valueD() });
+      if (innerWidth < innerHeight) valueView(true);
       stations.push(
-        { id: "value", label: "The Value", go: () => c.rig.goTo({ s: sBack, h: 1.75, d: 2.7 }) },
+        { id: "value", label: "The Value", go: () => valueView() },
         { id: "history", label: "Over Time", go: () => c.rig.goTo({ s: rail.project(history.position), h: 1.7, d: 2.6 }) },
         { id: "top", label: "Most Valuable", go: () => c.rig.goTo({ s: rail.project(ranking.position), h: 1.75, d: 2.6 }) },
         { id: "platforms", label: "By Platform", go: () => c.rig.goTo({ s: rail.project(platforms.position), h: 1.6, d: 2.3 }) },
@@ -385,7 +401,7 @@ export default function vault(): Level {
             c.rig.goTo({ s: rail.project(b.run.a.clone().addScaledVector(b.run.dir, b.at + into)), h: 1.68, d: dd });
           },
         })),
-        { id: "door", label: "The Door", go: () => c.rig.goTo({ s: rail.project(new THREE.Vector3(0, 0, D / 2)), h: 1.5, d: 3.6 }) },
+        { id: "door", label: "The Door", go: () => c.rig.goTo({ s: rail.project(new THREE.Vector3(0, 0, D / 2)), h: 1.6, d: 3.7 }) },
       );
     },
 
@@ -440,8 +456,8 @@ export default function vault(): Level {
     };
     return [
       run(W / 2, -D / 2 + 5.9, W / 2, D / 2 - 0.3, -1, 0), // right wall
-      run(W / 2 - 0.3, D / 2, 1.62, D / 2, 0, -1), // front wall, right of the door (as you face it)
-      run(-1.62, D / 2, -W / 2 + 0.3, D / 2, 0, -1), // front wall, left of the door
+      run(W / 2 - 0.3, D / 2, 1.8, D / 2, 0, -1), // front wall, right of the door (as you face it; clear of its hinge)
+      run(-1.8, D / 2, -W / 2 + 0.3, D / 2, 0, -1), // front wall, left of the door (clear of its frame)
       run(-W / 2, D / 2 - 0.3, -W / 2, -D / 2 + 3.85, 1, 0), // left wall
     ];
   }
@@ -496,13 +512,13 @@ export default function vault(): Level {
       const rot: Vec3 = [0, r.rot, 0];
       const put = (along: number, y: number, out: number, fn: () => void) => d.at(at(r, along, y, out), rot, fn);
       // velvet back, a closed base, gold-trimmed shelves with a light under each, a top cap
-      put(mid, (BASE + TOP) / 2, 0.012, () => d.plane([len, TOP - BASE + 0.06], [0, 0, 0], "#4a1018", { rough: 0.95 }));
+      put(mid, (BASE - 0.03 + TOP) / 2, 0.012, () => d.plane([len, TOP - BASE + 0.03], [0, 0, 0], "#4a1018", { rough: 0.95 }));
       put(mid, BASE / 2, 0.11, () => d.box([len, BASE, 0.2], [0, 0, 0], "#1d1a15", { rough: 0.4, metal: 0.2 }));
       for (let k = 0; k <= ROWS; k++) {
         const y = BASE + k * ROW;
         put(mid, y - 0.01, 0.1, () => d.box([len, 0.02, 0.18], [0, 0, 0], k === ROWS ? "#8a6a2c" : "#2a241b", { rough: 0.35, metal: k === ROWS ? 1 : 0.3 }));
         put(mid, y - 0.0225, 0.193, () => d.box([len, 0.045, 0.008], [0, 0, 0], "#8a6a2c", { metal: 1, rough: 0.3 }));
-        if (k > 0) put(mid, y - 0.032, 0.16, () => d.box([len, 0.006, 0.012], [0, 0, 0], "#fff1c9", { glow: 1.6 }));
+        if (k > 0) put(mid, y - 0.023, 0.16, () => d.box([len, 0.006, 0.012], [0, 0, 0], "#fff1c9", { glow: 1.6 })); // under the shelf above
       }
       for (const e of [a0, a1]) put(e, TOP / 2, 0.1, () => d.box([0.04, TOP, 0.2], [0, 0, 0], "#8a6a2c", { metal: 1, rough: 0.3 }));
     }
@@ -524,7 +540,8 @@ export default function vault(): Level {
         x.font = `500 18px "Oswald", sans-serif`;
         x.fillText(`${b.n} game${b.n > 1 ? "s" : ""} · ${money(b.value)}`, 12, ch * 0.76, cw - 24);
       });
-      d.at(at(b.run, b.at + w / 2, TOP + 0.13, 0.04), [0, b.run.rot, 0], () => d.plane([w, 0.18], [0, 0, 0], "#ffffff", { tex, glow: 0.45 }));
+      // (a plate on the wall, not a sign floating in front of it)
+      d.at(at(b.run, b.at + w / 2, TOP + 0.13, 0.015), [0, b.run.rot, 0], () => d.box([w, 0.18, 0.03], [0, 0, 0], "#ffffff", { tex, face: "front", glow: 0.45 }));
     }
     scene.add(d.build("vault-shelves", { essential: true }));
 
@@ -672,10 +689,10 @@ export default function vault(): Level {
     for (let k = -3; k <= 3; k++) d.box([0.08, 0.12, D], [k * 1.15, H - 0.06, 0], "#22252b", { metal: 0.6, rough: 0.5 });
     // warm ceiling lamps
     for (const [x, z] of [
-      [-2, -D / 2 + 2.4],
-      [2, -D / 2 + 2.4],
-      [-2, D / 2 - 2.2],
-      [2, D / 2 - 2.2],
+      [-1.73, -D / 2 + 2.4],
+      [1.73, -D / 2 + 2.4],
+      [-1.73, D / 2 - 2.2],
+      [1.73, D / 2 - 2.2],
     ]) {
       d.cyl(0.25, 0.32, 0.12, [x, H - 0.1, z], "#2a2520", { metal: 0.8, rough: 0.4 });
       d.cyl(0.22, 0.22, 0.02, [x, H - 0.17, z], "#ffe2a8", { glow: 2.2 });
@@ -727,36 +744,41 @@ export default function vault(): Level {
     const brass = { metal: 1, rough: 0.28, glow: 0.12 };
     const chrome = { metal: 1, rough: 0.16 };
     // (in this frame +z points into the room and +x is right as you face the door)
-    d.at([0, 1.45, D / 2], [0, Math.PI, 0], () => {
-      d.box([3.0, 3.0, 0.06], [0, 0, 0.03], "#4c5159", { metal: 0.6, rough: 0.45 });
-      for (let k = 0; k < 20; k++) {
-        const a = (k / 20) * Math.PI * 2;
-        d.cyl(0.025, 0.025, 0.03, [Math.cos(a) * 1.62, Math.sin(a) * 1.62, 0.07], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], ...chrome, seg: 8 });
-      }
+    d.at([0, 1.55, D / 2], [0, Math.PI, 0], () => {
+      d.box([2.9, 2.9, 0.06], [0, 0, 0.03], "#4c5159", { metal: 0.6, rough: 0.45 }); // (from the floor up)
+      for (let k = 0; k < 6; k++)
+        for (const [sx, sy] of [
+          [1, 0],
+          [0, 1],
+        ]) {
+          const t = -1.25 + k * 0.5;
+          for (const e of [-1.36, 1.36]) d.cyl(0.025, 0.025, 0.03, [sx ? e : t, sy ? e : t, 0.07], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], ...chrome, seg: 8 });
+        }
       d.torus(R + 0.13, 0.12, [0, 0, 0.12], "#8d929b", { ...steel, seg: 64 });
-      d.torus(R + 0.36, 0.014, [0, 0, 0.07], "#ffd28a", { glow: 1.6, seg: 64 });
+      d.torus(R + 0.3, 0.014, [0, 0, 0.07], "#ffd28a", { glow: 1.6, seg: 64 });
       // daylight from the corridor outside, seen through the gap
       d.cyl(R + 0.02, R + 0.02, 0.01, [0, 0, 0.065], "#ffe2b0", { rot: [Math.PI / 2, 0, 0], glow: 2.4, seg: 48 });
       // the hinge: two knuckles on the frame, the pin through them
-      const hx = -(R + 0.22), hz = 0.24;
+      const hx = -(R + 0.22), hz = 0.2;
       for (const y of [-0.62, 0.62]) {
         d.box([0.26, 0.36, 0.2], [hx - 0.06, y, 0.13], "#5c616a", steel);
         d.cyl(0.1, 0.1, 0.36, [hx, y, hz], "#7a7f88", { ...steel, seg: 20 });
         d.cyl(0.06, 0.06, 0.05, [hx, y + 0.205, hz], "#c9a45c", { ...brass, seg: 14 });
       }
       d.cyl(0.035, 0.035, 1.66, [hx, 0, hz], "#c7ccd3", { ...chrome, seg: 10 });
-      // the door, swung 18° into the room about the hinge
-      d.at([hx, 0, hz], [0, -0.314, 0], () => {
+      // the door, swung 14° into the room about the hinge
+      d.at([hx, 0, hz], [0, -0.244, 0], () => {
         for (const y of [-0.62, 0.62]) d.box([0.46, 0.22, 0.09], [0.26, y, 0], "#6c7179", steel); // hinge arms
         d.at([R + 0.22, 0, 0], null, () => {
           d.cyl(R, R, 0.42, [0, 0, 0], "#8a9099", { rot: [Math.PI / 2, 0, 0], ...steel, seg: 64 });
           d.torus(R, 0.035, [0, 0, 0.21], "#b3b9c1", { ...chrome, seg: 64 });
           d.cyl(1.0, 1.0, 0.04, [0, 0, 0.23], "#666b73", { rot: [Math.PI / 2, 0, 0], ...steel, seg: 48 });
-          // locking bolts (retracted, just showing at the rim) and the linkages that throw them
+          // locking bolts (retracted, as the door's open: just their ends at the rim) and the
+          // linkages that throw them
           for (let k = 0; k < 12; k++) {
             const a = (k / 12) * Math.PI * 2 + Math.PI / 12;
             const [c, sn] = [Math.cos(a), Math.sin(a)];
-            d.cyl(0.05, 0.05, 0.24, [c * (R + 0.02), sn * (R + 0.02), 0], "#c7ccd3", { rot: [0, 0, a - Math.PI / 2], ...chrome, seg: 10 });
+            d.cyl(0.05, 0.05, 0.24, [c * (R - 0.1), sn * (R - 0.1), 0], "#c7ccd3", { rot: [0, 0, a - Math.PI / 2], ...chrome, seg: 10 });
             d.box([0.56, 0.05, 0.03], [c * 0.66, sn * 0.66, 0.27], "#c9a45c", { rot: [0, 0, a], ...brass });
             d.cyl(0.035, 0.035, 0.04, [c * 0.93, sn * 0.93, 0.28], "#9aa0a8", { rot: [Math.PI / 2, 0, 0], ...chrome, seg: 8 });
           }
