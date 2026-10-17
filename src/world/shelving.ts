@@ -123,6 +123,15 @@ export function packShelves(games: Game[], shelves: Shelf[], art: ArtStore, opts
     }
     let sec: SectionInfo = { key: grp.key, shelf: si, start: posOn(shelfAt(), cursor), end: posOn(shelfAt(), cursor), games: [] };
     sections.push(sec);
+    // a section continued on the next shelf; one with no games yet just moves there (an empty
+    // section left behind put its label over a shelf end)
+    const nextSection = (prev: SectionInfo, key: SectionInfo["key"]): SectionInfo => {
+      const start = posOn(shelfAt(), cursor);
+      if (!prev.games.length) return Object.assign(prev, { shelf: si, start, end: start.clone() });
+      const n: SectionInfo = { key, shelf: si, start, end: start.clone(), games: [] };
+      sections.push(n);
+      return n;
+    };
 
     // stacks: consecutive "stack" items are collected and laid flat together
     let stack: Game[] = [];
@@ -139,8 +148,7 @@ export function packShelves(games: Game[], shelves: Shelf[], art: ArtStore, opts
           stack = [];
           return;
         }
-        sec = { key: grp.key, shelf: si, start: posOn(shelfAt(), cursor), end: posOn(shelfAt(), cursor), games: [] };
-        sections.push(sec);
+        sec = nextSection(sec, grp.key);
       }
       const s = shelfAt();
       let y = 0;
@@ -185,8 +193,7 @@ export function packShelves(games: Game[], shelves: Shelf[], art: ArtStore, opts
           overflow.push(g);
           return;
         }
-        sec = { key: grp.key, shelf: si, start: posOn(shelfAt(), cursor), end: posOn(shelfAt(), cursor), games: [] };
-        sections.push(sec);
+        sec = nextSection(sec, grp.key);
       }
       const s = shelfAt();
       if (h > s.height + 0.001) {
@@ -196,6 +203,9 @@ export function packShelves(games: Game[], shelves: Shelf[], art: ArtStore, opts
       if (mode === "face") {
         const leanBack = Math.sin(lean) * h;
         p = s.origin.clone().addScaledVector(s.dir, cursor + along / 2).addScaledVector(s.normal, -(inset + d / 2 + leanBack * 0.5));
+        // tipped back about its bottom centre, one bottom edge would sink into the shelf by
+        // half its depth × sin(lean): lift it so that edge rests on the board
+        p.y += (Math.sin(lean) * d) / 2;
         q = faceOut(s.normal, lean);
       } else {
         p = s.origin.clone().addScaledVector(s.dir, cursor + d / 2 + gap / 2).addScaledVector(s.normal, -(inset + w / 2));
