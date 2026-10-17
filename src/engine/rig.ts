@@ -30,6 +30,13 @@ export class CameraRig {
   readonly target = new THREE.Vector3();
   /** Idle seconds (for attract-mode drift) */
   idle = 0;
+  /**
+   * Free-standing props the camera keeps out of (capsules a→b of radius r; a sphere when a = b):
+   * when one comes between the camera and what it's looking at, the camera moves in front of it.
+   */
+  obstacles: { a: THREE.Vector3; b: THREE.Vector3; r: number }[] = [];
+  /** smoothed share of the target→camera distance that's clear of obstacles */
+  private clear = 1;
   onMove?: () => void;
 
   constructor(readonly camera: THREE.PerspectiveCamera) {}
@@ -202,6 +209,12 @@ export class CameraRig {
     const ease = w * w * (3 - 2 * w);
     this.pos.copy(railPos).lerp(this.free.pos, ease);
     this.target.copy(railTarget).lerp(this.free.target, ease);
+    if (this.obstacles.length) {
+      // pull in quickly when something's in the way, ease back out slowly
+      const want = this.clearShare();
+      this.clear += (want - this.clear) * (1 - Math.exp(-dt * (want < this.clear ? 16 : 3)));
+      if (this.clear < 0.999) this.pos.lerpVectors(this.target, this.pos, this.clear);
+    }
 
     // parallax look offsets + a slow, barely-there breathing sway
     const lk = 1 - Math.exp(-dt * 4);
@@ -219,10 +232,41 @@ export class CameraRig {
     this.camera.lookAt(lookAt);
   }
 
+  /** How much of the way from the target back to the camera is clear of obstacles (0..1). */
+  private clearShare() {
+    const len = this.pos.distanceTo(this.target);
+    if (len < 1e-3) return 1;
+    // (looking at a prop itself from close up: that one doesn't count)
+    const obs = this.obstacles.filter((o) => distToSegment(this.target, o.a, o.b) > o.r);
+    const hit = (k: number) => obs.some((o) => distToSegment(tmpP.lerpVectors(this.target, this.pos, k), o.a, o.b) <= o.r);
+    const N = 40;
+    for (let i = 1; i <= N; i++) {
+      if (!hit(i / N)) continue;
+      // the first blocked step: narrow down where the way in starts
+      let lo = (i - 1) / N, hi = i / N;
+      for (let j = 0; j < 6; j++) {
+        const mid = (lo + hi) / 2;
+        if (hit(mid)) hi = mid;
+        else lo = mid;
+      }
+      return Math.max(Math.min(1, 0.12 / len), lo - 0.12 / len);
+    }
+    return 1;
+  }
+
   /** Rail state that frames a world point (e.g. a game on a shelf) at distance d. */
   frame(world: THREE.Vector3, d?: number): RailState | null {
     if (!this.rail) return null;
     const s = this.rail.project(world);
     return { s, h: world.y, d: d ?? this.rail.opts.d[0] + 0.25 };
   }
+}
+
+const segTmp = new THREE.Vector3();
+function distToSegment(p: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3) {
+  const ab = segTmp.subVectors(b, a);
+  const l2 = ab.lengthSq();
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y + (p.z - a.z) * ab.z) / l2)) : 0;
+  const x = a.x + ab.x * t - p.x, y = a.y + ab.y * t - p.y, z = a.z + ab.z * t - p.z;
+  return Math.sqrt(x * x + y * y + z * z);
 }

@@ -289,6 +289,15 @@ export default function lab(): Level {
         );
       railA = mk(new THREE.Vector3());
       railB = mk(B_OFFSET);
+      // the camera can pull back a long way: keep it out of the props standing in the chambers
+      const V = (x: number, y: number, z: number, o = new THREE.Vector3()) => new THREE.Vector3(x, y, z).add(o);
+      c.rig.obstacles = [
+        { a: V(2.2, 3.6, 0.2), b: V(2.2, 4.9, 0.2), r: 0.75 }, // the Archivist and its arm
+        { a: V(2.7, 4.0, 2.3), b: V(2.7, 5.2, 2.3), r: 0.5 }, // the cube dispenser (0.47 m round)
+        { a: V(2.7, 0, 2.3), b: V(2.7, 0.8, 2.3), r: 0.55 }, // the cube on its pedestal
+        { a: V(1.2, 4.9, 1.9, B_OFFSET), b: V(1.3, 2.0, 0.9, B_OFFSET), r: 0.6 }, // chamber 02's robotic arm
+        { a: V(0.9, 0.2, 0.75, B_OFFSET), b: V(1.7, 0.2, 0.75, B_OFFSET), r: 0.6 }, // its faith plate
+      ];
       const backS = (r: Rail, o: THREE.Vector3) => r.project(o.clone().add(new THREE.Vector3(0, 0, -D / 2)));
       c.rig.setRail(railA, { s: backS(railA, new THREE.Vector3()), h: 2.0, d: 5.2 });
       const goA = (s: number, h: number, d: number) => () => {
