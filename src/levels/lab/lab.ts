@@ -347,7 +347,7 @@ export default function lab(): Level {
         { id: "results", label: "Results", go: fr(true, gridB, () => results) },
         { id: "aplus", label: "A+ Wall", go: fr(true, gridB, () => results.filter((g) => g.grade === "A+")) },
         { id: "portal", label: "Portal", go: goA(railA.project(portalA.group.position), 1.3, 2.4) },
-        { id: "tubes", label: "Pending", go: goA(railA.project(new THREE.Vector3(-2.6, 0, D / 2)), 1.6, 2.2) },
+        { id: "tubes", label: "Pending", go: goA(railA.project(new THREE.Vector3(-2.6, 0, D / 2)), 1.75, 2.6) }, // (sign at 2.75 m in view)
         { id: "stats", label: "Chamber Sign", go: goA(railA.project(signA.position), 2.0, 2.0) },
         { id: "forecast", label: "Forecast", go: goA(railA.project(new THREE.Vector3(1.32, 0, D / 2)), 2.1, 4.3) },
         { id: "findings", label: "Findings", go: goB(railB.project(B_OFFSET.clone().add(new THREE.Vector3(1.32, 0, D / 2))), 2.1, 4.3) },
