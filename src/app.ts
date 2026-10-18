@@ -112,6 +112,10 @@ export class App {
       document.body.appendChild(this.fps.el);
       this.applyQuality(q0, []); // (sets the meter's note)
       this.hud.bindFps(() => this.fps.on, (on) => (this.fps.on = on));
+      this.audio.onMusicStart = (url) => {
+        const t = this.active?.entry.music?.find((x) => x.url === url);
+        if (t) this.hud.nowPlaying(t);
+      };
       this.hud.factsHook = (g) => this.level?.facts?.(g) ?? [];
       const tEngine = performance.now();
       this.art = new ArtStore(this.device.mobile ? "lo" : "hi");
@@ -292,6 +296,39 @@ export class App {
     box.textContent = `${head}\n${lines().join("\n")}\n${report.pipelines} pipelines · results ${sent}`;
   }
 
+  // ---- music: a room's tracks, shuffled on entering unless one was chosen in the sound menu ----
+  private lastTrack = new Map<string, string>();
+  private musicChoice(id: string): string {
+    try {
+      return localStorage.getItem(`the-backlog-music:${id}`) ?? "shuffle";
+    } catch {
+      return "shuffle";
+    }
+  }
+  private playRoomMusic(slot: Slot, reshuffle = true) {
+    const list = slot.entry.music ?? [];
+    const choice = this.musicChoice(slot.id);
+    let t = list.find((x) => x.url === choice);
+    if (!t && list.length) {
+      const last = this.lastTrack.get(slot.id);
+      const pool = list.length > 1 && reshuffle ? list.filter((x) => x.url !== last) : list;
+      t = pool[Math.floor(Math.random() * pool.length)];
+    }
+    if (t) this.lastTrack.set(slot.id, t.url);
+    this.audio.music(t?.url ?? null, t?.gainDb ?? 0);
+    this.hud.setCredits(t ?? null);
+    this.hud.setMusic(slot.entry.name, list, t ?? null, choice);
+  }
+  /** the sound menu picked "shuffle" or a track for the room you're in */
+  private chooseMusic(choice: string) {
+    const slot = this.active;
+    if (!slot) return;
+    try {
+      localStorage.setItem(`the-backlog-music:${slot.id}`, choice);
+    } catch {}
+    this.playRoomMusic(slot);
+  }
+
   /** After the first world is up, quietly build + compile the others so switching is instant. */
   private async prebuildOthers() {
     // let the first room have the stage: wait until its own compiles are done and you've had a
@@ -405,8 +442,7 @@ export class App {
     slot.scene.add(this.bursts.mesh);
     this.burstColor = slot.entry.accent;
     this.audio.activate(slot.id);
-    this.audio.music(slot.entry.music?.url ?? null);
-    this.hud.setCredits(slot.entry.music ?? null);
+    this.playRoomMusic(slot);
     this.hud.setLevel(slot.level.name, slot.entry.accent, slot.level.stations);
     this.applyFilter();
     slot.level.enter?.();
@@ -425,6 +461,7 @@ export class App {
         this.loadLevel(id);
       },
       onSound: () => (this.audio.enabled = !this.audio.enabled),
+      onMusic: (choice: string) => this.chooseMusic(choice),
       soundOn: () => this.audio.enabled,
       onUi: (kind: "tick" | "travel") => this.audio.play(kind, { volume: kind === "tick" ? 0.7 : 0.8 }),
       onClose: () => this.closeGame(),

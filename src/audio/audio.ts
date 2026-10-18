@@ -208,9 +208,15 @@ export class AudioEngine {
 
   /** Very soft background music. One media element for all tracks (iOS unlocks it once). */
   static MUSIC_LEVEL = 0.2;
-  music(url: string | null) {
+  /** this track's level (MUSIC_LEVEL adjusted by its gainDb) */
+  private musicLevel = AudioEngine.MUSIC_LEVEL;
+  /** a track has actually started playing (for the now-playing credit) */
+  onMusicStart?: (url: string) => void;
+  private announced: string | null = null;
+  music(url: string | null, gainDb = 0) {
     if (url === this.musicUrl) return;
     this.musicUrl = url;
+    this.musicLevel = AudioEngine.MUSIC_LEVEL * 10 ** (gainDb / 20);
     if (!this.musicEl || !this.ctx) return; // starts on the first gesture (startMusic)
     if (this.ctx.state !== "running") this.ctx.resume().catch(() => {});
     const swap = ++this.musicSwap;
@@ -243,7 +249,14 @@ export class AudioEngine {
   private playMusic() {
     const el = this.musicEl!;
     if (!this._enabled || document.hidden) return;
-    const up = () => this.ctx && this.musicBus.gain.setTargetAtTime(AudioEngine.MUSIC_LEVEL, this.ctx.currentTime, 1.2);
+    const up = () => {
+      if (!this.ctx) return;
+      this.musicBus.gain.setTargetAtTime(this.musicLevel, this.ctx.currentTime, 1.2);
+      if (this.musicUrl && this.musicUrl !== this.announced) {
+        this.announced = this.musicUrl;
+        this.onMusicStart?.(this.musicUrl);
+      }
+    };
     if (!el.paused) return up();
     el.play().then(up).catch(() => {});
   }

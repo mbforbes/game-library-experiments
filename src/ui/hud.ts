@@ -31,6 +31,8 @@ export interface HudCallbacks {
   onNext(): void;
   onSound(): void;
   soundOn(): boolean;
+  /** the sound menu: "shuffle", or a track's url, for the room you're in */
+  onMusic(choice: string): void;
   onUi(kind: "tick" | "travel"): void;
 }
 
@@ -39,6 +41,11 @@ export class Hud {
   private loading = h("div", "loading");
   private loadingMsg = h("div", "loading-msg");
   private toastEl = h("div", "toast");
+  /** the sound button's menu (sound on/off, this room's tracks) and the now-playing credit */
+  private soundMenu = h("div", "sound-menu");
+  private npChip = h("div", "np-chip");
+  private npTimer = 0;
+  private paintSound = () => {};
   /** the Archivist's voice: in the open game's panel (beside its facts), else at the top */
   private panelVoice = new Voice();
   private topVoice = new Voice("v-top");
@@ -87,19 +94,24 @@ export class Hud {
       this.filterBox.classList.toggle("open");
     };
     const soundBtn = h("button", "icon-btn sound");
-    const paintSound = () => {
+    const paintSound = (this.paintSound = () => {
       const on = cb.soundOn();
       soundBtn.innerHTML = on
         ? `<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" stroke="none"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>`
         : `<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff" stroke="none"/><path d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg>`;
-      soundBtn.setAttribute("aria-label", on ? "Mute sound" : "Unmute sound");
-    };
+      soundBtn.setAttribute("aria-label", "Sound and music");
+      const sw = this.soundMenu.querySelector(".sm-sound") as HTMLInputElement | null;
+      if (sw) sw.checked = on;
+    });
     paintSound();
     soundBtn.onclick = () => {
-      cb.onSound();
-      paintSound();
+      this.soundMenu.classList.toggle("open");
       cb.onUi("tick");
     };
+    // (a tap anywhere else closes it)
+    addEventListener("pointerdown", (e) => {
+      if (this.soundMenu.classList.contains("open") && !this.soundMenu.contains(e.target as Node) && !soundBtn.contains(e.target as Node)) this.soundMenu.classList.remove("open");
+    });
     actions.append(soundBtn, searchBtn, filterBtn);
     top.append(brand, actions);
     this.root.appendChild(top);
@@ -177,7 +189,7 @@ export class Hud {
     }
 
     // stations + panel + toast + debug
-    this.root.append(this.stationsEl, this.panel, this.toastEl, this.topVoice.el, this.debugEl, this.tip, this.switcher, this.help);
+    this.root.append(this.stationsEl, this.panel, this.toastEl, this.topVoice.el, this.soundMenu, this.npChip, this.debugEl, this.tip, this.switcher, this.help);
     this.topVoice.onDone = () => {
       clearTimeout(this.topVoiceTimer);
       this.topVoiceTimer = window.setTimeout(() => this.topVoice.el.classList.remove("show"), 3200);
@@ -248,12 +260,45 @@ export class Hud {
     };
   }
 
-  /** Music credit (Creative Commons attribution) in the controls card. */
+  /** Music credit (Creative Commons / OverClocked ReMix attribution) in the controls card. */
   setCredits(t: Track | null) {
     const el = this.help.querySelector(".credits") as HTMLElement;
-    el.innerHTML = t
-      ? `♪ “${esc(t.title)}” by <a href="${t.link}" target="_blank" rel="noopener">${esc(t.artist)}</a>, <a href="${t.licenseUrl}" target="_blank" rel="noopener">${esc(t.license)}</a>${t.via ? `, via <a href="${t.via.url}" target="_blank" rel="noopener">${esc(t.via.name)}</a>` : ""}`
-      : "";
+    el.innerHTML = t ? `♪ ${creditHtml(t)}` : "";
+  }
+
+  /** The sound menu for this room: on/off, shuffle or a chosen track, and the current credit. */
+  setMusic(room: string, tracks: Track[], current: Track | null, choice: string) {
+    const open = this.soundMenu.classList.contains("open");
+    const row = (c: string, label: string, sub: string, on: boolean) => `<button class="sm-track${on ? " on" : ""}" data-c="${esc(c)}"><span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+    this.soundMenu.innerHTML =
+      `<label class="sm-row"><span>Sound</span><input type="checkbox" class="sm-sound"></label>` +
+      (tracks.length
+        ? `<div class="sm-head">Music · ${esc(room)}</div>` +
+          (tracks.length > 1 ? row("shuffle", "Shuffle", "a different one each visit", choice === "shuffle" || !tracks.some((t) => t.url === choice)) : "") +
+          tracks.map((t) => row(t.url, t.title, [t.game, t.artist].filter(Boolean).join(" · "), choice === t.url)).join("") +
+          (current ? `<p class="sm-credit">Playing: ${creditHtml(current)}</p>` : "")
+        : "");
+    const sw = this.soundMenu.querySelector(".sm-sound") as HTMLInputElement;
+    sw.checked = this.cb.soundOn();
+    sw.onchange = () => {
+      this.cb.onSound();
+      this.paintSound();
+    };
+    this.soundMenu.querySelectorAll<HTMLButtonElement>(".sm-track").forEach((b) => {
+      b.onclick = () => {
+        this.cb.onMusic(b.dataset.c!);
+        this.cb.onUi("tick");
+      };
+    });
+    this.soundMenu.classList.toggle("open", open);
+  }
+
+  /** A track started: its credit, briefly, by the sound button. */
+  nowPlaying(t: Track) {
+    this.npChip.innerHTML = `♪ ${creditHtml(t)}`;
+    this.npChip.classList.add("show");
+    clearTimeout(this.npTimer);
+    this.npTimer = window.setTimeout(() => this.npChip.classList.remove("show"), 6000);
   }
 
   /** Level switch loader: name + bar while a world builds / compiles; null hides it. */
@@ -435,4 +480,10 @@ export function statusLabel(g: Game): string {
 function fmt(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1]} ${d}, ${y}`;
+}
+
+/** “Title” (Game) by Artist, Licence[, via Source]: the attribution each track's licence asks for. */
+function creditHtml(t: Track) {
+  const a = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener">${esc(text)}</a>`;
+  return `“${esc(t.title)}”${t.game ? ` (${esc(t.game)})` : ""} by ${a(t.link, t.artist)}, ${a(t.licenseUrl, t.license)}${t.via ? `, via ${a(t.via.url, t.via.name)}` : ""}`;
 }

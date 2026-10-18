@@ -99,6 +99,29 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   background: var(--bg); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 .filters.open { display: flex; }
+/* the sound button's menu: on/off, this room's tracks, the credit for what's playing */
+.sound-menu {
+  position: fixed; top: calc(64px + var(--safe-t)); right: 12px; display: none; flex-direction: column; gap: 4px; padding: 10px; width: min(330px, calc(100vw - 24px));
+  background: var(--bg); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 7;
+}
+.sound-menu.open { display: flex; }
+.sm-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 8px; font-size: 14px; }
+.sm-row input { width: 18px; height: 18px; accent-color: var(--accent); }
+.sm-head { font-family: "Silkscreen", monospace; font-size: 11px; color: var(--accent); padding: 6px 4px 2px; border-top: 1px solid var(--line); }
+.sm-track { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; padding: 7px 10px; border-radius: 10px; border: 1px solid transparent; font-size: 14px; }
+.sm-track small { color: var(--muted); font-size: 12px; }
+.sm-track:hover { border-color: var(--line); }
+.sm-track.on { border-color: var(--accent); background: #ffffff0d; }
+.sm-credit { margin: 6px 4px 0; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.sm-credit a, .np-chip a { color: inherit; }
+/* now playing: in the top bar, left of the buttons (phones: under them) */
+.np-chip {
+  position: fixed; top: calc(16px + var(--safe-t)); right: 166px; max-width: min(420px, calc(100vw - 520px)); padding: 7px 11px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--line); font-size: 12px; line-height: 1.35; color: #d7dbe4; opacity: 0; transform: translateY(-6px);
+  pointer-events: none; transition: opacity 0.4s, transform 0.4s; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.np-chip.show { opacity: 1; transform: none; pointer-events: auto; }
+.sound-menu.open ~ .np-chip { display: none; }
 .chip { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 600; }
 
@@ -177,6 +200,7 @@ dd { margin: 0; }
     transform: translateY(100%);
   }
   .panel.open { transform: none; }
+  .np-chip { top: calc(64px + var(--safe-t)); right: 12px; max-width: calc(100vw - 24px); }
   /* the facts take the left half, the Archivist the right (it used to cover the game) */
   .facts.has-voice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   .facts.has-voice dl { grid-template-columns: auto minmax(0, 1fr); font-size: 13px; }
@@ -234,7 +258,7 @@ dd { margin: 0; }
 .forecast .conf { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
 
 /* ---------- fps meter (top left, under the title) ---------- */
-.fps { position: fixed; left: 12px; top: calc(70px + var(--safe-t)); pointer-events: none; z-index: 12; }
+.fps { position: fixed; left: 12px; top: calc(70px + var(--safe-t)); pointer-events: none; z-index: 9; } /* (under the HUD: menus cover it) */
 @media (max-width: 820px), (orientation: portrait) {
   .fps { top: calc(64px + var(--safe-t)); }
 }
