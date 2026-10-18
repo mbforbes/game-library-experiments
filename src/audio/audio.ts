@@ -6,6 +6,7 @@
 
 import * as THREE from "three/webgpu";
 import { SFX, type SfxName } from "./sfx";
+import { MusicStream } from "./stream";
 
 export interface EmitterSpec {
   position: THREE.Vector3;
@@ -35,7 +36,9 @@ export class AudioEngine {
   private reverb!: ConvolverNode;
   private reverbSend!: GainNode;
   private musicBus!: GainNode;
-  private musicEl: HTMLAudioElement | null = null;
+  private stream: MusicStream | null = null;
+  /** where the music was stopped (sound off), to carry on from there */
+  private musicPos = 0;
   private musicUrl: string | null = null;
   private musicSwap = 0;
   private emitters: Emitter[] = [];
@@ -67,7 +70,7 @@ export class AudioEngine {
     // hush when the tab is hidden; try to come back when shown (the next tap finishes the job)
     const onShow = () => {
       if (document.hidden) {
-        this.musicEl?.pause();
+        // (the music is scheduled on the audio clock: suspending pauses it)
         this.ctx?.suspend().catch(() => {});
       } else if (this._enabled && this.ctx) this.revive();
     };
@@ -79,24 +82,20 @@ export class AudioEngine {
   get stalled() {
     if (!this._enabled || document.hidden) return false;
     if (!this.ctx || this.ctx.state !== "running") return true;
-    return !!this.musicUrl && (!this.musicEl || this.musicEl.paused);
+    return !!this.musicUrl && !this.stream?.playing;
   }
 
   /** Bring sound back after the browser stopped it. Safe to call any time (best inside a gesture). */
   revive() {
     if (!this._enabled) return;
     if (this.ctx && (this.ctx.state as string) === "closed") {
-      // a closed context can't be resumed: start over (the music element belongs to the old one)
-      this.musicEl?.pause();
-      this.musicEl = null;
+      // a closed context can't be resumed: start over (the music belonged to the old one)
+      this.musicPos = this.stream?.stop() ?? 0;
+      this.stream?.dispose();
+      this.stream = null;
       this.ctx = null;
     }
     this.start();
-    const el = this.musicEl;
-    if (el && el.error && this.musicUrl) {
-      el.src = this.musicUrl;
-      el.load();
-    }
     this.startMusic();
   }
 
@@ -112,7 +111,7 @@ export class AudioEngine {
     if (v) {
       this.start();
       this.startMusic();
-    } else this.musicEl?.pause();
+    } else if (this.stream?.playing) this.musicPos = this.stream.stop();
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(v ? 0.9 : 0, this.ctx.currentTime, 0.08);
     this.onChange?.(v);
   }
@@ -206,7 +205,7 @@ export class AudioEngine {
 
   // ---- music ------------------------------------------------------------------------------
 
-  /** Very soft background music. One media element for all tracks (iOS unlocks it once). */
+  /** Very soft background music (decoded and played from memory: see stream.ts). */
   static MUSIC_LEVEL = 0.2;
   /** this track's level (MUSIC_LEVEL adjusted by its gainDb) */
   private musicLevel = AudioEngine.MUSIC_LEVEL;
@@ -217,48 +216,39 @@ export class AudioEngine {
     if (url === this.musicUrl) return;
     this.musicUrl = url;
     this.musicLevel = AudioEngine.MUSIC_LEVEL * 10 ** (gainDb / 20);
-    if (!this.musicEl || !this.ctx) return; // starts on the first gesture (startMusic)
+    this.musicPos = 0;
+    if (!this.stream || !this.ctx) return; // starts on the first gesture (startMusic)
     if (this.ctx.state !== "running") this.ctx.resume().catch(() => {});
     const swap = ++this.musicSwap;
-    const ctx = this.ctx;
-    this.musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.35);
+    this.musicBus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.35);
     setTimeout(() => {
-      if (swap !== this.musicSwap || !this.musicEl) return;
-      if (!url) {
-        this.musicEl.pause();
-        return;
-      }
-      this.musicEl.src = url;
-      this.playMusic();
+      if (swap !== this.musicSwap) return;
+      this.stream?.dispose();
+      this.stream = null;
+      if (url) this.startMusic();
     }, 1200);
   }
 
   private startMusic() {
-    if (!this.ctx || !this._enabled || !this.musicUrl) return;
-    if (!this.musicEl) {
-      const el = new Audio();
-      el.loop = true;
-      el.preload = "auto";
-      el.src = this.musicUrl;
-      this.ctx.createMediaElementSource(el).connect(this.musicBus);
-      this.musicEl = el;
+    if (!this.ctx || !this._enabled || !this.musicUrl || document.hidden) return;
+    const ctx = this.ctx;
+    // play like media (through the silent switch, as the <audio> element it replaced did)
+    const session = (navigator as any).audioSession;
+    if (session && session.type !== "playback") session.type = "playback";
+    if (this.stream?.url !== this.musicUrl) {
+      this.stream?.dispose();
+      this.stream = new MusicStream(ctx, this.musicBus, this.musicUrl);
+      const url = this.musicUrl;
+      this.stream.onStart = () => {
+        if (!this.ctx) return;
+        this.musicBus.gain.setTargetAtTime(this.musicLevel, this.ctx.currentTime, 1.2);
+        if (url !== this.announced) {
+          this.announced = url;
+          this.onMusicStart?.(url);
+        }
+      };
     }
-    this.playMusic();
-  }
-
-  private playMusic() {
-    const el = this.musicEl!;
-    if (!this._enabled || document.hidden) return;
-    const up = () => {
-      if (!this.ctx) return;
-      this.musicBus.gain.setTargetAtTime(this.musicLevel, this.ctx.currentTime, 1.2);
-      if (this.musicUrl && this.musicUrl !== this.announced) {
-        this.announced = this.musicUrl;
-        this.onMusicStart?.(this.musicUrl);
-      }
-    };
-    if (!el.paused) return up();
-    el.play().then(up).catch(() => {});
+    if (!this.stream.playing) this.stream.start(this.musicPos);
   }
 
   /** Make a scope (world) the audible one: its room + emitters; everything else fades out. */
