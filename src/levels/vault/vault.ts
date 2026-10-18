@@ -86,7 +86,7 @@ interface Run {
 }
 interface Layout {
   runs: Run[];
-  cols: { run: Run; at: number; items: Valued[] }[];
+  cols: { run: Run; at: number; band: Band; items: Valued[] }[];
   bands: { band: Band; run: Run; at: number; n: number; value: number; width: number }[];
 }
 
@@ -491,7 +491,7 @@ export default function vault(): Level {
         const c = next();
         if (!c) return null;
         if (k === 0) lay.bands.push({ band, run: c.run, at: c.at - COL / 2, n: inBand.length, value: inBand.reduce((a, v) => a + v.price, 0), width: Math.ceil(inBand.length / ROWS) * COL });
-        lay.cols.push({ ...c, items: inBand.slice(k, k + ROWS) });
+        lay.cols.push({ ...c, band, items: inBand.slice(k, k + ROWS) });
       }
     }
     return lay;
@@ -522,26 +522,32 @@ export default function vault(): Level {
       }
       for (const e of [a0, a1]) put(e, TOP / 2, 0.1, () => d.box([0.04, TOP, 0.2], [0, 0, 0], "#8a6a2c", { metal: 1, rough: 0.3 }));
     }
-    // a gold plate above the start of each band
+    // a gold plate above the start of each band, and a "continued" one on each further wall it
+    // reaches (each sized to its stretch, and never past the end of its wall)
     for (const b of lay.bands) {
-      const w = Math.max(0.6, Math.min(1.4, b.width));
-      const tex = d.canvas(Math.round(w * 400), 72, (x, cw, ch) => {
-        x.fillStyle = "#2a2010";
-        x.fillRect(0, 0, cw, ch);
-        x.strokeStyle = "#c9a45c";
-        x.lineWidth = 3;
-        x.strokeRect(2, 2, cw - 4, ch - 4);
-        x.textBaseline = "middle";
-        x.textAlign = "left";
-        x.fillStyle = GOLD;
-        x.font = `700 30px "Cinzel", serif`;
-        x.fillText(b.band.label, 12, ch * 0.38, cw - 24);
-        x.fillStyle = "#b9a983";
-        x.font = `500 18px "Oswald", sans-serif`;
-        x.fillText(`${b.n} game${b.n > 1 ? "s" : ""} · ${money(b.value)}`, 12, ch * 0.76, cw - 24);
+      const stretches = [...new Set(lay.cols.filter((c) => c.band === b.band).map((c) => c.run))];
+      stretches.forEach((run, i) => {
+        const cs = lay.cols.filter((c) => c.band === b.band && c.run === run);
+        const start = cs[0].at - COL / 2;
+        const w = Math.min(Math.max(0.6, Math.min(1.4, cs.length * COL)), run.len - start);
+        const tex = d.canvas(Math.round(w * 400), 72, (x, cw, ch) => {
+          x.fillStyle = "#2a2010";
+          x.fillRect(0, 0, cw, ch);
+          x.strokeStyle = "#c9a45c";
+          x.lineWidth = 3;
+          x.strokeRect(2, 2, cw - 4, ch - 4);
+          x.textBaseline = "middle";
+          x.textAlign = "left";
+          x.fillStyle = GOLD;
+          x.font = `700 30px "Cinzel", serif`;
+          x.fillText(b.band.label, 12, ch * 0.38, cw - 24);
+          x.fillStyle = "#b9a983";
+          x.font = `500 18px "Oswald", sans-serif`;
+          x.fillText(i === 0 ? `${b.n} game${b.n > 1 ? "s" : ""} · ${money(b.value)}` : "continued…", 12, ch * 0.76, cw - 24);
+        });
+        // (a plate on the wall, not a sign floating in front of it)
+        d.at(at(run, start + w / 2, TOP + 0.13, 0.015), [0, run.rot, 0], () => d.box([w, 0.18, 0.03], [0, 0, 0], "#ffffff", { tex, face: "front", glow: 0.45 }));
       });
-      // (a plate on the wall, not a sign floating in front of it)
-      d.at(at(b.run, b.at + w / 2, TOP + 0.13, 0.015), [0, b.run.rot, 0], () => d.box([w, 0.18, 0.03], [0, 0, 0], "#ffffff", { tex, face: "front", glow: 0.45 }));
     }
     scene.add(d.build("vault-shelves", { essential: true }));
 
