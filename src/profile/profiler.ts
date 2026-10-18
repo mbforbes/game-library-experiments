@@ -33,6 +33,8 @@ interface Seg {
   pipelinesAdded: number;
   /** frames that took over twice the usual time (and over 34 ms), with what was going on */
   hitches: { at: number; ms: number; doing: string }[];
+  /** background shader builds that ran during this step (the room's rest, the other rooms) */
+  bg: number;
   /** browsing: how many games the pointer passed over and how many were opened */
   hovered?: number;
   opened?: number;
@@ -50,12 +52,9 @@ export async function runProfile(app: App) {
   const T0 = performance.now();
   const TOTAL = 60_000;
   const tick = setInterval(() => ui.progress(Math.min(1, (performance.now() - T0) / TOTAL)), 250);
-  // measure a settled site: let the other rooms finish building and compiling first (usually
-  // done by now; an older phone's first visit takes ~25 s, and measuring meanwhile measured the
-  // compiles). The browsing steps get shorter to make up for it.
-  ui.status("Getting ready (preparing the rooms)…");
-  await Promise.race([app.prebuilt, wait(45000)]);
-  const readyMs = Math.round(performance.now() - T0);
+  // Measured as a visitor would get it: from the moment you start, with the site's normal
+  // background work (which only runs in quiet moments, and is counted per step as `bg`).
+  const readyMs = 0;
   const errors: string[] = [];
   const origError = console.error;
   console.error = (...a: unknown[]) => {
@@ -82,6 +81,7 @@ export async function runProfile(app: App) {
   // one measured step: run `drive` every frame for `ms`, then summarise the frames
   async function step(name: string, room: string, ms: number, drive?: (k: number) => void) {
     doing(name);
+    const bg0 = app.engine.backgroundBuild.count;
     ui.status(`${LEVELS[room]?.name ?? room} · ${name}`);
     await wait(200); // let the previous change settle (render targets, etc.)
     const p0 = pipes();
@@ -132,6 +132,7 @@ export async function runProfile(app: App) {
       triangles: info.triangles,
       pipelinesAdded: pipes() - p0,
       hitches,
+      bg: app.engine.backgroundBuild.count - bg0,
       ...(name === "browse" ? { hovered: browseStats.hovered.size, opened: browseStats.opened } : {}),
     });
   }
@@ -264,6 +265,7 @@ export async function runProfile(app: App) {
     url: location.href,
     durationMs: Math.round(performance.now() - T0),
     readyMs,
+    bgOff: app.bgOff,
     device: app.device,
     ua: navigator.userAgent,
     viewport: `${innerWidth}x${innerHeight}`,

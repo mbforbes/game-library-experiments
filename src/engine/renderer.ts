@@ -66,6 +66,8 @@ export interface Engine {
   boostCompile(parallel?: number): void;
   /** A compile is running at full speed (not paced to idle time): frame times say little now. */
   readonly compilingUnpaced: boolean;
+  /** When the last paced/gated (background) shader build ran, and how many have run in all. */
+  readonly backgroundBuild: { at: number; count: number };
   /** A render target that matches the main pass (formats, MRT, samples) so it reuses its pipelines. */
   matchingTarget(w: number, h: number): THREE.RenderTarget;
   /**
@@ -308,6 +310,9 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
         renderer.setMRT(null);
       }
     },
+    get backgroundBuild() {
+      return backgroundBuild;
+    },
     get compilingUnpaced() {
       for (const c of compilingScenes) if (!gates.has(c)) return true;
       return false;
@@ -375,6 +380,7 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
   // was long.
   const gates = new Map<THREE.Object3D, () => boolean>();
   const compilingScenes = new Set<THREE.Object3D>();
+  const backgroundBuild = { at: -1e9, count: 0 };
   {
     const nodes = (renderer as any)._nodes;
     const getAsync = nodes.getForRenderAsync;
@@ -389,6 +395,10 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
           await idleSlot(8);
           if (may()) break;
         }
+      if (may) {
+        backgroundBuild.at = performance.now();
+        backgroundBuild.count++;
+      }
       return getAsync.call(nodes, ro);
     };
   }

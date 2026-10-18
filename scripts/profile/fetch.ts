@@ -61,10 +61,11 @@ for (const k of keys) {
   console.log(`backend ${p.backend} · msaa ${p.msaa} · refresh ${p.refreshMs}ms (every ${p.every}) · programs ${JSON.stringify(p.programs)} pipelines ${p.pipelines}`);
   console.log(`boot ${JSON.stringify(p.boot)} ready ${Math.round(p.ready ?? 0)}ms · levels ${JSON.stringify(p.levelTimes)} · switches ${JSON.stringify(p.switches)}`);
   console.log(`start ${JSON.stringify(p.startSettings)}`);
-  console.log("room    step                       fps   p50   p90   p99   max  >20ms  cpu   gpu   calls  tris   +pipes");
+  console.log(`background prebuilding ${p.bgOff ? "switched OFF on this device (it cost frames)" : "on"}`);
+  console.log("room    step                       fps   p50   p90   p99   max  >20ms  cpu   gpu   calls  tris   +pipes  bg");
   for (const s of p.segments ?? []) {
     console.log(
-      `${s.room.padEnd(7)} ${s.name.padEnd(25)} ${String(s.fps).padStart(5)} ${String(s.p50).padStart(5)} ${String(s.p90).padStart(5)} ${String(s.p99).padStart(5)} ${String(s.max).padStart(5)} ${(Math.round(s.slow20 * 100) + "%").padStart(5)} ${String(s.cpuAvg).padStart(5)} ${String(s.gpuAvg).padStart(5)} ${String(s.drawCalls).padStart(6)} ${String(Math.round(s.triangles / 1000) + "k").padStart(6)} ${String(s.pipelinesAdded).padStart(4)}`,
+      `${s.room.padEnd(7)} ${s.name.padEnd(25)} ${String(s.fps).padStart(5)} ${String(s.p50).padStart(5)} ${String(s.p90).padStart(5)} ${String(s.p99).padStart(5)} ${String(s.max).padStart(5)} ${(Math.round(s.slow20 * 100) + "%").padStart(5)} ${String(s.cpuAvg).padStart(5)} ${String(s.gpuAvg).padStart(5)} ${String(s.drawCalls).padStart(6)} ${String(Math.round(s.triangles / 1000) + "k").padStart(6)} ${String(s.pipelinesAdded).padStart(4)} ${String(s.bg ?? "").padStart(5)}`,
     );
   }
   for (const s of p.segments ?? [])

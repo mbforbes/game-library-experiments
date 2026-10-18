@@ -231,10 +231,9 @@ export class App {
       if (slot.background) {
         // prebuilding a world nobody is looking at yet: everything, one shader at a time
         report(0.62, "Compiling shaders…");
-        // (paced to idle time between frames and paused while you interact; the performance test
-        // wants it done before it measures)
-        const gate = this.profiling ? undefined : () => this.quiet();
-        await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 1, gate });
+        // (paced to idle time between frames, and only while you're not interacting and frames
+        // have time to spare; see quiet())
+        await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 1, gate: () => this.quiet() });
         slot.full = Promise.resolve();
       } else {
         // On screen next: compile what the opening view shows (a first visit compiles every shader
@@ -246,7 +245,11 @@ export class App {
         await Promise.race([first, wait(6000)]);
         // then everything else; hold the loading screen a little (≤ 0.6 s) so the first seconds
         // in the room aren't spent finishing compiles (warm visits finish well inside that)
-        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1, paced: !this.profiling }));
+        // (the rest of the room you're in: in idle time between frames, also while you look
+        // around — otherwise what you scroll to compiles right as it comes into view — while
+        // frames are on time; on a device where background builds cost frames, only while you're
+        // idle)
+        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1, gate: () => this.loadingLevel || (this.bgOff ? this.userIdle() : this.framesOnTime()) }));
         await Promise.race([slot.full, wait(600)]);
       }
       slot.compiled = true;
@@ -265,8 +268,7 @@ export class App {
     // let the first room have the stage: wait until its own compiles are done and you've had a
     // few seconds in it, then build the others only while you're not moving around
     await this.active?.full;
-    // (the performance test wants everything built before it measures: no grace period)
-    if (!this.profiling) await wait(6000);
+    await wait(6000);
     for (const id of Object.keys(LEVELS)) {
       if (LEVELS[id].hidden || this.slots.has(id)) continue;
       while (this.loadingLevel || !this.active || !this.quiet()) await wait(400);
@@ -275,15 +277,35 @@ export class App {
   }
 
   /**
-   * May background work (prebuilding other worlds) run right now? Not while you're moving,
-   * hovering or holding a game: even small compiles cost the odd dropped frame. A world you're
-   * waiting for (switching to it) always may, and so does the performance test.
+   * May background work (compiling the rest of this room, prebuilding the others) run right now?
+   * Only while you're not moving, hovering or holding a game, and while recent frames have been
+   * on time: once the site is up, using it has to stay smooth. A world you're waiting for
+   * (switching to it) always may. If background compiling still costs frames on this device,
+   * prebuilding stops for the visit (`bgOff`): the other rooms compile when you switch to them.
    */
   private quiet() {
-    if (this.profiling || this.loadingLevel) return true;
-    const rig = this.active?.rig;
-    return performance.now() - this.lastInput > 1500 && (!rig || (rig.idle >= 1.5 && rig.settled)) && !this.inspector.active;
+    if (this.loadingLevel) return true;
+    return !this.bgOff && this.userIdle();
   }
+
+  /** Not moving, hovering or holding a game for a moment, and frames on time. */
+  private userIdle() {
+    const rig = this.active?.rig;
+    return performance.now() - this.lastInput > 1500 && (!rig || (rig.idle >= 1.5 && rig.settled)) && !this.inspector.active && this.framesOnTime();
+  }
+
+  /** Have the last ~30 frames kept to the cadence (at most one late)? */
+  private framesOnTime() {
+    const n = this.samples.length;
+    if (n < 30) return false;
+    const budget = this.governor.frameBudget * 1.3;
+    let late = 0;
+    for (let i = n - 30; i < n; i++) if (this.samples[i].dt > budget) late++;
+    return late <= 1 && performance.now() - this.samples[n - 1].t < 500;
+  }
+  /** background prebuilding switched off for this visit (it cost frames here) */
+  bgOff = false;
+  private bgLate: number[] = [];
 
   async loadLevel(id: string, onProgress?: (k: number, msg: string) => void) {
     if (this.loadingLevel || this.active?.id === id) return;
@@ -635,6 +657,16 @@ export class App {
     if (this.samples.length > 4000) this.samples.splice(0, 1000);
     this.governor.frame(fdt, cpu, gpu);
     this.fps.push(fdt);
+    // a late frame within a second of a background shader build: if that keeps happening (6 in
+    // 10 s), background prebuilding isn't free on this device, so it stops for the visit
+    if (!this.bgOff && work0 - this.engine.backgroundBuild.at < 1000 && fdt > this.governor.frameBudget * 1.5) {
+      this.bgLate.push(work0);
+      while (this.bgLate.length && work0 - this.bgLate[0] > 10000) this.bgLate.shift();
+      if (this.bgLate.length >= 6) {
+        this.bgOff = true;
+        console.info("[prebuild] background compiling cost frames on this device: the other rooms compile when you switch to them");
+      }
+    }
     if (this.debug) this.debugStats(dt);
   };
 
