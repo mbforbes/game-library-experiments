@@ -165,6 +165,8 @@ export class App {
       if (this.profiling) import("./profile/profiler").then((m) => m.runProfile(this));
       // the shader-cache test: ?loadtest (with ?cold=N for shaders never compiled before)
       if (params.has("loadtest")) this.loadTest(params.get("cold") ?? "");
+      // where a frame's time goes on this device: ?diag
+      if (params.has("diag")) import("./profile/diag").then((m) => m.runDiag(this));
     } catch (err) {
       console.error(err);
       this.hud.showError(String((err as Error)?.message ?? err));

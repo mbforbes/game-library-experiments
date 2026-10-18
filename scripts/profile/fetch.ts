@@ -59,6 +59,13 @@ for (const k of keys) {
     console.log(`\n=== ${k}  LOAD TEST cold=${p.tag || "-"} visit ${p.visit} · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · ${g.description || g.renderer || ""} · ready ${Math.round(p.ready ?? 0)}ms · ${lt} · ${p.pipelines} pipelines${p.bgOff ? " · bg OFF" : ""}`);
     continue;
   }
+  if (p.kind === "diag") {
+    console.log(`\n=== ${k}  DIAG · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · screen ${d.screen} @${d.native}x · ${p.backend} msaa ${p.msaa} · ${p.ua?.match(/Version\/[\d.]+|Chrome\/[\d.]+/)?.[0] ?? ""}`);
+    console.log("ms per frame (drawn back to back at dpr 1 unless noted; js = our code + WebGPU calls)");
+    for (const [room, row] of Object.entries(p.results ?? {}) as [string, Record<string, { ms: number; js: number }>][])
+      console.log(`  ${room.padEnd(7)} ${Object.entries(row).map(([n, v]) => `${n} ${v.ms} (js ${v.js})`).join(" · ")}`);
+    continue;
+  }
   console.log(`\n=== ${k}`);
   console.log(`${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · ${p.viewport} @${d.native}x · ${d.cores ?? "?"} cores · ${d.memory ?? "?"} GB`);
   console.log(`GPU ${g.api}: ${g.vendor ?? ""} ${g.architecture ?? ""} ${g.description ?? ""} | ${g.renderer ?? ""}${d.integrated ? " (integrated)" : ""}`);

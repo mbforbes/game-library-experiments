@@ -160,8 +160,10 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
   const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 400);
 
   const post = {
-    bloomStrength: uniform(1.1),
-    bloomRadius: uniform(0.55),
+    // (gentle and tight: a wide, strong glow washed over the games under the shelf lights and
+    // flared across the screen as lights came into view)
+    bloomStrength: uniform(0.55),
+    bloomRadius: uniform(0.25),
     bloomThreshold: uniform(0.0),
     vignette: uniform(0.35),
     grain: uniform(0.018),
@@ -171,10 +173,19 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
     exposure: { value: 1 }, // tone-mapping exposure (applied to the renderer by the app each frame)
   };
 
+  // Two ways to finish a frame, sharing the scene pass: with bloom, and without, where bloom's
+  // dozen small passes (each its own GPU submission) don't run at all. Bloom off used to only
+  // fade it out, so it still cost them: a fixed cost per frame that weighs most on slow phones.
   const pipeline = new THREE.RenderPipeline(renderer);
+  const plain = new THREE.RenderPipeline(renderer);
   const scenePass = pass(scene, camera);
   const mainMrt = mrt({ output, emissive });
   scenePass.setMRT(mainMrt);
+  // the multisampled pixels are only needed until they're resolved: storing them (2 colour
+  // targets x 4 samples, + depth) is memory traffic for nothing, heaviest on phone GPUs
+  const passTarget = (scenePass as any).renderTarget as THREE.RenderTarget;
+  passTarget.storeMultisampledColorBuffer = false;
+  passTarget.storeMultisampledDepthBuffer = false;
   const color = scenePass.getTextureNode("output");
   const glow = scenePass.getTextureNode("emissive");
   const bloomPass = bloom(glow, post.bloomStrength as any, post.bloomRadius as any, post.bloomThreshold as any);
@@ -199,15 +210,19 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
   const g = fract(sin(dot(screenUV.add(fract(time.mul(0.37))), vec2(12.9898, 78.233))).mul(43758.5453)).sub(0.5).mul(post.grain);
   const glowLine = float(1).add(post.crt.mul(6));
   const dotGlow = smoothstep(0.06, 0.0, screenUV.sub(0.5).mul(vec2(1.6, 1)).length()).mul(k2).mul(float(1).sub(k2.pow(4))).mul(2);
-  const composed = sceneC.add(bloomC).mul(vig).mul(glowLine).mul(inside).add(g).add(vec3(dotGlow));
-  const flashed = composed.add(post.flash);
-  const final = vec4(mix(flashed.rgb, vec4(0, 0, 0, 1).rgb, post.fade.max(post.crt.greaterThan(0.995).select(float(1), float(0)))), 1);
-  if (msaa) pipeline.outputNode = final;
-  else {
-    // no MSAA: tone map + encode first, then FXAA on the final image (cheap, one extra pass)
-    pipeline.outputColorTransform = false;
-    pipeline.outputNode = fxaa(renderOutput(final));
-  }
+  const finish = (p: THREE.RenderPipeline, withBloom: boolean) => {
+    const composed = (withBloom ? sceneC.add(bloomC) : sceneC).mul(vig).mul(glowLine).mul(inside).add(g).add(vec3(dotGlow));
+    const flashed = composed.add(post.flash);
+    const final = vec4(mix(flashed.rgb, vec4(0, 0, 0, 1).rgb, post.fade.max(post.crt.greaterThan(0.995).select(float(1), float(0)))), 1);
+    if (msaa) p.outputNode = final;
+    else {
+      // no MSAA: tone map + encode first, then FXAA on the final image (cheap, one extra pass)
+      p.outputColorTransform = false;
+      p.outputNode = fxaa(renderOutput(final));
+    }
+  };
+  finish(pipeline, true);
+  finish(plain, false);
 
   let dpr = Math.max(0.5, Math.min(3, opts.dpr ?? Math.min(window.devicePixelRatio || 1, 1.5)));
   // GPU time: resolve timestamp queries in the background, averaged over the frames they cover
@@ -232,7 +247,8 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
     render() {
       const b = bloomMix.value as number;
       if (b !== bloomGoal) bloomMix.value = b + Math.sign(bloomGoal - b) * Math.min(Math.abs(bloomGoal - b), 0.03);
-      pipeline.render();
+      // (bloom fades out before its passes stop, and starts from nothing when it comes back)
+      (bloomGoal > 0 || b > 0 ? pipeline : plain).render();
       if (timing) {
         framesSince++;
         if (!resolving) {
@@ -458,6 +474,10 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
   };
 
   engine.resize();
+  // build both ways of finishing a frame now (on the empty scene), so switching bloom on or off
+  // later never waits on a shader
+  plain.render();
+  pipeline.render();
   window.addEventListener("resize", () => engine.resize());
   return engine;
 }
