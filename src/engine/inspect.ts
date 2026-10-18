@@ -39,6 +39,16 @@ export class Inspector {
     return !!this.hero;
   }
 
+  /** A hidden stand-in for the dimmer, so a room's precompile builds its shader too (it only
+   * joins a room's scene when a game is first opened there). */
+  warmup() {
+    const m = new THREE.Mesh(this.dimmer.geometry, this.dimMat);
+    m.visible = false;
+    m.frustumCulled = false;
+    m.renderOrder = this.dimmer.renderOrder;
+    return m;
+  }
+
   /** The world on screen changed: the dimmer (and any hero) live in its scene. */
   setScene(scene: THREE.Scene) {
     this.close(true);

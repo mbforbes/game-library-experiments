@@ -228,7 +228,7 @@ export class App {
         this.audio.scope = id;
       });
       this.audio.scope = "";
-      slot.scene.add(Hero.warmup(this.art));
+      slot.scene.add(Hero.warmup(this.art), this.inspector.warmup());
       const tc = performance.now();
       if (slot.background) {
         // prebuilding a world nobody is looking at yet: everything, one shader at a time
@@ -280,7 +280,8 @@ export class App {
     };
     const head = `Load test ${tag ? `cold=${tag}` : "(no cold tag)"} · visit ${visit} on this device\nready in ${Math.round((window as any).__ready ?? 0)} ms`;
     box.textContent = `${head}\n${lines().join("\n")}\n(waiting for the other rooms; leave the screen alone)`;
-    await Promise.race([this.prebuilt, wait(90000)]);
+    // (until the other rooms are built, or prebuilding switched itself off, or 90 s)
+    for (let t = 0; t < 90 && !this.bgOff && !allRoomsBuilt(this); t++) await Promise.race([this.prebuilt, wait(1000)]);
     const report = { v: 1, kind: "loadtest", at: new Date().toISOString(), tag, visit, device: this.device, ua: navigator.userAgent, backend: this.engine.backend, boot: (window as any).__boot ?? null, ready: (window as any).__ready ?? null, levelTimes: (window as any).__levelTimes ?? null, pipelines: r._pipelines?.caches?.size ?? null, bgOff: this.bgOff };
     let sent = "not sent";
     try {
@@ -768,4 +769,9 @@ function tween(ms: number, fn: (k: number) => void) {
     };
     step();
   });
+}
+
+/** Are all the visible worlds built (the load test waits for this)? */
+function allRoomsBuilt(app: App) {
+  return Object.keys(LEVELS).every((id) => LEVELS[id].hidden || (app as any).slots.get(id)?.compiled);
 }
