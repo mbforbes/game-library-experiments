@@ -83,6 +83,12 @@ export interface EngineOptions {
   bloom?: number;
   /** measure GPU time per frame with timestamp queries where supported */
   timestamps?: boolean;
+  /**
+   * Test switch (?cold=N): a harmless unused variable naming N in every shader, so a new N
+   * means shaders this browser has never compiled. Comparing a first load with a reload shows
+   * whether compiled shaders are cached between visits.
+   */
+  coldTag?: string;
 }
 
 /**
@@ -139,6 +145,12 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
     trackTimestamp: !!opts.timestamps,
   } as any);
   await renderer.init();
+  const device = (renderer.backend as any).device as GPUDevice | undefined;
+  if (opts.coldTag && device) {
+    const tag = opts.coldTag.replace(/\D/g, "").slice(0, 9) || "1";
+    const create = device.createShaderModule.bind(device);
+    device.createShaderModule = (d: GPUShaderModuleDescriptor) => create({ ...d, code: d.code.replace(/(fn main\s*\([^{]*\{)/, `$1\n\tvar coldTag: u32 = ${tag}u;\n\t_ = coldTag;\n`) });
+  }
   const backend = (renderer.backend as any).isWebGPUBackend ? "webgpu" : "webgl";
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;

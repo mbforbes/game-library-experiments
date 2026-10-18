@@ -93,7 +93,7 @@ export class App {
       const params = new URLSearchParams(location.search);
       this.device = await detectDevice();
       const { s: q0, remembered } = initialSettings(this.device, params);
-      this.engine = await createEngine(canvas, { msaa: q0.msaa, dpr: q0.dpr, bloom: q0.bloom, timestamps: true });
+      this.engine = await createEngine(canvas, { msaa: q0.msaa, dpr: q0.dpr, bloom: q0.bloom, timestamps: true, coldTag: params.get("cold") ?? undefined });
       this.governor = new Governor(this.device, q0, {
         apply: (s, changed) => this.applyQuality(s, changed),
         // (and not while shaders compile at full speed: that measures the compile, not the device)
@@ -155,6 +155,8 @@ export class App {
       if (wantVault) this.openVault();
       // the performance test: /profile or ?profile
       if (this.profiling) import("./profile/profiler").then((m) => m.runProfile(this));
+      // the shader-cache test: ?loadtest (with ?cold=N for shaders never compiled before)
+      if (params.has("loadtest")) this.loadTest(params.get("cold") ?? "");
     } catch (err) {
       console.error(err);
       this.hud.showError(String((err as Error)?.message ?? err));
@@ -236,21 +238,14 @@ export class App {
         await this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 1, gate: () => this.quiet() });
         slot.full = Promise.resolve();
       } else {
-        // On screen next: compile what the opening view shows (a first visit compiles every shader
-        // from scratch, which can take a while: show the room after at most ~6 s, anything still
-        // compiling pops in when ready), then the rest of the room in the background.
+        // On screen next: compile the whole room before it's shown, so nothing compiles while
+        // you use it (compiling as things first came into view was a stutter each time). A first
+        // visit compiles every shader from scratch; repeat visits mostly hit the browser's shader
+        // cache. The cap only keeps an extremely slow device from waiting forever.
         report(0.62, "Compiling shaders…");
         slot.rig.update(0); // put the camera at this world's opening view
-        const first = this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 4, visibleOnly: true });
-        await Promise.race([first, wait(6000)]);
-        // then everything else; hold the loading screen a little (≤ 0.6 s) so the first seconds
-        // in the room aren't spent finishing compiles (warm visits finish well inside that)
-        // (the rest of the room you're in: in idle time between frames, also while you look
-        // around — otherwise what you scroll to compiles right as it comes into view — while
-        // frames are on time; on a device where background builds cost frames, only while you're
-        // idle)
-        slot.full = first.then(() => this.engine.precompile(slot.scene, undefined, { parallel: 1, gate: () => this.loadingLevel || (this.bgOff ? this.userIdle() : this.framesOnTime()) }));
-        await Promise.race([slot.full, wait(600)]);
+        slot.full = this.engine.precompile(slot.scene, (k) => report(0.62 + 0.38 * k, "Compiling shaders…"), { parallel: 4 });
+        await Promise.race([slot.full, wait(20000)]);
       }
       slot.compiled = true;
       this.markNew(slot);
@@ -261,6 +256,38 @@ export class App {
       report(1, "Ready");
     })();
     return slot;
+  }
+
+  /**
+   * ?loadtest: how long compiling took on this load (the room you opened, then the others as they
+   * prebuild), shown on screen and sent with the performance-test results. With ?cold=N, the
+   * first load of a new N compiles every shader from scratch; reloads show what's cached.
+   */
+  private async loadTest(tag: string) {
+    const key = `the-backlog-loadtest-${tag || "plain"}`;
+    let visit = 1;
+    try {
+      visit = +(localStorage.getItem(key) ?? 0) + 1;
+      localStorage.setItem(key, String(visit));
+    } catch {}
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;left:12px;right:12px;bottom:84px;z-index:50;padding:12px 14px;border-radius:10px;background:rgba(8,9,14,.9);color:#e8eaf0;font:13px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap";
+    document.body.appendChild(box);
+    const r = this.engine.renderer as any;
+    const lines = () => {
+      const lt = (window as any).__levelTimes ?? {};
+      return Object.entries(lt).map(([id, v]: [string, any]) => `${id.padEnd(7)} built ${v.built} ms, compiled ${v.compiled} ms${v.background ? " (background)" : ""}`);
+    };
+    const head = `Load test ${tag ? `cold=${tag}` : "(no cold tag)"} · visit ${visit} on this device\nready in ${Math.round((window as any).__ready ?? 0)} ms`;
+    box.textContent = `${head}\n${lines().join("\n")}\n(waiting for the other rooms; leave the screen alone)`;
+    await Promise.race([this.prebuilt, wait(90000)]);
+    const report = { v: 1, kind: "loadtest", at: new Date().toISOString(), tag, visit, device: this.device, ua: navigator.userAgent, backend: this.engine.backend, boot: (window as any).__boot ?? null, ready: (window as any).__ready ?? null, levelTimes: (window as any).__levelTimes ?? null, pipelines: r._pipelines?.caches?.size ?? null, bgOff: this.bgOff };
+    let sent = "not sent";
+    try {
+      const res = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report) });
+      if (res.ok) sent = "sent ✓";
+    } catch {}
+    box.textContent = `${head}\n${lines().join("\n")}\n${report.pipelines} pipelines · results ${sent}`;
   }
 
   /** After the first world is up, quietly build + compile the others so switching is instant. */

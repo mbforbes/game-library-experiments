@@ -54,6 +54,11 @@ for (const k of keys) {
   }
   const d = p.device ?? {};
   const g = d.gpu ?? {};
+  if (p.kind === "loadtest") {
+    const lt = Object.entries(p.levelTimes ?? {}).map(([id, v]: [string, any]) => `${id} ${v.built}+${v.compiled}ms${v.background ? "(bg)" : ""}`).join(" · ");
+    console.log(`\n=== ${k}  LOAD TEST cold=${p.tag || "-"} visit ${p.visit} · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · ${g.description || g.renderer || ""} · ready ${Math.round(p.ready ?? 0)}ms · ${lt} · ${p.pipelines} pipelines${p.bgOff ? " · bg OFF" : ""}`);
+    continue;
+  }
   console.log(`\n=== ${k}`);
   console.log(`${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · ${p.viewport} @${d.native}x · ${d.cores ?? "?"} cores · ${d.memory ?? "?"} GB`);
   console.log(`GPU ${g.api}: ${g.vendor ?? ""} ${g.architecture ?? ""} ${g.description ?? ""} | ${g.renderer ?? ""}${d.integrated ? " (integrated)" : ""}`);
