@@ -1,8 +1,9 @@
-// A tiny always-there FPS meter (top left): frames per second plus a strip chart of recent frame
-// times (green = on time for 60 fps, amber = a dropped frame, red = a stall). Drawing is a few
-// dozen canvas rects a few times a second, so it costs next to nothing.
+// A tiny FPS meter (top left; off unless turned on in the controls card): frames per second plus
+// a strip chart of recent frame times (green = on time for 60 fps, amber = a dropped frame, red =
+// a stall). Drawing is a few dozen canvas rects a few times a second, so it costs next to nothing.
 
-const LS = "the-backlog-fps";
+/** (a new key: the meter used to be on unless turned off) */
+const LS = "the-backlog-fps-2";
 
 export class FpsMeter {
   readonly el = document.createElement("canvas");
@@ -29,9 +30,9 @@ export class FpsMeter {
     this.el.style.width = `${this.w}px`;
     this.el.style.height = `${this.h}px`;
     this.ctx = this.el.getContext("2d")!;
-    let on = true;
+    let on = false;
     try {
-      on = localStorage.getItem(LS) !== "off";
+      on = localStorage.getItem(LS) === "on";
     } catch {}
     this._on = on;
     this.el.style.display = on ? "block" : "none";

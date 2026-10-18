@@ -15,6 +15,7 @@ import "@fontsource/tilt-neon";
 import "@fontsource/cinzel/400.css";
 import "@fontsource/cinzel/700.css";
 import "@fontsource/im-fell-english";
+import "./media/text-baseline";
 import { App } from "./app";
 
 const canvas = document.getElementById("view") as HTMLCanvasElement;

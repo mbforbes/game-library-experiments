@@ -171,11 +171,9 @@ soft background track (credited in the in-app controls card):
 
 - Den (lounge): "Passing Breeze (Lounge Suite)" (OutRun) by Remorse, "Soothing Rain" (Animal
   Crossing) by Jamphibious, "Adlehyde Castle Flow" (Wild Arms) by posu yan: OverClocked ReMix
-- Stacks: "Lands" by Alex Productions (CC BY 3.0); "Hymn to the Crystals" (Final Fantasy IV) and
-  "Garden of Venus" (Zelda: Ocarina of Time) by RebeccaETripp, "Pure Heart" (Secret of Mana) by
-  Fredrik Häthén: OverClocked ReMix
-- Lab: "Fragments" by AERØHEAD (CC BY-NC 3.0); "Skipping Stones Down Sips River" (Chicory) by
-  Emunator, "Spacious Beauty" (Pokémon Crystal) by timaeus222, "Above the Borders" (Flight
+- Stacks: "Hymn to the Crystals" (Final Fantasy IV) and "Garden of Venus" (Zelda: Ocarina of
+  Time) by RebeccaETripp, "Pure Heart" (Secret of Mana) by Fredrik Häthén: OverClocked ReMix
+- Lab: "Skipping Stones Down Sips River" (Chicory) by Emunator, "Spacious Beauty" (Pokémon Crystal) by timaeus222, "Above the Borders" (Flight
   Simulator / Pilotwings) by tibonev: OverClocked ReMix
 - Vault: "Spy Glass" by Kevin MacLeod (incompetech.com), CC BY 4.0
 
@@ -185,8 +183,6 @@ starts. OverClocked ReMix (https://ocremix.org) fan arrangements are used under 
 policy (https://ocremix.org/info/Content_Policy): non-commercial, the remixer credited followed by
 "OverClocked ReMix" linked to ocremix.org, shown with the music, and the MP3s served exactly as
 downloaded (public/audio/ocr/, original names and tags; levels are matched in playback instead).
-
-Music powered by BreakingCopyright (https://breakingcopyright.com).
 
 ## Cover art pipeline (`scripts/art`)
 

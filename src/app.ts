@@ -782,9 +782,11 @@ export class App {
   }
 }
 
+/** Every weight of every font (Latin), since canvases draw with them as soon as rooms build. */
 function loadFonts() {
-  const fams = ['"Press Start 2P"', '"VT323"', '"Oswald"', '"Barlow Condensed"', '"Inter"', '"Silkscreen"', '"Monoton"', '"Tilt Neon"', '"Cinzel"', '"IM Fell English"'];
-  return Promise.all(fams.flatMap((f) => [document.fonts.load(`400 24px ${f}`), document.fonts.load(`700 24px ${f}`)])).catch(() => {});
+  const specs = new Set<string>();
+  document.fonts.forEach((f) => specs.add(`${f.style} ${f.weight} 24px "${f.family.replace(/"/g, "")}"`));
+  return Promise.all([...specs].map((s) => document.fonts.load(s, "Aa"))).catch(() => {});
 }
 
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r(null)));

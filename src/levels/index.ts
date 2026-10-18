@@ -2,7 +2,7 @@
 
 import type { LevelFactory } from "./types";
 
-/** Background music (Creative Commons; credited in the controls card). */
+/** Background music (credited in the sound menu and the controls card). */
 export interface Track {
   url: string;
   title: string;
@@ -10,8 +10,6 @@ export interface Track {
   license: string;
   licenseUrl: string;
   link: string;
-  /** where the track was found (credited as "via …"), if not straight from the artist */
-  via?: { name: string; url: string };
   /** the game a fan remix arranges */
   game?: string;
   /** level adjustment (dB) so tracks sit at the same loudness (~ -20 LUFS) */
@@ -67,7 +65,6 @@ export const LEVELS: Record<string, LevelEntry> = {
     accent: "#ffb36b",
     newColor: "#ffd36b",
     music: [
-      { url: "/audio/music-stacks-v1.mp3", title: "Lands", artist: "Alex Productions", license: "CC BY 3.0", licenseUrl: "https://creativecommons.org/licenses/by/3.0/", link: "https://www.youtube.com/channel/UCx0_M61F81Nfb-BRXE-SeVA", via: { name: "BreakingCopyright", url: "https://breakingcopyright.com" } },
       ocr("Final_Fantasy_4_Hymn_to_the_Crystals_OC_ReMix.mp3", "Hymn to the Crystals", "Final Fantasy IV", "RebeccaETripp", "OCR03621", -15.0),
       ocr("Legend_of_Zelda_Ocarina_of_Time_Garden_of_Venus_OC_ReMix.mp3", "Garden of Venus", "Zelda: Ocarina of Time", "RebeccaETripp", "OCR03924", -16.5),
       ocr("Secret_of_Mana_Pure_Heart_OC_ReMix.mp3", "Pure Heart", "Secret of Mana", "Fredrik Häthén", "OCR03414", -12.9),
@@ -80,7 +77,6 @@ export const LEVELS: Record<string, LevelEntry> = {
     accent: "#3aa0ff",
     newColor: "#4dff9a",
     music: [
-      { url: "/audio/music-lab-v1.mp3", title: "Fragments", artist: "AERØHEAD", license: "CC BY-NC 3.0", licenseUrl: "https://creativecommons.org/licenses/by-nc/3.0/", link: "https://www.youtube.com/channel/UCoZbM1a4PKQ6haa2Ap4TSdg", via: { name: "BreakingCopyright", url: "https://breakingcopyright.com" } },
       ocr("Chicory_Skipping_Stones_Down_Sips_River_OC_ReMix.mp3", "Skipping Stones Down Sips River", "Chicory: A Colorful Tale", "Emunator", "OCR04588", -13.6),
       ocr("Pokemon_Crystal_Version_Spacious_Beauty_OC_ReMix.mp3", "Spacious Beauty", "Pokémon Crystal", "timaeus222", "OCR04762", -12.8),
       ocr("Microsoft_Flight_Simulator_Above_the_Borders_OC_ReMix.mp3", "Above the Borders", "Flight Simulator / Pilotwings", "tibonev", "OCR04956", -13.3),

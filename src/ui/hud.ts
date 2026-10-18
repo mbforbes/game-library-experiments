@@ -482,8 +482,8 @@ function fmt(iso: string) {
   return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1]} ${d}, ${y}`;
 }
 
-/** “Title” (Game) by Artist, Licence[, via Source]: the attribution each track's licence asks for. */
+/** “Title” (Game) by Artist, Licence: the attribution each track's licence asks for. */
 function creditHtml(t: Track) {
   const a = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener">${esc(text)}</a>`;
-  return `“${esc(t.title)}”${t.game ? ` (${esc(t.game)})` : ""} by ${a(t.link, t.artist)}, ${a(t.licenseUrl, t.license)}${t.via ? `, via ${a(t.via.url, t.via.name)}` : ""}`;
+  return `“${esc(t.title)}”${t.game ? ` (${esc(t.game)})` : ""} by ${a(t.link, t.artist)}, ${a(t.licenseUrl, t.license)}`;
 }
