@@ -144,8 +144,8 @@ export const SFX = {
     sweep(ctx, out, t, n, 4000, 600, 0.4, 0.08, 1);
     return 0.5;
   },
+  /** a distant rumble only (a crack up front read as a loud click) */
   thunder(ctx: Ctx, out: AudioNode, t: number, n: AudioBuffer) {
-    burst(ctx, out, t, n, 1800, 0.5, 0.12, 0.35, "highpass");
     const s = noiseSrc(ctx, n, true);
     const lp = filt(ctx, "lowpass", 160, 0.8);
     const g = gainNode(ctx, 0);
