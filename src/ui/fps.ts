@@ -16,6 +16,8 @@ export class FpsMeter {
   note = "";
   private _on: boolean;
   private compact: boolean;
+  /** the frame time the cadence aims for (colours are relative to it) */
+  private target = 1000 / 60;
 
   constructor(compact: boolean) {
     this.compact = compact;
@@ -47,6 +49,10 @@ export class FpsMeter {
     } catch {}
   }
 
+  setTarget(ms: number) {
+    this.target = ms;
+  }
+
   /** dt in ms of one rendered frame */
   push(dt: number) {
     this.hist.push(dt);
@@ -67,7 +73,8 @@ export class FpsMeter {
     const recent = this.hist.slice(-30);
     const avg = recent.reduce((a, b) => a + b, 0) / Math.max(1, recent.length);
     const fps = avg > 0 ? Math.round(1000 / avg) : 0;
-    c.fillStyle = fps >= 55 ? "#7ee2a8" : fps >= 40 ? "#ffc861" : "#ff6b6b";
+    const aim = 1000 / this.target;
+    c.fillStyle = fps >= aim * 0.92 ? "#7ee2a8" : fps >= aim * 0.7 ? "#ffc861" : "#ff6b6b";
     c.font = `600 ${13 * d}px ui-monospace, Menlo, monospace`;
     c.textBaseline = "top";
     c.fillText(`${fps} fps`, 6 * d, 5 * d);
@@ -78,14 +85,15 @@ export class FpsMeter {
       c.fillText(this.note, W - 5 * d, 7 * d);
       c.textAlign = "left";
     }
-    // strip chart: each bar a frame, height = frame time (16.7 ms = half height)
+    // strip chart: each bar a frame, height = frame time (33 ms = full height); green = on time
+    // for the cadence, amber = missed a refresh, red = a stall
     const top = 22 * d, ch = H - top - 4 * d;
     const n = this.hist.length;
     const bw = (W - 10 * d) / 90;
     for (let i = 0; i < n; i++) {
       const v = this.hist[i];
       const hgt = Math.min(ch, (v / 33.3) * ch);
-      c.fillStyle = v <= 18 ? "#4fbf86" : v <= 34 ? "#e0a93a" : "#e05252";
+      c.fillStyle = v <= this.target * 1.15 ? "#4fbf86" : v <= Math.max(34, this.target * 2.1) ? "#e0a93a" : "#e05252";
       c.fillRect(5 * d + (90 - n + i) * bw, top + ch - hgt, Math.max(1, bw - 0.5 * d), hgt);
     }
     c.fillStyle = "rgba(255,255,255,0.18)";

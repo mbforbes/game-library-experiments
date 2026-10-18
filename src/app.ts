@@ -17,7 +17,7 @@ import { AudioEngine } from "./audio/audio";
 import { neonFx } from "./world/kit/common";
 import { Bursts } from "./world/kit/particles";
 import { off } from "./engine/flags";
-import { detectDevice, initialSettings, Governor, refreshDivisor, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
+import { detectDevice, initialSettings, Governor, frameCadence, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
 import { FpsMeter } from "./ui/fps";
 import { newGames } from "./library/store";
 import { setNewIds } from "./media/stickers";
@@ -65,8 +65,11 @@ export class App {
   device!: DeviceInfo;
   governor!: Governor;
   fps!: FpsMeter;
-  /** render every Nth animation frame (high-refresh screens: aim for 60, not 144) */
+  /** render every Nth animation frame (high-refresh screens: an even ~60, see frameCadence) */
   private every = 1;
+  private refreshMs = 1000 / 60;
+  /** a new cadence is only taken once two measurements in a row agree on it */
+  private cadenceSeen = "";
   private tick = 0;
   private intervals: number[] = [];
   private lastRaf = 0;
@@ -579,8 +582,17 @@ export class App {
       // keep re-measuring: busy loading frames would hide a 120/144 Hz screen's real interval
       this.intervals.push(rafNow - this.lastRaf);
       if (this.intervals.length >= 120) {
-        this.every = refreshDivisor(this.intervals);
+        const c = frameCadence(this.intervals);
         this.intervals.length = 0;
+        const key = c ? `${c.every}@${Math.round(1000 / c.refreshMs)}` : "";
+        // (the first measurement is taken at once; later changes need two in a row to agree)
+        if (c && (key === this.cadenceSeen || !this.cadenceSeen) && (c.every !== this.every || Math.abs(c.refreshMs - this.refreshMs) / this.refreshMs > 0.03)) {
+          this.every = c.every;
+          this.refreshMs = c.refreshMs;
+          this.governor?.setBudget(c.every * c.refreshMs);
+          this.fps?.setTarget(c.every * c.refreshMs);
+        }
+        this.cadenceSeen = key;
       }
     }
     this.lastRaf = rafNow;

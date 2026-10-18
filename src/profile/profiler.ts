@@ -50,9 +50,10 @@ export async function runProfile(app: App) {
   const T0 = performance.now();
   const TOTAL = 60_000;
   const tick = setInterval(() => ui.progress(Math.min(1, (performance.now() - T0) / TOTAL)), 250);
-  // measure a settled site: let the other rooms finish building first (usually done by now)
-  ui.status("Getting ready…");
-  await Promise.race([app.prebuilt, wait(8000)]);
+  // measure a settled site: let the other rooms finish building and compiling first (usually
+  // done by now; an older phone can take ~15 s, and measuring meanwhile measured the compiles)
+  ui.status("Getting ready (preparing the rooms)…");
+  await Promise.race([app.prebuilt, wait(20000)]);
   const readyMs = Math.round(performance.now() - T0);
   const errors: string[] = [];
   const origError = console.error;
@@ -268,7 +269,8 @@ export async function runProfile(app: App) {
     backend: app.engine.backend,
     msaa: app.engine.msaa,
     every: (app as any).every,
-    refreshMs: +((((app as any).intervals as number[]).slice().sort((a, b) => a - b)[Math.floor(((app as any).intervals.length || 1) * 0.2)] ?? 0) as number).toFixed(2),
+    refreshMs: +((app as any).refreshMs as number).toFixed(2),
+    budgetMs: +app.governor.frameBudget.toFixed(2),
     limits: r.backend?.device?.limits ? pick(r.backend.device.limits, ["maxTextureDimension2D", "maxBufferSize", "maxColorAttachments", "maxSampledTexturesPerShaderStage"]) : null,
     // the device three actually rendered with (it asks for a "compatibility" adapter)
     device3: r.backend?.device

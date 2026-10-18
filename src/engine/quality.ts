@@ -148,8 +148,8 @@ interface Sample {
 }
 
 /**
- * Watches rendered frames and nudges the settings. `budget` is the frame time we aim for
- * (16.7 ms = 60 fps).
+ * Watches rendered frames and nudges the settings. `budget` is the frame time we aim for: the
+ * cadence's interval (16.7 ms at 60 fps; 18.2 ms on a 165 Hz screen running every 3rd refresh).
  */
 export class Governor {
   enabled = true;
@@ -181,6 +181,16 @@ export class Governor {
   ) {
     this.settings = { ...s };
     this.ladder = dprLadder(d);
+  }
+
+  /** The frame time to aim for changed (a new cadence): judge against it from the next window. */
+  setBudget(ms: number) {
+    if (Math.abs(ms - this.budget) < 0.05) return;
+    this.budget = ms;
+    this.win = [];
+  }
+  get frameBudget() {
+    return this.budget;
   }
 
   /** Feed one rendered frame. */
@@ -234,11 +244,16 @@ export class Governor {
       return;
     }
     this.bad = Math.max(0, this.bad - 1);
-    const headroom = gpuAvg >= 0 ? gpuAvg < this.budget * 0.55 : true;
-    if (slow < 0.03 && cpuAvg < this.budget * 0.6 && headroom) {
+    // What may go up: anything with lots of headroom; with some, only the cheap extras (bloom,
+    // effects, close-up detail, props: a fraction of a ms, it's pixels that cost), as a trial
+    // that reverts if frames start missing. Without GPU timings, everything is a trial.
+    let up: "dpr" | "other" | null = null;
+    if (gpuAvg < 0 || gpuAvg < this.budget * 0.55) up = "dpr";
+    else if (gpuAvg < this.budget * 0.75) up = "other";
+    if (slow < 0.03 && cpuAvg < this.budget * 0.6 && up) {
       if (++this.good >= (gpuAvg >= 0 ? 2 : 4) && now - this.lastDown > 15000) {
         this.good = 0;
-        this.stepUp(gpuAvg < 0, `smooth (${pct(slow)} slow), cpu ${cpuAvg.toFixed(1)}ms, gpu ${gpuAvg < 0 ? "?" : gpuAvg.toFixed(1) + "ms"}`);
+        this.stepUp(gpuAvg < 0 || up === "other", `smooth (${pct(slow)} slow), cpu ${cpuAvg.toFixed(1)}ms, gpu ${gpuAvg < 0 ? "?" : gpuAvg.toFixed(1) + "ms"}`, up === "dpr");
       }
     } else this.good = 0;
   }
@@ -305,16 +320,24 @@ export class Governor {
     this.commit([key], `down: ${reason}`);
   }
 
-  private stepUp(unproven: boolean, reason: string) {
+  /** The next sharper rung the governor may take (within the device and this visit's cap), or null. */
+  private nextDpr(): number | null {
+    const i = this.ladder.indexOf(this.settings.dpr);
+    const next = this.ladder[i + 1];
+    if (next === undefined || next > Math.min(this.d.native, 2) + 1e-3) return null;
+    if (this.cap.dpr !== undefined && next > this.cap.dpr) return null;
+    return next;
+  }
+
+  private stepUp(unproven: boolean, reason: string, dprOk = true) {
     const s = this.settings;
     const prev = { ...s };
-    const i = this.ladder.indexOf(s.dpr);
     const bi = BLOOM_LADDER.indexOf(s.bloom);
     let key: keyof QualitySettings | null = null;
     // order: sharpness first, then nicer bloom, then close-up detail, then effects back
-    const target = this.d.mobile ? Math.min(this.d.native, 2) : Math.min(this.d.native, 2);
-    if (i < this.ladder.length - 1 && this.ladder[i + 1] <= target + 1e-3 && (this.cap.dpr === undefined || this.ladder[i + 1] <= this.cap.dpr)) {
-      s.dpr = this.ladder[i + 1];
+    const nd = this.nextDpr();
+    if (dprOk && nd !== null) {
+      s.dpr = nd;
       key = "dpr";
     } else if (bi < BLOOM_LADDER.length - 1 && (this.cap.bloom === undefined || BLOOM_LADDER[bi + 1] <= this.cap.bloom)) {
       s.bloom = BLOOM_LADDER[bi + 1];
@@ -325,6 +348,12 @@ export class Governor {
     } else if (!s.hiRes && this.cap.hiRes !== false && !this.d.mobile) {
       s.hiRes = true;
       key = "hiRes";
+    } else if (!s.decor) {
+      // props back (they appear at the next room switch, so this can't be judged as a trial now;
+      // if they make it slow there, stepping down takes them away again the same way)
+      s.decor = true;
+      this.commit(["decor"], `up: ${reason}`);
+      return;
     }
     if (!key) return;
     if (unproven) this.trial = { key, prev };
@@ -357,13 +386,33 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
  * High-refresh displays (120/144/165 Hz) would render 2-3x more frames than the 60 we aim for.
  * Returns N: render every Nth animation frame (1 on 60 Hz screens).
  */
-export function refreshDivisor(intervals: number[]): number {
-  if (intervals.length < 20) return 1;
-  // the display's interval is the floor: a low percentile ignores slow (busy) frames
+/** Refresh rates displays actually run at; a measured rate snaps to the nearest (within 6 %). */
+const STANDARD_HZ = [50, 60, 75, 90, 100, 120, 144, 165, 170, 175, 180, 200, 240, 280, 300, 360];
+
+/**
+ * The display's refresh interval and how many of its frames each of ours lasts. Smoothness is
+ * an even cadence: on a fixed-refresh screen a frame can only change on a refresh, so a rate
+ * that isn't a whole fraction of it (60 fps on 144 Hz, or bouncing between 55 and 82 on
+ * 165 Hz) shows as judder however high it is. So: the slowest whole fraction of the refresh
+ * that's still ≥ ~54 fps, which leaves each frame the most time: 60 Hz → 60, 120 → 60,
+ * 144 → 72, 165 → 55, 240 → 60. The measured interval snaps to a standard rate, so jitter in
+ * the measurement doesn't flip the choice.
+ */
+export function frameCadence(intervals: number[]): { refreshMs: number; every: number } | null {
+  if (intervals.length < 20) return null;
+  // the display's interval: the main cluster round a low percentile (slow, busy frames are
+  // multiples above it; the odd bunched pair of callbacks is below it), and its median
   const sorted = [...intervals].sort((a, b) => a - b);
-  const base = sorted[Math.floor(sorted.length * 0.2)];
-  if (base >= 12) return 1;
-  return Math.max(1, Math.floor(1000 / 60 / base + 0.15));
+  const p25 = sorted[Math.floor(sorted.length * 0.25)];
+  const cluster = sorted.filter((v) => v > p25 * 0.85 && v < p25 * 1.15);
+  const base = cluster[Math.floor(cluster.length / 2)] ?? p25;
+  if (!(base > 1)) return null;
+  const hz = 1000 / base;
+  const near = STANDARD_HZ.reduce((b, s) => (Math.abs(s - hz) < Math.abs(b - hz) ? s : b), STANDARD_HZ[0]);
+  const refreshMs = 1000 / (Math.abs(near - hz) / near < 0.06 ? near : hz);
+  let every = 1;
+  while ((every + 1) * refreshMs <= 18.6) every++;
+  return { refreshMs, every };
 }
 
 // ---- what the switches act on ---------------------------------------------------------------
