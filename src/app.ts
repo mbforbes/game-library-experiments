@@ -94,6 +94,10 @@ export class App {
       this.device = await detectDevice();
       const { s: q0, remembered } = initialSettings(this.device, params);
       this.engine = await createEngine(canvas, { msaa: q0.msaa, dpr: q0.dpr, bloom: q0.bloom, timestamps: true, coldTag: params.get("cold") ?? undefined });
+      this.onGpuLost();
+      // iPhones: no compiling other rooms in the background (Safari's graphics process stalls
+      // frames while it compiles): each room compiles when you first go there
+      if (this.device.os === "ios") this.bgOff = true;
       this.governor = new Governor(this.device, q0, {
         apply: (s, changed) => this.applyQuality(s, changed),
         // (and not while shaders compile at full speed: that measures the compile, not the device)
@@ -155,7 +159,7 @@ export class App {
       (window as any).__ready = performance.now() - t0;
       this.hud.hideLoading();
       if (!off("upgrade") && this.governor.settings.hiRes) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
-      if (!off("prebuild")) this.prebuilt = this.prebuildOthers();
+      if (!off("prebuild") && !this.bgOff) this.prebuilt = this.prebuildOthers();
       if (wantVault) this.openVault();
       // the performance test: /profile or ?profile
       if (this.profiling) import("./profile/profiler").then((m) => m.runProfile(this));
@@ -330,6 +334,28 @@ export class App {
   }
 
   /** After the first world is up, quietly build + compile the others so switching is instant. */
+  /**
+   * The GPU went away (the browser's graphics process crashed or was restarted: on an iPhone
+   * this has followed a notification arriving, with the picture frozen): start over, once. If it
+   * happens again within a minute, say so instead of reloading in a loop.
+   */
+  private onGpuLost() {
+    const r = this.engine.renderer;
+    const log = r.onDeviceLost.bind(r);
+    r.onDeviceLost = (info) => {
+      log(info);
+      if (info.reason === "destroyed") return;
+      const KEY = "the-backlog-gpu-lost";
+      let last = 0;
+      try {
+        last = +(sessionStorage.getItem(KEY) ?? 0);
+        sessionStorage.setItem(KEY, String(Date.now()));
+      } catch {}
+      if (Date.now() - last > 60000) setTimeout(() => location.reload(), 300);
+      else this.hud.toast("The graphics stopped working. Close this tab and open the site again.", 600000);
+    };
+  }
+
   private async prebuildOthers() {
     // let the first room have the stage: wait until its own compiles are done and you've had a
     // few seconds in it, then build the others only while you're not moving around

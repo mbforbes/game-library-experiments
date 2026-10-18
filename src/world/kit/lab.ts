@@ -109,9 +109,11 @@ export function chamberSign(opts: { number: string; caption: string; progress: n
   ctx.fillStyle = "#e9e9e6";
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = "#1a1a1a";
+  // the number centred between the top edge and the caption (by its glyphs, whatever the font)
   ctx.font = `600 230px "Oswald", sans-serif`;
+  const ink = ctx.measureText(opts.number);
+  ctx.fillText(opts.number, 30, (0 + 272 + ink.actualBoundingBoxAscent - ink.actualBoundingBoxDescent) / 2, W - 60);
   ctx.textBaseline = "top";
-  ctx.fillText(opts.number, 30, 10, W - 60);
   ctx.font = `500 30px "Barlow Condensed", sans-serif`;
   ctx.fillText(opts.caption.toUpperCase(), 34, 270, W - 60);
   // progress bar
