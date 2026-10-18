@@ -64,6 +64,10 @@ export class ArtStore {
   ready: Promise<void> = Promise.resolve();
 
   constructor(private tier: "hi" | "lo") {}
+  /** phones: smaller generated textures (spines, backs) */
+  get lowRes() {
+    return this.tier === "lo";
+  }
 
   async load(onProgress?: (f: number) => void): Promise<void> {
     try {

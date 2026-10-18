@@ -58,7 +58,18 @@ export class Inspector {
 
   open(game: Game, field: MediaField | null) {
     if (this.hero) this.close(true);
-    const hero = new Hero(game, this.art);
+    // does it come out spine first (spine-out on a shelf, the spine facing you)? then the hero
+    // needs its spine printed right away; otherwise that can wait for idle time
+    let spineNow = true;
+    const m = field?.has(game.id) ? field.matrixOf(game.id, new THREE.Matrix4()) : null;
+    if (m) {
+      const q = new THREE.Quaternion().setFromRotationMatrix(m);
+      const toCam = this.camera.position.clone().sub(new THREE.Vector3().setFromMatrixPosition(m)).normalize();
+      const spineDir = new THREE.Vector3(-1, 0, 0).applyQuaternion(q); // templates' spines face -X
+      const coverDir = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
+      spineNow = spineDir.dot(toCam) > coverDir.dot(toCam);
+    }
+    const hero = new Hero(game, this.art, { spineNow });
     this.hero = hero;
     this.field = field;
     if (field && field.has(game.id)) {

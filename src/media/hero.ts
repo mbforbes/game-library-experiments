@@ -109,7 +109,12 @@ export class Hero {
   private disposed = false;
   private sh: HeroShared;
 
-  constructor(game: Game, private art: ArtStore) {
+  /**
+   * `spineNow`: the spine faces you as the game comes out (spine-out on a shelf), so it's drawn
+   * at once; otherwise it's drawn in idle time just after, like the back (neither shows yet, and
+   * drawing both up front cost a long frame on every open, more on phones).
+   */
+  constructor(game: Game, private art: ArtStore, opts: { spineNow?: boolean } = {}) {
     this.game = game;
     const sh = (this.sh = HeroShared.get(art));
     const t = templateOf(game, art);
@@ -138,28 +143,38 @@ export class Hero {
       sh.photoPad.value.set(-1, -1);
     }
 
-    // ---- spine: printed now, real scan when loaded
-    const [sw, shh] = t.spine ?? [0.02, 0.2];
-    const horiz = sw > shh;
-    const H = 1024;
-    sh.spineCanvas.height = horiz ? Math.round(H * (shh / sw)) : H;
-    sh.spineCanvas.width = horiz ? H : Math.max(16, Math.round(H * (sw / shh)));
-    drawSpine(sh.spineCanvas.getContext("2d")!, 0, 0, sh.spineCanvas.width, sh.spineCanvas.height, game, art, horiz);
-    sh.spineTex.dispose(); // canvas size changed: recreate the GPU texture
-    sh.spineTex.needsUpdate = true;
-    sh.spine.value = sh.spineTex;
-
-    // ---- back: generated in the platform's style now, real scan when loaded
-    const [w, h] = t.size;
-    sh.backCanvas.width = 900;
-    sh.backCanvas.height = Math.round((900 * h) / w);
-    const bctx = sh.backCanvas.getContext("2d")!;
-    const redraw = () => live() && (sh.backTex.needsUpdate = true);
-    if (isCart) drawCartBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, p);
-    else drawBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, art, redraw);
-    sh.backTex.dispose();
-    sh.backTex.needsUpdate = true;
-    sh.back.value = sh.backTex;
+    // ---- spine: printed (now if it faces you, else in idle time), real scan when loaded
+    let spineScan = false, backScan = false;
+    const printSpine = () => {
+      if (!live() || spineScan) return;
+      const [sw, shh] = t.spine ?? [0.02, 0.2];
+      const horiz = sw > shh;
+      const H = art.lowRes ? 512 : 1024;
+      sh.spineCanvas.height = horiz ? Math.round(H * (shh / sw)) : H;
+      sh.spineCanvas.width = horiz ? H : Math.max(16, Math.round(H * (sw / shh)));
+      drawSpine(sh.spineCanvas.getContext("2d")!, 0, 0, sh.spineCanvas.width, sh.spineCanvas.height, game, art, horiz);
+      sh.spineTex.dispose(); // canvas size changed: recreate the GPU texture
+      sh.spineTex.needsUpdate = true;
+      sh.spine.value = sh.spineTex;
+    };
+    // ---- back: generated in the platform's style (idle time: it faces away), real scan when loaded
+    const printBack = () => {
+      if (!live() || backScan) return;
+      const [w, h] = t.size;
+      const BW = art.lowRes ? 640 : 900;
+      sh.backCanvas.width = BW;
+      sh.backCanvas.height = Math.round((BW * h) / w);
+      const bctx = sh.backCanvas.getContext("2d")!;
+      const redraw = () => live() && (sh.backTex.needsUpdate = true);
+      if (isCart) drawCartBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, p);
+      else drawBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, art, redraw);
+      sh.backTex.dispose();
+      sh.backTex.needsUpdate = true;
+      sh.back.value = sh.backTex;
+    };
+    if (opts.spineNow ?? true) printSpine();
+    else whenIdle(printSpine);
+    whenIdle(printBack);
 
     // ---- per-game uniforms
     const special = SPECIAL_SHELLS[game.artKey];
@@ -214,9 +229,19 @@ export class Hero {
         sh.coverRect.value.set(cu, cv, cw, ch);
       });
     }
-    if (e?.spc && !editionOf(game)) art.tex(e.spc).then((tex) => live() && tex && (sh.spine.value = tex));
+    if (e?.spc && !editionOf(game))
+      art.tex(e.spc).then((tex) => {
+        if (!live() || !tex) return;
+        spineScan = true;
+        sh.spine.value = tex;
+      });
     const realBack = isCart ? e?.kb : e?.b;
-    if (realBack) art.tex(realBack).then((tex) => live() && tex && (sh.back.value = tex));
+    if (realBack)
+      art.tex(realBack).then((tex) => {
+        if (!live() || !tex) return;
+        backScan = true;
+        sh.back.value = tex;
+      });
   }
 
   private static token = 0;
@@ -354,9 +379,11 @@ export function drawBack(ctx: CanvasRenderingContext2D, W: number, H: number, g:
   if (yr) ctx.fillText(`© ${yr} ${(g.developer || "").toUpperCase()}`, fx, fy + bottomBlock * 0.72, W * 0.45);
   barcode(ctx, g.title, W - pad - W * 0.24, fy, W * 0.24, bottomBlock * 0.7);
 
-  // async: clear logo + screenshots
+  // async: clear logo + screenshots, uploaded together once they're all in (each one
+  // re-uploading the whole back cost a long frame, several per open)
+  const pending: Promise<unknown>[] = [];
   if (e?.l)
-    loadImage("/art/" + e.l).then((img) => {
+    pending.push(loadImage("/art/" + e.l).then((img) => {
       if (!img) return;
       ctx.fillStyle = "#0e0e14";
       const g2 = ctx.createLinearGradient(0, 0, 0, H);
@@ -366,10 +393,9 @@ export function drawBack(ctx: CanvasRenderingContext2D, W: number, H: number, g:
       ctx.fillRect(0, logoY, W, titleH);
       const s = Math.min((W - pad * 2) / img.width, (titleH * 0.9) / img.height);
       ctx.drawImage(img, pad, logoY + (titleH - img.height * s) / 2, img.width * s, img.height * s);
-      onUpdate?.();
-    });
+    }));
   (e?.s ?? []).slice(0, 3).forEach((sPath, i) =>
-    loadImage("/art/" + sPath).then((img) => {
+    pending.push(loadImage("/art/" + sPath).then((img) => {
       if (!img) return;
       const x = pad + i * (shotW + W * 0.02);
       ctx.save();
@@ -383,9 +409,9 @@ export function drawBack(ctx: CanvasRenderingContext2D, W: number, H: number, g:
       ctx.strokeStyle = "#ffffffcc";
       ctx.lineWidth = W * 0.004;
       ctx.strokeRect(x, shotsY, shotW, shotH);
-      onUpdate?.();
-    }),
+    })),
   );
+  if (pending.length) Promise.allSettled(pending).then(() => onUpdate?.());
 }
 
 /** The back of a cartridge: molded plastic with a warning/label sticker. */
@@ -427,3 +453,10 @@ export function drawCartBack(ctx: CanvasRenderingContext2D, W: number, H: number
 }
 
 export { drawProceduralCover };
+
+/** Run `fn` in idle time soon (within ~0.3 s at the latest). */
+function whenIdle(fn: () => void) {
+  const ric = (window as any).requestIdleCallback as ((cb: () => void, o: { timeout: number }) => void) | undefined;
+  if (ric) ric(fn, { timeout: 300 });
+  else setTimeout(fn, 60);
+}
