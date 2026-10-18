@@ -9,6 +9,7 @@ import type { ArtStore } from "../library/art";
 import type { Station } from "../levels/types";
 import type { Track } from "../levels";
 import { loadForecasts, type Forecasts } from "../library/forecasts";
+import { Voice } from "./voice";
 import "./hud.css";
 
 const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, html?: string) => {
@@ -38,6 +39,10 @@ export class Hud {
   private loading = h("div", "loading");
   private loadingMsg = h("div", "loading-msg");
   private toastEl = h("div", "toast");
+  /** the Archivist's voice: in the open game's panel (beside its facts), else at the top */
+  private panelVoice = new Voice();
+  private topVoice = new Voice("v-top");
+  private topVoiceTimer = 0;
   private stationsEl = h("div", "stations");
   private panel = h("aside", "panel");
   private searchBox = h("div", "search");
@@ -172,7 +177,11 @@ export class Hud {
     }
 
     // stations + panel + toast + debug
-    this.root.append(this.stationsEl, this.panel, this.toastEl, this.debugEl, this.tip, this.switcher, this.help);
+    this.root.append(this.stationsEl, this.panel, this.toastEl, this.topVoice.el, this.debugEl, this.tip, this.switcher, this.help);
+    this.topVoice.onDone = () => {
+      clearTimeout(this.topVoiceTimer);
+      this.topVoiceTimer = window.setTimeout(() => this.topVoice.el.classList.remove("show"), 3200);
+    };
     this.panel.addEventListener("pointerdown", (e) => e.stopPropagation());
     this.syncFilters();
   }
@@ -286,6 +295,22 @@ export class Hud {
     this.filterBox.querySelectorAll<HTMLButtonElement>(".chip").forEach((b) => b.classList.toggle("on", b.dataset.f === this.store.filter));
   }
 
+  /**
+   * The Archivist says something. With a game open it speaks in the game's panel (so it never
+   * covers the game); otherwise in a bubble at the top. A new line replaces the last.
+   */
+  say(text: string) {
+    const slot = this.panel.classList.contains("open") ? this.panel.querySelector(".facts") : null;
+    if (slot) {
+      slot.classList.add("has-voice");
+      this.panelVoice.speak(text);
+      return;
+    }
+    clearTimeout(this.topVoiceTimer);
+    this.topVoice.el.classList.add("show");
+    this.topVoice.speak(text);
+  }
+
   toast(text: string, ms = 3200) {
     this.toastEl.textContent = text;
     this.toastEl.classList.add("show");
@@ -344,7 +369,7 @@ export class Hud {
         <h2>${esc(g.title)}</h2>
         <div class="p-status s-${g.status}">${statusLabel(g)} ${grade}${newGames.since.has(g.id) ? `<span class="new-badge">NEW · added ${fmt(newGames.since.get(g.id)!.slice(0, 10))}</span>` : ""}</div>
       </div>
-      <dl>${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      <div class="facts"><dl>${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>
       ${extra}
       ${g.review ? `<div class="review"><div class="r-label">Cooper's review</div><p>${esc(g.review)}</p></div>` : ""}
       <div class="p-actions">
@@ -354,6 +379,9 @@ export class Hud {
         <button data-a="next" aria-label="Next">›</button>
         <button data-a="close" class="close" aria-label="Close">✕</button>
       </div>`;
+    // (a new game: the Archivist starts over, if it has something to say about this one)
+    this.panelVoice.clear();
+    this.panel.querySelector(".facts")!.appendChild(this.panelVoice.el);
     this.panel.querySelectorAll<HTMLButtonElement>("button[data-a]").forEach((b) => {
       b.onclick = () => {
         const a = b.dataset.a;
@@ -367,6 +395,8 @@ export class Hud {
     });
     this.panel.classList.add("open");
     this.panel.scrollTop = 0;
+    // (phones: the first-visit controls card would sit on top of the panel)
+    if (!this.isSide) this.help.classList.remove("open");
   }
 
   /** Desktop hover tooltip */

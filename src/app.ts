@@ -180,6 +180,7 @@ export class App {
       pickable: (obj, onTap) => slot.pickables.push({ obj, onTap }),
       inspect: (g) => this.openGame(g),
       toast: (t, ms) => this.hud.toast(t, ms),
+      say: (t) => this.hud.say(t),
       onUpdate: (fn) => slot.tickers.push(fn),
       openVault: () => this.openVault(),
     };

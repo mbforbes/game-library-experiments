@@ -150,6 +150,21 @@ dd { margin: 0; }
   box-shadow: 0 0 24px -6px var(--accent); transition: opacity 0.3s, transform 0.3s;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* the Archivist's voice (Backlog Science): its core icon, the eye flickering while it talks */
+.voice { display: none; gap: 10px; align-items: flex-start; }
+.has-voice > .voice, .voice.v-top.show { display: flex; }
+.voice .v-core { width: 30px; height: 30px; flex: 0 0 30px; filter: drop-shadow(0 0 3px #ffbf3340); }
+.voice.talking .v-core { filter: drop-shadow(0 0 7px #ffbf33a0); }
+.voice .v-eye { transform-origin: 16px 18px; transform-box: view-box; }
+.voice.talking .v-eye { animation: v-talk 0.11s steps(2, jump-none) infinite alternate; }
+@keyframes v-talk { from { opacity: 0.5; transform: scale(0.8); } to { opacity: 1; transform: scale(1.08); } }
+.voice .v-text { font-family: "VT323", monospace; font-size: 18px; line-height: 1.12; color: #f1f3f7; min-height: 1.1em; }
+.facts { display: grid; gap: 12px; margin: 0 0 4px; }
+.facts.has-voice .voice { padding: 10px 12px; border-radius: 10px; background: #ffffff0a; border: 1px solid var(--line); }
+.voice.v-top {
+  position: fixed; left: 50%; top: calc(74px + var(--safe-t)); transform: translateX(-50%); z-index: 6; max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 14px; border-radius: 12px; background: #000c; border: 1px solid var(--accent); box-shadow: 0 0 24px -6px var(--accent); pointer-events: none;
+}
 .debug {
   display: none; position: fixed; left: 8px; bottom: calc(64px + var(--safe-b)); padding: 6px 8px; border-radius: 6px;
   background: #000b; font: 11px/1.35 ui-monospace, monospace; white-space: pre; color: #9f9; pointer-events: none;
@@ -162,6 +177,11 @@ dd { margin: 0; }
     transform: translateY(100%);
   }
   .panel.open { transform: none; }
+  /* the facts take the left half, the Archivist the right (it used to cover the game) */
+  .facts.has-voice { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .facts.has-voice dl { grid-template-columns: auto minmax(0, 1fr); font-size: 13px; }
+  .facts.has-voice dd { overflow-wrap: anywhere; }
+  .voice .v-text { font-size: 17px; }
   .grab { display: block; width: 40px; height: 4px; border-radius: 2px; background: #ffffff40; margin: -8px auto 0; flex: none; }
   .panel h2 { font-size: 22px; }
   .logo { font-size: 9px; }

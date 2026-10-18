@@ -26,6 +26,8 @@ export interface LevelCtx {
   inspect(game: Game): void;
   /** Toast-style message in the HUD (easter eggs, announcements). */
   toast(text: string, ms?: number): void;
+  /** the Archivist (Backlog Science) says something: in the open game's panel, else at the top */
+  say(text: string): void;
   /** A level-scoped place to put per-frame tickers */
   onUpdate(fn: (dt: number, t: number) => void): void;
   /** Ask for the vault password (server-checked) and go to the vault if it's right. */

@@ -386,7 +386,13 @@ export default function lab(): Level {
     },
 
     onSelect(g) {
-      if (g) say(commentOn(g));
+      // (finished games get no remark: it was the same template every time)
+      // (the remark goes beside the game's facts, which already name it and show the forecast's
+      // reasons; the LED caption up on the wall names it)
+      if (g && g.status !== "completed") {
+        const line = commentOn(g);
+        say(line, true, `${g.title}: ${line}`);
+      }
     },
 
     dispose() {
@@ -421,12 +427,12 @@ export default function lab(): Level {
     say(fromA ? "You have entered the results chamber. Try not to gloat." : "Back to the queue. It missed you. It did not get shorter.");
   }
 
-  function say(text: string, talk = true) {
-    (level as any)._sayTo?.(text.toUpperCase());
+  function say(text: string, talk = true, caption = text) {
+    (level as any)._sayTo?.(caption.toUpperCase());
     if (talk) {
       archivist.mood.value = 1;
       ctx.audio.play("chatter", { at: archivist.group.position, pitch: 0.9 + Math.random() * 0.2 });
-      ctx.toast(`🤖 ${text}`, 4200);
+      ctx.say(text);
     }
   }
 
@@ -455,34 +461,19 @@ export default function lab(): Level {
     const p = platformOf(g.platform).short;
     const year = ctx.art.year(g);
     const age = year ? new Date().getFullYear() - year : 0;
-    if (g.status === "wishlist") return `${g.title}: not yet acquired. Estimated cost $${g.looseValue ?? "?"}.`;
-    if (g.status === "playing") return `${g.title} (${p}): test in progress. Please continue. Eventually.`;
+    if (g.status === "wishlist") return `Not yet acquired. Estimated cost $${g.looseValue ?? "?"}.`;
+    if (g.status === "playing") return `${p} test in progress. Please continue. Eventually.`;
     const fc = forecasts?.forecasts[g.id];
     if (fc && g.status === "backlog" && Math.random() < 0.6) {
       const pct = Math.round((forecasts!.backtest.exact ?? 0.45) * 100);
-      return `${g.title}: my models predict a ${fc.grade.replace("+", " plus")}. ${fc.why.replace(/\.$/, "")}. I am right ${pct} percent of the time. You are right less often.`;
+      return `My models predict a ${fc.grade.replace("+", " plus")}. I am right ${pct} percent of the time. You are right less often.`;
     }
     if (g.status === "backlog") {
-      if (age > 25) return `${g.title} has waited ${age} years for testing. It is very patient. More patient than me.`;
-      if (g.priority === 1) return `${g.title}: priority one. Which apparently means "soon-ish".`;
-      return `${g.title}: queued for testing${g.hours ? `. Estimated duration ${g.hours} hours` : ""}. Your enthusiasm has been logged.`;
+      if (age > 25) return `This subject has waited ${age} years for testing. It is very patient. More patient than me.`;
+      if (g.priority === 1) return `Priority one. Which apparently means "soon-ish".`;
+      return `Queued for testing${g.hours ? `. Estimated duration ${g.hours} hours` : ""}. Your enthusiasm has been logged.`;
     }
-    switch (g.grade) {
-      case "A+":
-        return `${g.title}: result A plus. Exceptional. I was not aware you were capable of that.`;
-      case "A":
-        return `${g.title}: result A. An excellent test. Do not let it go to your head.`;
-      case "B":
-        return `${g.title}: result B. Satisfactory. The subject has been thanked for its service.`;
-      case "C":
-        return `${g.title}: result C. Adequate. Nobody will remember this test, including the subject.`;
-      case "D":
-        return `${g.title}: result D. The subject has been asked to reflect on its choices.`;
-      case "F":
-        return `${g.title}: result F. The subject has been disposed of. Please do not attempt to retrieve it.`;
-      default:
-        return `${g.title}: test concluded.`;
-    }
+    return "Test concluded.";
   }
 
   /** The data boards on the front + right walls of both chambers. */
