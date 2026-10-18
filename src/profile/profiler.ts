@@ -51,9 +51,10 @@ export async function runProfile(app: App) {
   const TOTAL = 60_000;
   const tick = setInterval(() => ui.progress(Math.min(1, (performance.now() - T0) / TOTAL)), 250);
   // measure a settled site: let the other rooms finish building and compiling first (usually
-  // done by now; an older phone can take ~15 s, and measuring meanwhile measured the compiles)
+  // done by now; an older phone's first visit takes ~25 s, and measuring meanwhile measured the
+  // compiles). The browsing steps get shorter to make up for it.
   ui.status("Getting ready (preparing the rooms)…");
-  await Promise.race([app.prebuilt, wait(20000)]);
+  await Promise.race([app.prebuilt, wait(45000)]);
   const readyMs = Math.round(performance.now() - T0);
   const errors: string[] = [];
   const origError = console.error;
