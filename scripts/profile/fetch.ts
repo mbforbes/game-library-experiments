@@ -61,6 +61,7 @@ for (const k of keys) {
   }
   if (p.kind === "diag") {
     console.log(`\n=== ${k}  DIAG · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · screen ${d.screen} @${d.native}x · ${p.backend} msaa ${p.msaa} · ${p.ua?.match(/Version\/[\d.]+|Chrome\/[\d.]+/)?.[0] ?? ""}`);
+    if (p.levelTimes) console.log(`ready ${Math.round(p.ready ?? 0)} ms · ${Object.entries(p.levelTimes).map(([id, v]: [string, any]) => `${id} built ${v.built} + compiled ${v.compiled} ms`).join(" · ")}`);
     console.log("ms per frame at dpr 1 unless noted: flat out (js = our code + WebGPU calls) / at display pace, submit to GPU done");
     for (const [room, row] of Object.entries(p.results ?? {}) as [string, Record<string, { ms: number; js: number; paced?: number }>][]) {
       console.log(`  ${room}`);

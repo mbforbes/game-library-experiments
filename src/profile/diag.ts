@@ -7,7 +7,8 @@
 //   allCutout  bloom off, every game box with the alpha test (as before only photos had it)
 //   -<part>    bloom off, without one of the room's biggest other parts (paced only)
 //   plainEnd   bloom off again, last (did conditions drift during the run?)
-// With &msaa=0 the whole run is without multisampling (FXAA instead), to compare.
+// With &msaa=0 the whole run is without multisampling (FXAA instead), and with &webgl on WebGL 2
+// instead of WebGPU (a frame is waited for with a 1-pixel read there), to compare.
 // Each variant: after the change, every shader it needs is compiled and it runs a second at
 // display pace; then two measurements:
 //   ms    frames drawn back to back (two in flight), clocks up: the work a frame takes. Median of
@@ -26,7 +27,14 @@ export async function runDiag(app: any) {
   document.body.appendChild(box);
   const say = (t: string) => (box.textContent = t);
   const e = app.engine, r = e.renderer as any, dev = r.backend.device as GPUDevice | undefined;
-  if (!dev) return say("Diagnostic needs WebGPU.");
+  const gl = r.backend.gl as WebGL2RenderingContext | undefined;
+  if (!dev && !gl) return say("Diagnostic: no WebGPU or WebGL backend.");
+  const px = new Uint8Array(4);
+  /** wait until the GPU has finished everything submitted so far */
+  const done = async () => {
+    if (dev) await dev.queue.onSubmittedWorkDone();
+    else gl!.readPixels(0, 0, 1, 1, gl!.RGBA, gl!.UNSIGNED_BYTE, px);
+  };
   app.governor.enabled = false;
   const step = () => {
     r._nodes.nodeFrame.update();
@@ -41,16 +49,16 @@ export async function runDiag(app: any) {
   };
   const throughput = async (ms = 800) => {
     for (let i = 0; i < 8; i++) step();
-    await dev.queue.onSubmittedWorkDone();
+    await done();
     let js = 0, n = 0;
     const t0 = performance.now();
     while (performance.now() - t0 < ms) {
       const a = performance.now();
       step();
       js += performance.now() - a;
-      if (++n % 2 === 0) await dev.queue.onSubmittedWorkDone();
+      if (++n % 2 === 0) await done();
     }
-    await dev.queue.onSubmittedWorkDone();
+    await done();
     return { ms: (performance.now() - t0) / n, js: js / n };
   };
   const paced = async (ms = 1500) => {
@@ -59,10 +67,11 @@ export async function runDiag(app: any) {
     while (performance.now() - t0 < ms) {
       const a = performance.now();
       step();
-      dev.queue.onSubmittedWorkDone().then(() => lat.push(performance.now() - a));
+      if (dev) dev.queue.onSubmittedWorkDone().then(() => lat.push(performance.now() - a));
+      else (await done(), lat.push(performance.now() - a));
       await raf();
     }
-    await dev.queue.onSubmittedWorkDone();
+    await done();
     return lat.reduce((s, x) => s + x, 0) / Math.max(1, lat.length);
   };
   type Row = { ms: number; js: number; paced: number };
@@ -119,7 +128,7 @@ export async function runDiag(app: any) {
   e.setDpr(s0.dpr);
   e.setBloom(s0.bloom);
   app.governor.enabled = true;
-  const report = { v: 2, kind: "diag", at: new Date().toISOString(), device: app.device, ua: navigator.userAgent, backend: e.backend, msaa: e.msaa, settings: s0, results };
+  const report = { v: 2, kind: "diag", at: new Date().toISOString(), device: app.device, ua: navigator.userAgent, backend: e.backend, msaa: e.msaa, settings: s0, results, ready: (window as any).__ready ?? null, levelTimes: (window as any).__levelTimes ?? null };
   let sent = "not sent";
   try {
     const res = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report) });
