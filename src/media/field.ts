@@ -26,11 +26,13 @@ export interface MediaKit {
   art: ArtStore;
   spines: SpineAtlas;
   solid: THREE.MeshStandardNodeMaterial;
+  /** (for real cartridge photos, cut out of their quads) */
+  cutout: THREE.MeshStandardNodeMaterial;
   holo: THREE.MeshStandardNodeMaterial;
 }
 
 export function makeMediaKit(art: ArtStore, spines: SpineAtlas): MediaKit {
-  return { art, spines, solid: makeMediaMaterial(art.pages, spines.texture, art.spinePages), holo: makeHoloMaterial(art.pages) };
+  return { art, spines, solid: makeMediaMaterial(art.pages, spines.texture, art.spinePages, false), cutout: makeMediaMaterial(art.pages, spines.texture, art.spinePages, true), holo: makeHoloMaterial(art.pages) };
 }
 
 interface Batch {
@@ -174,7 +176,7 @@ export class MediaField {
     geo.setAttribute("iColor", color);
     geo.setAttribute("iGlow", glow);
     geo.setAttribute("iState", state);
-    const mesh = new THREE.InstancedMesh(geo, this.holo ? this.kit.holo : this.kit.solid, n);
+    const mesh = new THREE.InstancedMesh(geo, this.holo ? this.kit.holo : photo ? this.kit.cutout : this.kit.solid, n);
     mesh.name = `${this.group.name}:${kind}${photo ? "+photo" : ""}`;
     mesh.frustumCulled = false; // instances are spread around; bounding sphere is computed below
     const b: Batch = { kind, photo, t, mesh, games: [], buf, cover, spine, color, glow, state, extra, inv: [], base: [] };

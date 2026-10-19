@@ -153,6 +153,8 @@ interface Sample {
  */
 export class Governor {
   enabled = true;
+  /** remember settings for the next visit (off while the URL overrides them, e.g. ?msaa=0) */
+  persist = true;
   readonly settings: QualitySettings;
   /** caps learned this visit: a knob lowered for slowness won't go back up */
   private cap: Partial<Record<"dpr" | "bloom", number>> & { fx?: boolean; hiRes?: boolean } = {};
@@ -376,7 +378,7 @@ export class Governor {
     this.quietUntil = performance.now() + 2000;
     this.win = [];
     this.hooks.apply({ ...this.settings }, changed);
-    if (save) saveSettings(this.d, this.settings);
+    if (save && this.persist) saveSettings(this.d, this.settings);
   }
 }
 

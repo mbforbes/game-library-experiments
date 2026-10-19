@@ -45,9 +45,15 @@ function parts() {
   };
 }
 
-export function makeMediaMaterial(pages: THREE.Texture[], spineTex: THREE.Texture, spinePages: THREE.Texture[] = []): THREE.MeshStandardNodeMaterial {
+/**
+ * `cutout`: for batches of real cartridge photos, which are cut out of their quad (alpha test).
+ * Only those pay for it: on tile-based (phone) GPUs a shader that can discard pixels loses
+ * hidden-surface removal for its whole draw.
+ */
+export function makeMediaMaterial(pages: THREE.Texture[], spineTex: THREE.Texture, spinePages: THREE.Texture[] = [], cutout = true): THREE.MeshStandardNodeMaterial {
   const mat = new THREE.MeshStandardNodeMaterial();
-  mat.alphaTest = 0.5; // photo-mode cartridges are cut-outs
+  if (cutout) mat.alphaTest = 0.5;
+  mat.userData.media = true;
   const iSpine = attribute("iSpine", "vec4");
   const iColor = attribute("iColor", "vec4");
   const iGlow = attribute("iGlow", "vec4");

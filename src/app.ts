@@ -104,6 +104,7 @@ export class App {
         busy: () => this.loadingLevel || document.hidden || !this.active || this.engine.compilingUnpaced,
       });
       if (params.has("nogov")) this.governor.enabled = false;
+      if (["q", "quality", "dpr", "msaa"].some((k) => params.has(k))) this.governor.persist = false;
       try {
         // background main-thread work (long tasks outside our frames) shouldn't cost resolution
         new PerformanceObserver((list) => {

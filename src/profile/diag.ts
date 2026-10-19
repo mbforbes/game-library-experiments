@@ -4,8 +4,10 @@
 //   plain2x    bloom off at twice the resolution (what scales with pixels)
 //   floor      bloom off, nothing in the room drawn (the per-frame overhead)
 //   noGames    bloom off, the game boxes not drawn
-//   noAlpha    bloom off, the game boxes drawn without their alpha test
+//   allCutout  bloom off, every game box with the alpha test (as before only photos had it)
+//   -<part>    bloom off, without one of the room's biggest other parts (paced only)
 //   plainEnd   bloom off again, last (did conditions drift during the run?)
+// With &msaa=0 the whole run is without multisampling (FXAA instead), to compare.
 // Each variant: after the change, every shader it needs is compiled and it runs a second at
 // display pace; then two measurements:
 //   ms    frames drawn back to back (two in flight), clocks up: the work a frame takes. Median of
@@ -83,22 +85,32 @@ export async function runDiag(app: any) {
     r.setAnimationLoop(null);
     const scene = app.active.scene;
     const games: any[] = [];
-    scene.traverse((o: any) => o.isInstancedMesh && o.material?.alphaTest === 0.5 && games.push(o));
-    const mats = new Set(games.map((o) => o.material));
+    scene.traverse((o: any) => o.isInstancedMesh && o.material?.userData?.media && games.push(o));
+    const solid = [...new Set(games.map((o) => o.material))].filter((m: any) => !m.alphaTest);
     const row: Record<string, Row> = {};
-    const run = async (name: string, setup: () => void, undo?: () => void) => {
+    const run = async (name: string, setup: () => void, undo?: () => void, pacedOnly = false) => {
       say(`Diagnostic: ${id} (${i + 1}/${rooms.length}) · ${name}…\n${lines.join("\n")}`);
       setup();
-      row[name] = await measure(scene);
+      if (pacedOnly) {
+        await e.precompile(scene, undefined, { parallel: 4 });
+        await settle(800);
+        row[name] = { ms: -1, js: -1, paced: +(await paced()).toFixed(2) };
+      } else row[name] = await measure(scene);
       undo?.();
     };
+    // the biggest other parts of the room (by number of meshes), not the game boxes
+    const isGames = (c: any) => { let g = false; c.traverse((o: any) => (g ||= games.includes(o))); return g; };
+    const meshCount = (c: any) => { let n = 0; c.traverse((o: any) => o.isMesh && n++); return n; };
+    const label = (c: any) => { let n = c.name; if (!n) c.traverse((o: any) => (n ||= o.name)); return (n || c.type).replace(/[^\w-]/g, "").slice(0, 18); };
+    const parts = scene.children.filter((c: any) => !c.isLight && c.visible && !isGames(c)).sort((a: any, b: any) => meshCount(b) - meshCount(a)).slice(0, 5);
     const shown = scene.children.filter((c: any) => !c.isLight && c.visible);
     await run("bloom", () => (e.setDpr(1), e.setBloom(0.25)));
     await run("plain", () => e.setBloom(0));
     await run("plain2x", () => e.setDpr(2), () => e.setDpr(1));
     await run("floor", () => shown.forEach((c: any) => (c.visible = false)), () => shown.forEach((c: any) => (c.visible = true)));
     await run("noGames", () => games.forEach((g) => (g.visible = false)), () => games.forEach((g) => (g.visible = true)));
-    await run("noAlpha", () => mats.forEach((m: any) => ((m.alphaTest = 0), (m.needsUpdate = true))), () => mats.forEach((m: any) => ((m.alphaTest = 0.5), (m.needsUpdate = true))));
+    await run("allCutout", () => solid.forEach((m: any) => ((m.alphaTest = 0.5), (m.needsUpdate = true))), () => solid.forEach((m: any) => ((m.alphaTest = 0), (m.needsUpdate = true))));
+    for (const p of parts) await run(`-${label(p)}(${meshCount(p)})`, () => (p.visible = false), () => (p.visible = true), true);
     await run("plainEnd", () => {});
     results[id] = row;
     lines.push(`${id}: ${Object.entries(row).map(([k, v]) => `${k} ${v.ms}/${v.paced}`).join(" · ")}`);
