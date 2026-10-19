@@ -61,9 +61,11 @@ for (const k of keys) {
   }
   if (p.kind === "diag") {
     console.log(`\n=== ${k}  DIAG · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · screen ${d.screen} @${d.native}x · ${p.backend} msaa ${p.msaa} · ${p.ua?.match(/Version\/[\d.]+|Chrome\/[\d.]+/)?.[0] ?? ""}`);
-    console.log("ms per frame (drawn back to back at dpr 1 unless noted; js = our code + WebGPU calls)");
-    for (const [room, row] of Object.entries(p.results ?? {}) as [string, Record<string, { ms: number; js: number }>][])
-      console.log(`  ${room.padEnd(7)} ${Object.entries(row).map(([n, v]) => `${n} ${v.ms} (js ${v.js})`).join(" · ")}`);
+    console.log("ms per frame at dpr 1 unless noted: flat out (js = our code + WebGPU calls) / at display pace, submit to GPU done");
+    for (const [room, row] of Object.entries(p.results ?? {}) as [string, Record<string, { ms: number; js: number; paced?: number }>][]) {
+      console.log(`  ${room}`);
+      for (const [n, v] of Object.entries(row)) console.log(`    ${n.padEnd(9)} ${String(v.ms).padStart(6)} (js ${v.js})${v.paced !== undefined ? `  paced ${v.paced}` : ""}`);
+    }
     continue;
   }
   console.log(`\n=== ${k}`);
