@@ -65,7 +65,7 @@ for (const k of keys) {
     console.log("ms per frame at dpr 1 unless noted: flat out (js = our code + WebGPU calls) / at display pace, submit to GPU done");
     for (const [room, row] of Object.entries(p.results ?? {}) as [string, Record<string, { ms: number; js: number; paced?: number }>][]) {
       console.log(`  ${room}`);
-      for (const [n, v] of Object.entries(row)) console.log(`    ${n.padEnd(9)} ${String(v.ms).padStart(6)} (js ${v.js})${v.paced !== undefined ? `  paced ${v.paced}` : ""}`);
+      for (const [n, v] of Object.entries(row) as [string, any][]) console.log(`    ${n.padEnd(10)} ${String(v.ms).padStart(6)} (js ${v.js}${v.gpu !== undefined ? `, gpu ${v.gpu}` : ""})${v.paced !== undefined ? `  paced ${v.paced}${v.gpuPaced !== undefined ? ` (gpu ${v.gpuPaced})` : ""}` : ""}`);
     }
     continue;
   }
