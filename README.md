@@ -87,19 +87,33 @@ writes per day at most, everything else is static.
 ## Fast by default (quality governor)
 
 Every device starts from a setting that should hold 60 fps anywhere: desktops at 1x
-resolution, phones at 1.5x, small bloom, MSAA only where it's cheap (FXAA otherwise). A
-governor (`src/engine/quality.ts`) then watches real frame times while you use the site:
+resolution with small bloom, phones at 1.5x without bloom, MSAA only where it's cheap (FXAA
+otherwise). Phones with an older Apple GPU (no BC texture compression in WebGPU) also start with
+lite shading: every lit material matte (`src/engine/lite.ts`). A governor
+(`src/engine/quality.ts`) then watches real frame times while you use the site:
 - smooth frames (GPU headroom where the browser can measure it) → step up one notch: sharper
-  resolution, nicer bloom, sharp close-up covers
-- sustained slowness → step down: bloom, resolution, close-up detail, ambient effects, and
-  decor at the next room switch
+  resolution, bloom, sharp close-up covers
+- sustained slowness → step down (phones: bloom first): bloom, resolution, close-up detail,
+  ambient effects, decor at the next room switch, and last, MSAA and lite shading next visit
 A knob that had to come down stays down for the visit, and the settled result is remembered per
 device, so the next visit starts there. High-refresh screens (120/144 Hz) render every other
 frame (aim for 60). Effects live on camera layer 1 and decor on layer 2, so one switch covers
 every room.
 
-An FPS meter sits top left (toggle in the `?` card). `?q=low|high`, `?dpr=`, `?msaa=0` and
-`?nogov` override for testing.
+An FPS meter (off by default) sits top left; toggle it in the `?` card. `?q=low|high`, `?dpr=`,
+`?msaa=0`, `?lite=1` and `?nogov` override for testing (overrides are never remembered).
+
+What a frame costs on an iPhone (measured with `?diag`, below): about 2.4 ms of Safari's own
+work plus a little per draw, and the GPU's time, which at display pace is mostly lighting. In the
+Den, the game boxes' lighting was most of their cost; texture reads and anisotropic filtering
+barely mattered, and bloom's dozen passes were a fixed cost per frame (bloom off now skips them).
+Draws were cut where it was cheap: cases of every size share one batch, the Den's shelf labels
+are one instanced mesh, the Lab chamber's shell is one mesh. iPhones lower their clocks when a
+frame has slack, so compare variants by the GPU's own timestamps at display pace.
+
+`?diag` runs each room through those variants (bloom, nothing drawn, no game boxes, half the
+lights, cheaper shading options, ...) and uploads the timings (`bun scripts/profile/fetch.ts`
+prints them). `&msaa=0` and `&webgl` repeat it without MSAA / on WebGL 2.
 
 ## Performance test (`/profile`)
 

@@ -24,7 +24,15 @@ export interface QualitySettings {
   hiRes: boolean;
   /** 4x MSAA (needs a reload to change; FXAA is used when off) */
   msaa: boolean;
+  /** matte shading everywhere (see lite.ts; rooms take it when they're built, so a change shows next visit) */
+  lite: boolean;
 }
+
+/**
+ * Phones with an older Apple GPU (no BC texture compression in WebGPU: Cooper's iPhone, not a
+ * current one) start with lite shading: there the lighting is what keeps a room from 60 fps.
+ */
+const olderApplePhone = (d: DeviceInfo) => d.mobile && d.os === "ios" && d.gpu.api === "webgpu" && !!d.gpu.features && !d.gpu.features.includes("texture-compression-bc");
 
 export interface DeviceInfo {
   mobile: boolean;
@@ -108,6 +116,7 @@ export function initialSettings(d: DeviceInfo, params: URLSearchParams): { s: Qu
     decor: true,
     hiRes: false,
     msaa: d.mobile || !d.integrated, // tile GPUs resolve MSAA almost for free
+    lite: olderApplePhone(d),
   };
   let remembered = false;
   try {
@@ -119,10 +128,11 @@ export function initialSettings(d: DeviceInfo, params: URLSearchParams): { s: Qu
       remembered = true;
     }
   } catch {}
-  // URL overrides for testing: ?q=low|high, ?dpr=1.5, ?msaa=0
+  // URL overrides for testing: ?q=low|high, ?dpr=1.5, ?msaa=0, ?lite=1
   const q = params.get("q") ?? params.get("quality");
-  if (q === "low") Object.assign(base, { dpr: ladder[0], bloom: 0, fx: false, hiRes: false, msaa: false });
-  if (q === "high") Object.assign(base, { dpr: ladder[ladder.length - 1], bloom: 0.5, fx: true, decor: true, hiRes: true, msaa: true });
+  if (q === "low") Object.assign(base, { dpr: ladder[0], bloom: 0, fx: false, hiRes: false, msaa: false, lite: true });
+  if (q === "high") Object.assign(base, { dpr: ladder[ladder.length - 1], bloom: 0.5, fx: true, decor: true, hiRes: true, msaa: true, lite: false });
+  if (params.has("lite")) base.lite = params.get("lite") !== "0";
   if (params.has("dpr")) base.dpr = Math.max(0.5, Math.min(3, parseFloat(params.get("dpr")!)));
   if (params.has("msaa")) base.msaa = params.get("msaa") !== "0";
   base.dpr = snap(base.dpr, ladder);
@@ -326,6 +336,9 @@ export class Governor {
     } else if (s.msaa) {
       s.msaa = false; // takes effect next visit
       key = "msaa";
+    } else if (!s.lite) {
+      s.lite = true; // rooms built from now on (the next visit)
+      key = "lite";
     }
     if (!key) return;
     this.lastDown = performance.now();

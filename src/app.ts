@@ -18,6 +18,7 @@ import { neonFx } from "./world/kit/common";
 import { Bursts } from "./world/kit/particles";
 import { off } from "./engine/flags";
 import { detectDevice, initialSettings, Governor, frameCadence, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
+import { matteShading } from "./engine/lite";
 import { FpsMeter } from "./ui/fps";
 import { newGames } from "./library/store";
 import { setNewIds } from "./media/stickers";
@@ -104,7 +105,7 @@ export class App {
         busy: () => this.loadingLevel || document.hidden || !this.active || this.engine.compilingUnpaced,
       });
       if (params.has("nogov")) this.governor.enabled = false;
-      if (["q", "quality", "dpr", "msaa"].some((k) => params.has(k))) this.governor.persist = false;
+      if (["q", "quality", "dpr", "msaa", "lite"].some((k) => params.has(k))) this.governor.persist = false;
       try {
         // background main-thread work (long tasks outside our frames) shouldn't cost resolution
         new PerformanceObserver((list) => {
@@ -241,6 +242,8 @@ export class App {
       });
       this.audio.scope = "";
       slot.scene.add(Hero.warmup(this.art), this.inspector.warmup());
+      // older phone GPUs: everything matte (before the room's shaders compile)
+      if (this.governor.settings.lite) matteShading(slot.scene);
       const tc = performance.now();
       if (slot.background) {
         // prebuilding a world nobody is looking at yet: everything, one shader at a time
@@ -781,7 +784,7 @@ export class App {
       live.hiRes = s.hiRes;
       if (s.hiRes && this.art && !off("upgrade")) this.art.ready.then(() => this.art.upgrade());
     }
-    if (this.fps) this.fps.note = `${s.dpr}x${s.bloom ? "" : " nb"}${s.fx ? "" : " nf"}${s.msaa ? "" : " fx"}`;
+    if (this.fps) this.fps.note = `${s.dpr}x${s.bloom ? "" : " nb"}${s.fx ? "" : " nf"}${s.msaa ? "" : " fx"}${s.lite ? " lite" : ""}`;
   }
 
   private applyDecor(on: boolean) {
