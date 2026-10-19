@@ -61,8 +61,8 @@ export default function stacks(): Level {
     async build(c, progress) {
       ctx = c;
       const { scene, art, store, engine } = c;
-      engine.post.bloomStrength.value = 0.5;
-      engine.post.bloomRadius.value = 0.45;
+      engine.post.bloomStrength.value = 0.38;
+      engine.post.bloomRadius.value = 0.25;
       engine.post.vignette.value = 0.6;
       engine.post.exposure.value = 1.0;
       scene.background = new THREE.Color(0x07080d);

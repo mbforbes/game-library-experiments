@@ -27,6 +27,7 @@ import { neonEnvironment } from "../../world/kit/env";
 import { poster } from "../../world/kit/decor";
 import { GRADE_COLORS } from "../../media/spines";
 import { DecorBuilder } from "../../world/kit/decorkit";
+import { LabelSheet } from "../../world/kit/labels";
 import type { Level, LevelCtx, Station } from "../types";
 import { DenEggs } from "./eggs";
 import { decorateDen } from "./decor";
@@ -41,6 +42,8 @@ const sortTitle = (t: string) => t.toLowerCase().replace(/^(the|a)\s+/, "");
 const byTitle = (a: Game, b: Game) => sortTitle(a.title).localeCompare(sortTitle(b.title));
 
 export default function den(): Level {
+  // every shelf-edge label in the room, as one mesh
+  const labels = new LabelSheet([256, 40], [0.15, 0.0234]);
   let ctx: LevelCtx;
   let rail: Rail;
   const fields: MediaField[] = [];
@@ -66,8 +69,8 @@ export default function den(): Level {
       ctx = c;
       const { scene, art, store, kit, engine } = c;
       await progress("Wiring the neon…");
-      engine.post.bloomStrength.value = 0.55;
-      engine.post.bloomRadius.value = 0.4;
+      engine.post.bloomStrength.value = 0.4; // (gentle and tight: the glow hazed over the games and flared as lights came into view)
+      engine.post.bloomRadius.value = 0.22;
       engine.post.vignette.value = 0.45;
       engine.post.exposure.value = 1.05;
       scene.background = new THREE.Color(0x030208);
@@ -252,6 +255,8 @@ export default function den(): Level {
       const arcadePack = packShelves(arcade, [topShelf], art, { mode: () => "face", gap: 0.03, lean: 0 });
       cartField = addField([...cartPack.placements, ...arcadePack.placements], "carts");
       decorateSections(cartPack.sections, cartShelves, "carts");
+      const labelMesh = labels.build();
+      if (labelMesh) scene.add(labelMesh);
       console.info(`[den] carts: ${carts.length} carts, fill ${(cartPack.fill * 100).toFixed(0)}%, overflow ${cartPack.overflow.length}`);
       // backboard + acrylic ledges
       const cartBack = new THREE.Mesh(new THREE.PlaneGeometry(cartW + 0.3, cartRows * cartRowH + 0.6), pegboardMaterial());
@@ -558,10 +563,8 @@ export default function den(): Level {
       const p = platformOf(sec.key === "bigbox" || sec.key === "slab" ? "Windows" : sec.key);
       const total = sec.key === "bigbox" ? "BIG BOX" : sec.key === "slab" ? "DIGITAL" : p.short;
       const count = sections.filter((x) => x.key === sec.key).reduce((a, x) => a + x.games.length, 0);
-      const label = shelfLabel(`${total} · ${count}`, p.neon);
-      label.position.copy(sec.start).addScaledVector(sh.dir, along - along0 + LW / 2).addScaledVector(UP, -0.012).addScaledVector(sh.normal, 0.003);
-      label.quaternion.copy(faceOut(sh.normal));
-      ctx.scene.add(label);
+      const at = sec.start.clone().addScaledVector(sh.dir, along - along0 + LW / 2).addScaledVector(UP, -0.012).addScaledVector(sh.normal, 0.003);
+      labels.add(paintShelfLabel(`${total} · ${count}`, p.neon), at, faceOut(sh.normal));
     }
   }
 
@@ -682,8 +685,8 @@ function pickArcadeHeadliners(arcade: Game[]): Game[] {
   return out.slice(0, 3);
 }
 
-function shelfLabel(text: string, color: string) {
-  const [c, ctx] = canvas(256, 40);
+/** A shelf-edge label's face, painted into the den's label sheet (256 x 40). */
+const paintShelfLabel = (text: string, color: string) => (ctx: CanvasRenderingContext2D) => {
   ctx.fillStyle = "#07070b";
   ctx.fillRect(0, 0, 256, 40);
   ctx.fillStyle = color;
@@ -693,12 +696,7 @@ function shelfLabel(text: string, color: string) {
   ctx.shadowColor = color;
   ctx.shadowBlur = 6;
   ctx.fillText(text, 14, 21, 236);
-  const t = canvasTexture(c);
-  const m = new THREE.MeshBasicNodeMaterial({ map: t });
-  m.emissiveNode = texture(t).rgb.mul(1.2);
-  m.colorNode = vec3(0);
-  return new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.0234), m);
-}
+};
 
 function floorMaterial() {
   // dark polished floor with large tiles and a little grit; reflections come from the env map

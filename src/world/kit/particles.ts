@@ -34,6 +34,8 @@ export class Bursts {
     this.mesh = new THREE.InstancedMesh(geo, mat, max);
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
+    // (an instanced mesh with no instances is still a draw, every frame)
+    this.mesh.visible = false;
   }
 
   emit(at: THREE.Vector3, color: string, n = 18, spread = 0.12, upward = 0.25) {
@@ -68,6 +70,7 @@ export class Bursts {
       k++;
     }
     this.mesh.count = k;
+    this.mesh.visible = k > 0;
     if (k) {
       this.mesh.instanceMatrix.needsUpdate = true;
       this.fadeAttr.needsUpdate = true;

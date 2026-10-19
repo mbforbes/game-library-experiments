@@ -112,8 +112,8 @@ export default function vault(): Level {
     async build(c, progress) {
       ctx = c;
       const { scene, engine, store } = c;
-      engine.post.bloomStrength.value = 0.45;
-      engine.post.bloomRadius.value = 0.4;
+      engine.post.bloomStrength.value = 0.35;
+      engine.post.bloomRadius.value = 0.22;
       engine.post.vignette.value = 0.55;
       engine.post.exposure.value = 1.0;
       D = 12;

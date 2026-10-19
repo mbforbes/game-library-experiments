@@ -58,8 +58,8 @@ export default function lab(): Level {
     async build(c, progress) {
       ctx = c;
       const { scene, art, store, engine } = c;
-      engine.post.bloomStrength.value = 0.35;
-      engine.post.bloomRadius.value = 0.3;
+      engine.post.bloomStrength.value = 0.28;
+      engine.post.bloomRadius.value = 0.2;
       engine.post.vignette.value = 0.3;
       engine.post.exposure.value = 0.95;
       scene.background = new THREE.Color(0x9aa0a8);

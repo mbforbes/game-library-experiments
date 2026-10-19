@@ -36,11 +36,16 @@ export function makeMediaKit(art: ArtStore, spines: SpineAtlas): MediaKit {
 }
 
 interface Batch {
+  /** the kind whose shape the batch draws (cases of every size share one: see CASES) */
   kind: MediaKind;
   photo: boolean;
-  t: Template;
   mesh: THREE.InstancedMesh;
   games: Game[];
+  /** each instance's own kind and template (sizes, label layout, sticker spot) */
+  kinds: MediaKind[];
+  ts: Template[];
+  /** stretches the shared shape to the instance's own size (identity when they're the same) */
+  fit: THREE.Matrix4[];
   buf: THREE.InstancedInterleavedBuffer;
   cover: THREE.InterleavedBufferAttribute;
   spine: THREE.InterleavedBufferAttribute;
@@ -51,6 +56,15 @@ interface Batch {
   inv: THREE.Matrix4[];
   base: THREE.Matrix4[];
 }
+
+/** Keep cases: one shape, stretched per instance (their edges and insets are a few mm, so the
+ * stretch moves them by a fraction of a mm). */
+const CASES = new Set<MediaKind>(["dvd", "gc-case", "bluray", "switch-case", "ds-case", "genesis-case"]);
+const CASE_SHAPE: MediaKind = "dvd";
+
+/** The matrix an instance is drawn with: its placement, with the shared shape fitted to its size. */
+const drawn = (b: Batch, i: number, m: THREE.Matrix4) => tmpFit.multiplyMatrices(m, b.fit[i]);
+const tmpFit = new THREE.Matrix4();
 
 interface Overlay {
   mesh: THREE.Mesh;
@@ -143,22 +157,24 @@ export class MediaField {
     this.holo = !!opts.holo;
     this.order = placements.map((p) => p.game);
     this.group.name = opts.name ?? "media";
-    // batch per form factor (+ a separate batch for carts shown as real photos)
-    const byKind = new Map<string, Placement[]>();
+    // batch per form factor (+ a separate batch for carts shown as real photos); keep cases of
+    // every size share one batch: each batch is a draw, and draws are what a frame costs on phones
+    const byKind = new Map<string, { kind: MediaKind; photo: boolean; ps: { p: Placement; k: MediaKind }[] }>();
     for (const p of placements) {
       const k = p.kind ?? kindOf(p.game, kit.art);
       const photo = !!TEMPLATES[k].buildPhoto && !!kit.art.cartPhoto(p.game);
-      const key = photo ? k + "+photo" : k;
-      if (!byKind.has(key)) byKind.set(key, []);
-      byKind.get(key)!.push(p);
+      const shape = CASES.has(k) ? CASE_SHAPE : k;
+      const key = photo ? shape + "+photo" : shape;
+      if (!byKind.has(key)) byKind.set(key, { kind: shape, photo, ps: [] });
+      byKind.get(key)!.ps.push({ p, k });
     }
-    for (const [key, ps] of byKind) this.batches.push(this.makeBatch(key.replace("+photo", "") as MediaKind, key.endsWith("+photo"), ps));
+    for (const { kind, photo, ps } of byKind.values()) this.batches.push(this.makeBatch(kind, photo, ps));
     if (!this.holo) this.makeStickers();
     this.warmOverlays();
   }
 
-  private makeBatch(kind: MediaKind, photo: boolean, ps: Placement[]): Batch {
-    const t = TEMPLATES[kind];
+  private makeBatch(kind: MediaKind, photo: boolean, ps: { p: Placement; k: MediaKind }[]): Batch {
+    const shapeSize = TEMPLATES[kind].size;
     const n = ps.length;
     const geo = geometryFor(kind, photo).clone();
     // All per-instance data lives in ONE interleaved buffer (WebGPU allows only 8 vertex buffers)
@@ -179,13 +195,18 @@ export class MediaField {
     const mesh = new THREE.InstancedMesh(geo, this.holo ? this.kit.holo : photo ? this.kit.cutout : this.kit.solid, n);
     mesh.name = `${this.group.name}:${kind}${photo ? "+photo" : ""}`;
     mesh.frustumCulled = false; // instances are spread around; bounding sphere is computed below
-    const b: Batch = { kind, photo, t, mesh, games: [], buf, cover, spine, color, glow, state, extra, inv: [], base: [] };
+    const b: Batch = { kind, photo, mesh, games: [], kinds: [], ts: [], fit: [], buf, cover, spine, color, glow, state, extra, inv: [], base: [] };
     const c = new THREE.Color();
-    ps.forEach((p, i) => {
+    ps.forEach(({ p, k }, i) => {
       const g = p.game;
+      const t = TEMPLATES[k];
       b.games.push(g);
+      b.kinds.push(k);
+      b.ts.push(t);
+      const [w, h, d] = t.size;
+      b.fit.push(new THREE.Matrix4().makeScale(w / shapeSize[0], h / shapeSize[1], d / shapeSize[2]));
       const m = new THREE.Matrix4().compose(p.position, p.quaternion, new THREE.Vector3().setScalar(p.scale ?? 1));
-      mesh.setMatrixAt(i, m);
+      mesh.setMatrixAt(i, drawn(b, i, m));
       b.base.push(m);
       b.inv.push(m.clone().invert());
       // front: real cartridge photo (contain-fit, alpha) or cover art cropped to the label
@@ -236,9 +257,9 @@ export class MediaField {
   private makeStickers() {
     const items: { id: string; m: THREE.Matrix4; local: THREE.Matrix4; cell: number }[] = [];
     for (const b of this.batches) {
-      const local = stickerLocal(b.t, b.photo);
-      if (!local) continue;
       b.games.forEach((g, i) => {
+        const local = stickerLocal(b.ts[i], b.photo);
+        if (!local) return;
         const cell = stickerCell(g);
         // the NEW! starburst is bigger than a grade dot so it's easy to spot
         const loc = cell === NEW_CELL ? local.clone().multiply(new THREE.Matrix4().makeScale(1.55, 1.55, 1)) : local;
@@ -289,7 +310,7 @@ export class MediaField {
   centerOf(id: string, out = new THREE.Vector3()): THREE.Vector3 | null {
     const w = this.where.get(id);
     if (!w || !this.matrixOf(id, tmpM)) return null;
-    const [, h] = w.b.t.size;
+    const [, h] = w.b.ts[w.i].size;
     return out.set(0, h / 2, 0).applyMatrix4(tmpM);
   }
 
@@ -299,7 +320,7 @@ export class MediaField {
     if (!w) return;
     w.b.base[w.i].copy(m);
     w.b.inv[w.i].copy(m).invert();
-    w.b.mesh.setMatrixAt(w.i, m);
+    w.b.mesh.setMatrixAt(w.i, drawn(w.b, w.i, m));
     w.b.mesh.instanceMatrix.needsUpdate = true;
     // the culling sphere was computed for the old layout (e.g. everything at the origin before an
     // animated field — tubes, flocks — first moves): recompute it lazily
@@ -314,7 +335,7 @@ export class MediaField {
     else this.hidden.delete(id);
     const o = this.overlays.get(id);
     if (o) o.mesh.visible = !hidden;
-    w.b.mesh.setMatrixAt(w.i, hidden ? ZERO : w.b.base[w.i]);
+    w.b.mesh.setMatrixAt(w.i, hidden ? ZERO : drawn(w.b, w.i, w.b.base[w.i]));
     w.b.mesh.instanceMatrix.needsUpdate = true;
     this.syncSticker(id, hidden ? null : w.b.base[w.i]);
   }
@@ -394,9 +415,9 @@ export class MediaField {
     g.name = `${this.group.name}:new-tags`;
     const mat = MediaField.tagMaterial(hex);
     for (const b of this.batches) {
-      const [, h] = b.t.size;
       b.games.forEach((game, i) => {
         if (!ids.has(game.id)) return;
+        const [, h] = b.ts[i].size;
         const sp = new THREE.Sprite(mat);
         const p = new THREE.Vector3(0, h + 0.035, 0).applyMatrix4(b.base[i]);
         sp.position.copy(p);
@@ -493,9 +514,9 @@ export class MediaField {
     const ctr = new THREE.Vector3();
     const mw = new THREE.Matrix4();
     for (const b of this.batches) {
-      const rect = b.photo ? photoRect(b.kind) : coverRect(b.kind);
-      if (!rect) continue;
       for (let i = 0; i < b.games.length; i++) {
+        const rect = b.photo ? photoRect(b.kinds[i]) : coverRect(b.kinds[i]);
+        if (!rect) continue;
         const g = b.games[i];
         if (this.hidden.has(g.id) || b.state.getZ(i) > 0.5) continue;
         mw.multiplyMatrices(this.group.matrixWorld, b.base[i]);
@@ -521,7 +542,7 @@ export class MediaField {
       if (this.overlays.has(c.id)) continue;
       const g = c.b.games[c.i];
       const photo = c.b.photo;
-      const rect = (photo ? photoRect(c.b.kind) : coverRect(c.b.kind))!;
+      const rect = (photo ? photoRect(c.b.kinds[c.i]) : coverRect(c.b.kinds[c.i]))!;
       const pi = this.pool.findIndex((o) => o.photo === photo);
       const o = pi >= 0 ? this.pool.splice(pi, 1)[0] : this.makeOverlay(photo);
       o.id = c.id;
@@ -531,14 +552,14 @@ export class MediaField {
       const w = rect[2] - rect[0], h = rect[3] - rect[1];
       o.mesh.matrix.multiplyMatrices(c.b.base[c.i], new THREE.Matrix4().makeTranslation((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2, rect[4])).multiply(new THREE.Matrix4().makeScale(w, h, 1));
       this.overlays.set(c.id, o);
-      const la = c.b.t.labelAspect, cy = c.b.t.cropY;
+      const la = c.b.ts[c.i].labelAspect, cy = c.b.ts[c.i].cropY;
       const mine = () => o.id === c.id && this.overlays.get(c.id) === o;
       (photo ? this.kit.art.tex(this.kit.art.entry(g)?.k) : this.kit.art.hiRes(g)).then((tex) => {
         if (!tex || !mine()) return;
         const img = tex.image as { width: number; height: number };
         const a = img.width / img.height;
         if (photo) {
-          const [px, py] = photoPad(a, c.b.kind);
+          const [px, py] = photoPad(a, c.b.kinds[c.i]);
           ud.crop.set(px, py, 1 - 2 * px, 1 - 2 * py);
         } else if (a > la) ud.crop.set((1 - la / a) / 2, 0, la / a, 1);
         else ud.crop.set(0, (1 - a / la) * cy, 1, a / la);
@@ -562,10 +583,10 @@ export class MediaField {
     const local = ray.clone().applyMatrix4(groupInv);
     let best: { game: Game; distance: number; point: THREE.Vector3 } | null = null;
     for (const b of this.batches) {
-      const [w, h, d] = b.t.size;
-      tmpBox.min.set(-w / 2, 0, -d / 2);
-      tmpBox.max.set(w / 2, h, d / 2);
       for (let i = 0; i < b.games.length; i++) {
+        const [w, h, d] = b.ts[i].size;
+        tmpBox.min.set(-w / 2, 0, -d / 2);
+        tmpBox.max.set(w / 2, h, d / 2);
         tmpRay.copy(local).applyMatrix4(b.inv[i]);
         const hit = tmpRay.intersectBox(tmpBox, tmpV);
         if (!hit) continue;
