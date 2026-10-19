@@ -229,19 +229,25 @@ export class Hero {
         sh.coverRect.value.set(cu, cv, cw, ch);
       });
     }
-    if (e?.spc && !editionOf(game))
-      art.tex(e.spc).then((tex) => {
+    // the real spine / back scans after the opening (~0.85 s), unless the spine is what faces you:
+    // they face away while it flies out, and each is an upload + mip chain that landed in its frames
+    const later = (fn: () => void) => setTimeout(() => whenIdle(fn), 900);
+    const spineScanNow = () =>
+      art.tex(e!.spc!).then((tex) => {
         if (!live() || !tex) return;
         spineScan = true;
         sh.spine.value = tex;
       });
+    if (e?.spc && !editionOf(game)) (opts.spineNow ?? true) ? spineScanNow() : later(spineScanNow);
     const realBack = isCart ? e?.kb : e?.b;
     if (realBack)
-      art.tex(realBack).then((tex) => {
-        if (!live() || !tex) return;
-        backScan = true;
-        sh.back.value = tex;
-      });
+      later(() =>
+        art.tex(realBack).then((tex) => {
+          if (!live() || !tex) return;
+          backScan = true;
+          sh.back.value = tex;
+        }),
+      );
   }
 
   private static token = 0;
