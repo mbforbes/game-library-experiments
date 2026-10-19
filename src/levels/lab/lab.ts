@@ -15,7 +15,7 @@ import { platformOf } from "../../../shared/platforms";
 import { wallRail, type Rail } from "../../engine/rail";
 import { MediaField, templateOf, type Placement } from "../../media/field";
 import { faceOut } from "../../world/shelving";
-import { panelMaterial, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx, legendStrip, dataBoard } from "../../world/kit/lab";
+import { panelShell, Portal, chamberSign, Archivist, tube, companionCube, cellFrames, labFx, legendStrip, dataBoard } from "../../world/kit/lab";
 import { loadForecasts, letterOf, type Forecasts } from "../../library/forecasts";
 import { live } from "../../engine/quality";
 import { boxes, neonMaterial, neonSign } from "../../world/kit/common";
@@ -579,23 +579,8 @@ export default function lab(): Level {
   function buildChamber(scene: THREE.Scene, o: THREE.Vector3, num: string) {
     const g = new THREE.Group();
     g.position.copy(o);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), panelMaterial({ size: 1.0, dark: 0.08, axis: "xz" }));
-    floor.rotation.x = -Math.PI / 2;
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), panelMaterial({ size: 1.2, dark: 0.3, axis: "xz" }));
-    ceil.rotation.x = Math.PI / 2;
-    ceil.position.y = H;
-    const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), panelMaterial({ size: 0.75 }));
-    back.position.set(0, H / 2, -D / 2);
-    const front = new THREE.Mesh(new THREE.PlaneGeometry(W, H), panelMaterial({ size: 0.75 }));
-    front.position.set(0, H / 2, D / 2);
-    front.rotation.y = Math.PI;
-    const left = new THREE.Mesh(new THREE.PlaneGeometry(D, H), panelMaterial({ size: 0.75, axis: "zy" }));
-    left.position.set(-W / 2, H / 2, 0);
-    left.rotation.y = Math.PI / 2;
-    const right = new THREE.Mesh(new THREE.PlaneGeometry(D, H), panelMaterial({ size: 0.75, axis: "zy" }));
-    right.position.set(W / 2, H / 2, 0);
-    right.rotation.y = -Math.PI / 2;
-    g.add(floor, ceil, back, front, left, right);
+    // floor, ceiling and walls: one mesh
+    g.add(panelShell(W, H, D, { floor: [1.0, 0.08], ceiling: [1.2, 0.3], walls: [0.75, 0.12] }));
     // ceiling light panels
     const lights = new THREE.Mesh(
       boxes([

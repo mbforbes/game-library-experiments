@@ -101,7 +101,9 @@ export function initialSettings(d: DeviceInfo, params: URLSearchParams): { s: Qu
   const base: QualitySettings = {
     // phones render at 1.5x at most to start; desktops at their native ratio up to 1x
     dpr: d.mobile ? Math.min(d.native, 1.5) : Math.min(d.native, 1),
-    bloom: 0.25,
+    // phones start without bloom: there a frame costs mostly per draw / pass, and bloom adds a
+    // dozen passes (the governor turns it on where there's room)
+    bloom: d.mobile ? 0 : 0.25,
     fx: true,
     decor: true,
     hiRes: false,
@@ -112,6 +114,8 @@ export function initialSettings(d: DeviceInfo, params: URLSearchParams): { s: Qu
     const saved = JSON.parse(localStorage.getItem(LS) ?? "null");
     if (saved && saved.fp === fingerprint(d) && saved.s) {
       Object.assign(base, saved.s);
+      // (phones remembered from before bloom started off there: once without it)
+      if (d.mobile && (saved.v ?? 1) < 2) base.bloom = 0;
       remembered = true;
     }
   } catch {}
@@ -129,7 +133,7 @@ const snap = (v: number, ladder: number[]) => ladder.reduce((b, r) => (Math.abs(
 
 export function saveSettings(d: DeviceInfo, s: QualitySettings) {
   try {
-    localStorage.setItem(LS, JSON.stringify({ fp: fingerprint(d), s, at: new Date().toISOString() }));
+    localStorage.setItem(LS, JSON.stringify({ v: 2, fp: fingerprint(d), s, at: new Date().toISOString() }));
   } catch {}
 }
 
@@ -275,7 +279,13 @@ export class Governor {
     let key: keyof QualitySettings | null = null;
     const floor = this.d.mobile ? 1.25 : 1;
     // order: what costs the most for the least visible loss
-    if (cpuBound && s.fx) {
+    if (this.d.mobile && s.bloom > 0) {
+      // phones: bloom first (a dozen passes and draws a frame, where those are what costs;
+      // pixels cost little)
+      s.bloom = 0;
+      this.cap.bloom = 0;
+      key = "bloom";
+    } else if (cpuBound && s.fx) {
       // the frame's own work is the problem: fewer things to draw/update helps, pixels don't
       s.fx = false;
       this.cap.fx = false;

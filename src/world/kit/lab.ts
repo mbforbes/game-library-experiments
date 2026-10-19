@@ -5,7 +5,7 @@
 import * as THREE from "three/webgpu";
 import {
   positionWorld, vec2, vec3, float, fract, floor, step, smoothstep, mix, hash, texture, screenUV, uv, time, sin, cos, length, atan, abs,
-  attribute, normalView, positionViewDirection, uniform, positionLocal, instanceIndex,
+  attribute, normalView, positionViewDirection, uniform, positionLocal, instanceIndex, select, normalWorld,
 } from "three/tsl";
 import { boxes, canvas, canvasTexture, lin } from "./common";
 
@@ -13,21 +13,59 @@ import { boxes, canvas, canvasTexture, lin } from "./common";
 export const labFx = { since: uniform(99) };
 
 /** White wall panels (world-space grid) with occasional dark "non-conductive" panels. */
-export function panelMaterial(opts: { size?: number; dark?: number; axis?: "xy" | "zy" | "xz" } = {}) {
+export function panelMaterial(opts: { size?: number | any; dark?: number | any; axis?: "xy" | "zy" | "xz"; at?: any } = {}) {
   const m = new THREE.MeshStandardNodeMaterial({ roughness: 0.55 });
-  const sz = float(opts.size ?? 0.6);
+  const sz = typeof opts.size === "object" ? opts.size : float(opts.size ?? 0.6);
+  const dark = typeof opts.dark === "object" ? opts.dark : float(opts.dark ?? 0.12);
   const a = opts.axis ?? "xy";
-  const p = a === "xy" ? positionWorld.xy : a === "zy" ? positionWorld.zy : positionWorld.xz;
-  const g = p.div(sz);
-  const cell = floor(g);
-  const f = fract(g);
+  const p: any = opts.at ?? (a === "xy" ? positionWorld.xy : a === "zy" ? positionWorld.zy : positionWorld.xz);
+  const g: any = p.div(sz);
+  const cell: any = floor(g);
+  const f: any = fract(g);
   const seam = step(0.985, f.x).max(step(0.985, f.y)).max(step(f.x, 0.015)).max(step(f.y, 0.015));
-  const darkPanel = step(1 - (opts.dark ?? 0.12), hash(cell.x.add(cell.y.mul(71.3))));
+  const darkPanel = step(float(1).sub(dark), hash(cell.x.add(cell.y.mul(71.3))));
   const tone = hash(cell.x.mul(3.1).add(cell.y.mul(17.7))).mul(0.06).add(0.9);
   const base = mix(vec3(0.82, 0.83, 0.84).mul(tone), vec3(0.09, 0.095, 0.1), darkPanel);
   m.colorNode = mix(base, vec3(0.35), seam.mul(0.6));
   m.roughnessNode = mix(float(0.5), float(0.8), darkPanel);
   return m;
+}
+
+/**
+ * A chamber's floor, ceiling and four walls as one mesh (one draw instead of six): the same
+ * panelling as panelMaterial, with each surface's panel size and share of dark panels carried
+ * per vertex, and its tiling plane picked from the way it faces. (W along x, D along z, H up;
+ * the floor at y 0, centred on x and z.)
+ */
+export function panelShell(W: number, H: number, D: number, surfaces: { floor: [number, number]; ceiling: [number, number]; walls: [number, number] }) {
+  const pos: number[] = [], nrm: number[] = [], uvs: number[] = [], panel: number[] = [];
+  const add = (g: THREE.PlaneGeometry, m: THREE.Matrix4, [size, dark]: [number, number]) => {
+    g.applyMatrix4(m);
+    const ix = g.index!, p = g.attributes.position, n = g.attributes.normal, u = g.attributes.uv;
+    for (let k = 0; k < ix.count; k++) {
+      const i = ix.getX(k);
+      pos.push(p.getX(i), p.getY(i), p.getZ(i));
+      nrm.push(n.getX(i), n.getY(i), n.getZ(i));
+      uvs.push(u.getX(i), u.getY(i));
+      panel.push(size, dark);
+    }
+  };
+  const M = (x: number, y: number, z: number, rx: number, ry: number) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, 0)), new THREE.Vector3(1, 1, 1));
+  add(new THREE.PlaneGeometry(W, D), M(0, 0, 0, -Math.PI / 2, 0), surfaces.floor);
+  add(new THREE.PlaneGeometry(W, D), M(0, H, 0, Math.PI / 2, 0), surfaces.ceiling);
+  add(new THREE.PlaneGeometry(W, H), M(0, H / 2, -D / 2, 0, 0), surfaces.walls);
+  add(new THREE.PlaneGeometry(W, H), M(0, H / 2, D / 2, 0, Math.PI), surfaces.walls);
+  add(new THREE.PlaneGeometry(D, H), M(-W / 2, H / 2, 0, 0, Math.PI / 2), surfaces.walls);
+  add(new THREE.PlaneGeometry(D, H), M(W / 2, H / 2, 0, 0, -Math.PI / 2), surfaces.walls);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nrm, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute("panel", new THREE.Float32BufferAttribute(panel, 2));
+  const pv = attribute("panel", "vec2");
+  const n = normalWorld.abs();
+  const p = select(n.y.greaterThan(0.5), positionWorld.xz, select(n.x.greaterThan(0.5), positionWorld.zy, positionWorld.xy));
+  return new THREE.Mesh(geo, panelMaterial({ at: p, size: pv.x, dark: pv.y }));
 }
 
 /** A portal: an oval that shows what its partner sees (screen-space sampled render target). */
