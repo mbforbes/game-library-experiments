@@ -1,12 +1,13 @@
 // ?diag: where a frame's time goes on this device, room by room, for a set of variants:
 //   bloom      as normally shown (bloom on)
 //   plain      bloom off (its passes don't run)
-//   plain2x    bloom off at twice the resolution (what scales with pixels)
 //   floor      bloom off, nothing in the room drawn (the per-frame overhead)
 //   noGames    bloom off, the game boxes not drawn
 //   halfLights bloom off, half the room's point lights off (every lit pixel adds each light up)
-//   aniso1     bloom off, the game boxes' textures without anisotropic filtering
-//   onePage    bloom off, the game boxes reading one cover page and one spine texture (not all)
+//   noEnv      bloom off, the game boxes without the environment's reflections
+//   matte      bloom off, the game boxes shaded matte (Lambert: no specular), same lights
+//   nearLight  bloom off, the game boxes lit by the hemisphere + their nearest point light only
+//   allMatte   bloom off, everything in the room matte
 //   unlit      bloom off, the game boxes without lighting (their colours unlit)
 //   plainEnd   bloom off again, last (did conditions drift during the run?)
 // Every wait on the GPU has a time limit: a stall is recorded (where it happened) and the run goes
@@ -24,7 +25,7 @@
 // clock): what's the GPU's work as opposed to the browser's. Sent to /api/profile ("diag").
 
 import * as THREE from "three/webgpu";
-import { makeMediaMaterial } from "../media/material";
+import { lights } from "three/tsl";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 class Stall extends Error {}
@@ -124,21 +125,27 @@ export async function runDiag(app: any) {
       return false;
     }
   };
-  // the game boxes' textures and materials, for the shading variants
-  const mediaTex: THREE.Texture[] = [...app.art.pages, ...app.art.spinePages, app.spines.texture];
-  const one = makeMediaMaterial([app.art.pages[0]], app.spines.texture, [], false);
-  const oneCut = makeMediaMaterial([app.art.pages[0]], app.spines.texture, [], true);
-  const unlitOf = new Map<any, THREE.MeshBasicNodeMaterial>();
-  const unlit = (m: any) => {
-    if (!unlitOf.has(m)) {
-      const b = new THREE.MeshBasicNodeMaterial();
-      b.colorNode = m.colorNode;
-      b.opacityNode = m.opacityNode;
-      b.alphaTest = m.alphaTest;
-      unlitOf.set(m, b);
-    }
-    return unlitOf.get(m)!;
+  // cheaper ways to shade (cached per material)
+  const cache = new Map<string, any>();
+  const variant = (name: string, m: any, make: (m: any) => any) => {
+    const k = name + m.uuid;
+    if (!cache.has(k)) cache.set(k, make(m));
+    return cache.get(k);
   };
+  const copyLook = (v: any, m: any) => {
+    for (const k of ["colorNode", "emissiveNode", "opacityNode", "map", "alphaTest", "transparent", "opacity", "side", "depthWrite", "blending", "vertexColors"]) if (m[k] !== undefined) v[k] = m[k];
+    if (m.color && v.color) v.color.copy(m.color);
+    if (m.emissive && v.emissive) v.emissive.copy(m.emissive), (v.emissiveIntensity = m.emissiveIntensity);
+    return v;
+  };
+  const unlit = (m: any) => variant("unlit", m, (m) => copyLook(new THREE.MeshBasicNodeMaterial(), m));
+  const matte = (m: any) => variant("matte", m, (m) => copyLook(new THREE.MeshLambertNodeMaterial(), m));
+  const noEnv = (m: any) =>
+    variant("noEnv", m, (m) => {
+      const v = m.clone();
+      v.setupEnvironment = () => null;
+      return v;
+    });
   say("Diagnostic: measuring each room (about three minutes). Leave the screen alone.");
   for (const [i, id] of rooms.entries()) {
     await app.loadLevel(id, () => {});
@@ -168,17 +175,37 @@ export async function runDiag(app: any) {
     const shown = scene.children.filter((c: any) => !c.isLight && c.visible);
     await run("bloom", () => (e.setDpr(1), e.setBloom(0.25)));
     await run("plain", () => e.setBloom(0));
-    await run("plain2x", () => e.setDpr(2), () => e.setDpr(1));
     await run("floor", () => shown.forEach((c: any) => (c.visible = false)), () => shown.forEach((c: any) => (c.visible = true)));
     await run("noGames", () => games.forEach((g) => (g.visible = false)), () => games.forEach((g) => (g.visible = true)));
     const points: any[] = [];
     scene.traverse((o: any) => o.isPointLight && o.visible && points.push(o));
     const half = points.slice(0, Math.ceil(points.length / 2));
     if (half.length) await run("halfLights", () => half.forEach((l) => (l.visible = false)), () => half.forEach((l) => (l.visible = true)));
-    const aniso = mediaTex.map((t) => t.anisotropy);
-    const setAniso = (k?: number) => mediaTex.forEach((t, j) => ((t.anisotropy = k ?? aniso[j]), (t.needsUpdate = true)));
-    await run("aniso1", () => setAniso(1), () => setAniso());
-    await run("onePage", () => swap((m) => (m.alphaTest ? oneCut : one)), unswap);
+    await run("noEnv", () => swap(noEnv), unswap);
+    await run("matte", () => swap(matte), unswap);
+    // each field's boxes: the hemisphere + the point light nearest their middle
+    const hemis: any[] = [];
+    scene.traverse((o: any) => o.isHemisphereLight && hemis.push(o));
+    if (points.length)
+      await run(
+        "nearLight",
+        () =>
+          games.forEach((g) => {
+            g.userData.mat ??= g.material;
+            g.geometry.computeBoundingSphere();
+            const c = g.boundingSphere?.center.clone().applyMatrix4(g.matrixWorld) ?? g.getWorldPosition(g.position.clone());
+            const near = [...points].sort((a, b) => a.getWorldPosition(c.clone()).distanceTo(c) - b.getWorldPosition(c.clone()).distanceTo(c))[0];
+            g.material = variant(`near${near.uuid}`, g.userData.mat, (m) => {
+              const v = m.clone();
+              v.lightsNode = lights([...hemis, near]);
+              return v;
+            });
+          }),
+        unswap,
+      );
+    const lit: any[] = [];
+    scene.traverse((o: any) => o.isMesh && o.material?.isMeshStandardNodeMaterial && lit.push(o));
+    await run("allMatte", () => lit.forEach((o) => ((o.userData.mat ??= o.material), (o.material = matte(o.userData.mat)))), () => lit.forEach((o) => (o.material = o.userData.mat)));
     await run("unlit", () => swap(unlit), unswap);
     await run("plainEnd", () => {});
     results[id] = row;
