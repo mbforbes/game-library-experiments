@@ -301,6 +301,13 @@ export async function createEngine(canvas: HTMLCanvasElement, opts: EngineOption
             o.frustumCulled = false;
             restore.push(() => (o.frustumCulled = true));
           }
+          // (an instanced mesh with no instances yet, e.g. burst particles, isn't drawn: compile
+          // it as if it had one, or its first burst compiles in the middle of things)
+          const im = o as THREE.InstancedMesh;
+          if (im.isInstancedMesh && im.count === 0) {
+            im.count = 1;
+            restore.push(() => (im.count = 0));
+          }
         });
       // Shaders are built object by object (yielding between them) and read the renderer's MRT /
       // target when they are, so those stay set until the compile finishes; frames rendered

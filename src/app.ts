@@ -18,7 +18,7 @@ import { neonFx } from "./world/kit/common";
 import { Bursts } from "./world/kit/particles";
 import { off } from "./engine/flags";
 import { detectDevice, initialSettings, Governor, frameCadence, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
-import { matteShading } from "./engine/lite";
+import { useMatteShading } from "./engine/lite";
 import { FpsMeter } from "./ui/fps";
 import { newGames } from "./library/store";
 import { setNewIds } from "./media/stickers";
@@ -94,6 +94,8 @@ export class App {
       const params = new URLSearchParams(location.search);
       this.device = await detectDevice();
       const { s: q0, remembered } = initialSettings(this.device, params);
+      // older phone GPUs: every lit material matte, for the whole visit (see lite.ts)
+      if (q0.lite) useMatteShading();
       this.engine = await createEngine(canvas, { msaa: q0.msaa, dpr: q0.dpr, bloom: q0.bloom, timestamps: true, coldTag: params.get("cold") ?? undefined });
       this.onGpuLost();
       // iPhones: no compiling other rooms in the background (Safari's graphics process stalls
@@ -242,8 +244,6 @@ export class App {
       });
       this.audio.scope = "";
       slot.scene.add(Hero.warmup(this.art), this.inspector.warmup());
-      // older phone GPUs: everything matte (before the room's shaders compile)
-      if (this.governor.settings.lite) matteShading(slot.scene);
       const tc = performance.now();
       if (slot.background) {
         // prebuilding a world nobody is looking at yet: everything, one shader at a time
@@ -472,6 +472,7 @@ export class App {
     this.engine.setScene(slot.scene);
     this.inspector.setScene(slot.scene);
     slot.scene.add(this.bursts.mesh);
+    this.bursts.prime();
     this.burstColor = slot.entry.accent;
     this.audio.activate(slot.id);
     this.playRoomMusic(slot);

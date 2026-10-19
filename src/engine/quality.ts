@@ -24,7 +24,7 @@ export interface QualitySettings {
   hiRes: boolean;
   /** 4x MSAA (needs a reload to change; FXAA is used when off) */
   msaa: boolean;
-  /** matte shading everywhere (see lite.ts; rooms take it when they're built, so a change shows next visit) */
+  /** matte shading everywhere (see lite.ts; set for the whole visit at startup, so a change shows next visit) */
   lite: boolean;
 }
 

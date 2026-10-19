@@ -38,6 +38,18 @@ export class Bursts {
     this.mesh.visible = false;
   }
 
+  /** frames left drawing an invisible particle (see prime) */
+  private priming = 0;
+
+  /**
+   * Draw one invisible (zero-size) particle for a few frames: called when the mesh joins a room
+   * that's being shown, so its GPU pipeline for that room is built then (each instanced mesh gets
+   * its own, per room) rather than at the first burst, mid-use. Otherwise it's hidden while empty.
+   */
+  prime(frames = 20) {
+    this.priming = frames;
+  }
+
   emit(at: THREE.Vector3, color: string, n = 18, spread = 0.12, upward = 0.25) {
     if (!live.fx) return;
     this.color.value.set(color).convertSRGBToLinear();
@@ -68,6 +80,13 @@ export class Bursts {
       this.mesh.setMatrixAt(k, this.m);
       this.fadeAttr.setX(k, f * f);
       k++;
+    }
+    if (!k && this.priming > 0) {
+      this.priming--;
+      this.mesh.setMatrixAt(0, this.m.makeScale(0, 0, 0));
+      this.fadeAttr.setX(0, 0);
+      this.mesh.instanceMatrix.needsUpdate = true;
+      k = 1;
     }
     this.mesh.count = k;
     this.mesh.visible = k > 0;
