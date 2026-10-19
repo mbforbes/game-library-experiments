@@ -60,12 +60,12 @@ for (const k of keys) {
     continue;
   }
   if (p.kind === "diag") {
-    console.log(`\n=== ${k}  DIAG · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · screen ${d.screen} @${d.native}x · ${p.backend} msaa ${p.msaa} · ${p.ua?.match(/Version\/[\d.]+|Chrome\/[\d.]+/)?.[0] ?? ""}`);
+    console.log(`\n=== ${k}  DIAG${p.partial ? " (partial)" : ""}${p.stalls?.length ? ` · ${p.stalls.length} stall(s)` : ""} · ${d.os}/${d.browser} ${d.mobile ? "phone" : "desktop"} · screen ${d.screen} @${d.native}x · ${p.backend} msaa ${p.msaa} · ${p.ua?.match(/Version\/[\d.]+|Chrome\/[\d.]+/)?.[0] ?? ""}`);
     if (p.levelTimes) console.log(`ready ${Math.round(p.ready ?? 0)} ms · ${Object.entries(p.levelTimes).map(([id, v]: [string, any]) => `${id} built ${v.built} + compiled ${v.compiled} ms`).join(" · ")}`);
     console.log("ms per frame at dpr 1 unless noted: flat out (js = our code + WebGPU calls) / at display pace, submit to GPU done");
     for (const [room, row] of Object.entries(p.results ?? {}) as [string, Record<string, { ms: number; js: number; paced?: number }>][]) {
       console.log(`  ${room}`);
-      for (const [n, v] of Object.entries(row) as [string, any][]) console.log(`    ${n.padEnd(10)} ${String(v.ms).padStart(6)} (js ${v.js}${v.gpu !== undefined ? `, gpu ${v.gpu}` : ""})${v.paced !== undefined ? `  paced ${v.paced}${v.gpuPaced !== undefined ? ` (gpu ${v.gpuPaced})` : ""}` : ""}`);
+      for (const [n, v] of Object.entries(row) as [string, any][]) if (v.stall) console.log(`    ${n.padEnd(10)} STALL: ${v.stall}`); else console.log(`    ${n.padEnd(10)} ${String(v.ms).padStart(6)} (js ${v.js}${v.gpu !== undefined ? `, gpu ${v.gpu}` : ""})${v.paced !== undefined ? `  paced ${v.paced}${v.gpuPaced !== undefined ? ` (gpu ${v.gpuPaced})` : ""}` : ""}`);
     }
     continue;
   }

@@ -5,7 +5,12 @@
 //   floor      bloom off, nothing in the room drawn (the per-frame overhead)
 //   noGames    bloom off, the game boxes not drawn
 //   halfLights bloom off, half the room's point lights off (every lit pixel adds each light up)
+//   aniso1     bloom off, the game boxes' textures without anisotropic filtering
+//   onePage    bloom off, the game boxes reading one cover page and one spine texture (not all)
+//   unlit      bloom off, the game boxes without lighting (their colours unlit)
 //   plainEnd   bloom off again, last (did conditions drift during the run?)
+// Every wait on the GPU has a time limit: a stall is recorded (where it happened) and the run goes
+// on; results are sent after each room, so a run that stops still reports what it measured.
 // With &msaa=0 the whole run is without multisampling (FXAA instead), and with &webgl on WebGL 2
 // instead of WebGPU (a frame is waited for with a 1-pixel read there), to compare.
 // Each variant: after the change, every shader it needs is compiled and it runs a second at
@@ -18,7 +23,13 @@
 // time per frame (timestamps), flat out (clocks up) and at display pace (the device's choice of
 // clock): what's the GPU's work as opposed to the browser's. Sent to /api/profile ("diag").
 
+import * as THREE from "three/webgpu";
+import { makeMediaMaterial } from "../media/material";
+
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+class Stall extends Error {}
+/** `p`, or a Stall after `ms` */
+const guard = <T>(p: Promise<T>, ms: number, what: string) => Promise.race([p, wait(ms).then(() => Promise.reject(new Stall(what)))]) as Promise<T>;
 const raf = () => new Promise((r) => requestAnimationFrame(r));
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
 
@@ -31,9 +42,10 @@ export async function runDiag(app: any) {
   const gl = r.backend.gl as WebGL2RenderingContext | undefined;
   if (!dev && !gl) return say("Diagnostic: no WebGPU or WebGL backend.");
   const px = new Uint8Array(4);
-  /** wait until the GPU has finished everything submitted so far */
+  let stage = "";
+  /** wait until the GPU has finished everything submitted so far (at most 5 s) */
   const done = async () => {
-    if (dev) await dev.queue.onSubmittedWorkDone();
+    if (dev) await guard(dev.queue.onSubmittedWorkDone(), 5000, `GPU work not done (${stage})`);
     else gl!.readPixels(0, 0, 1, 1, gl!.RGBA, gl!.UNSIGNED_BYTE, px);
   };
   app.governor.enabled = false;
@@ -45,7 +57,7 @@ export async function runDiag(app: any) {
     const t0 = performance.now();
     while (performance.now() - t0 < ms) {
       step();
-      await raf();
+      await guard(raf(), 3000, `no animation frame (${stage})`);
     }
   };
   const gpuNow = () => (e.gpuMs > 0 ? e.gpuMs : NaN);
@@ -76,26 +88,58 @@ export async function runDiag(app: any) {
       step();
       if (dev) dev.queue.onSubmittedWorkDone().then(() => lat.push(performance.now() - a));
       else (await done(), lat.push(performance.now() - a));
-      await raf();
+      await guard(raf(), 3000, `no animation frame (${stage})`);
       g.push(gpuNow());
     }
     await done();
     return { lat: lat.reduce((s, x) => s + x, 0) / Math.max(1, lat.length), gpu: med(g) };
   };
-  type Row = { ms: number; js: number; paced: number; gpu: number; gpuPaced: number };
-  const measure = async (scene: any): Promise<Row> => {
-    await e.precompile(scene, undefined, { parallel: 4 });
+  type Row = { ms: number; js: number; paced: number; gpu: number; gpuPaced: number } | { stall: string };
+  const measure = async (scene: any, where: string): Promise<Row> => {
+    stage = `${where} · compiling`;
+    await guard(e.precompile(scene, undefined, { parallel: 4 }), 30000, `compile not done (${where})`);
+    stage = `${where} · settling`;
     await settle(1000);
-    const t = [await throughput(), await throughput(), await throughput()];
+    const t = [];
+    for (let k = 1; k <= 3; k++) {
+      stage = `${where} · flat out ${k}/3`;
+      t.push(await throughput());
+    }
+    stage = `${where} · display pace`;
     const p = await paced();
     const f = (x: number) => +x.toFixed(2);
     return { ms: f(median(t.map((x) => x.ms))), js: f(median(t.map((x) => x.js))), paced: f(p.lat), gpu: f(median(t.map((x) => x.gpu))), gpuPaced: f(p.gpu) };
   };
   const results: Record<string, Record<string, Row>> = {};
   const lines: string[] = [];
+  const stalls: string[] = [];
   const rooms = ["den", "stacks", "lab"];
   const s0 = { ...app.governor.settings };
-  say("Diagnostic: measuring each room (about two and a half minutes). Leave the screen alone.");
+  const at = new Date().toISOString();
+  const send = async (partial: boolean) => {
+    const report = { v: 3, kind: "diag", at, partial, device: app.device, ua: navigator.userAgent, backend: e.backend, msaa: e.msaa, settings: s0, results, stalls, ready: (window as any).__ready ?? null, levelTimes: (window as any).__levelTimes ?? null };
+    try {
+      return (await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report) })).ok;
+    } catch {
+      return false;
+    }
+  };
+  // the game boxes' textures and materials, for the shading variants
+  const mediaTex: THREE.Texture[] = [...app.art.pages, ...app.art.spinePages, app.spines.texture];
+  const one = makeMediaMaterial([app.art.pages[0]], app.spines.texture, [], false);
+  const oneCut = makeMediaMaterial([app.art.pages[0]], app.spines.texture, [], true);
+  const unlitOf = new Map<any, THREE.MeshBasicNodeMaterial>();
+  const unlit = (m: any) => {
+    if (!unlitOf.has(m)) {
+      const b = new THREE.MeshBasicNodeMaterial();
+      b.colorNode = m.colorNode;
+      b.opacityNode = m.opacityNode;
+      b.alphaTest = m.alphaTest;
+      unlitOf.set(m, b);
+    }
+    return unlitOf.get(m)!;
+  };
+  say("Diagnostic: measuring each room (about three minutes). Leave the screen alone.");
   for (const [i, id] of rooms.entries()) {
     await app.loadLevel(id, () => {});
     await wait(1500);
@@ -107,11 +151,20 @@ export async function runDiag(app: any) {
     scene.traverse((o: any) => o.isInstancedMesh && o.material?.userData?.media && games.push(o));
     const row: Record<string, Row> = {};
     const run = async (name: string, setup: () => void, undo?: () => void) => {
-      say(`Diagnostic: ${id} (${i + 1}/${rooms.length}) · ${name}…\n${lines.join("\n")}`);
+      if (stalls.length >= 3) return; // (the GPU isn't coming back: stop measuring)
+      say(`Diagnostic: ${id} (${i + 1}/${rooms.length}) · ${name}…\n${lines.join("\n")}${stalls.length ? `\nstalls: ${stalls.join("; ")}` : ""}`);
       setup();
-      row[name] = await measure(scene);
+      try {
+        row[name] = await measure(scene, `${id} ${name}`);
+      } catch (err) {
+        if (!(err instanceof Stall)) throw err;
+        row[name] = { stall: err.message };
+        stalls.push(err.message);
+      }
       undo?.();
     };
+    const swap = (to: (m: any) => any) => games.forEach((g) => ((g.userData.mat ??= g.material), (g.material = to(g.userData.mat))));
+    const unswap = () => games.forEach((g) => (g.material = g.userData.mat));
     const shown = scene.children.filter((c: any) => !c.isLight && c.visible);
     await run("bloom", () => (e.setDpr(1), e.setBloom(0.25)));
     await run("plain", () => e.setBloom(0));
@@ -122,19 +175,20 @@ export async function runDiag(app: any) {
     scene.traverse((o: any) => o.isPointLight && o.visible && points.push(o));
     const half = points.slice(0, Math.ceil(points.length / 2));
     if (half.length) await run("halfLights", () => half.forEach((l) => (l.visible = false)), () => half.forEach((l) => (l.visible = true)));
+    const aniso = mediaTex.map((t) => t.anisotropy);
+    const setAniso = (k?: number) => mediaTex.forEach((t, j) => ((t.anisotropy = k ?? aniso[j]), (t.needsUpdate = true)));
+    await run("aniso1", () => setAniso(1), () => setAniso());
+    await run("onePage", () => swap((m) => (m.alphaTest ? oneCut : one)), unswap);
+    await run("unlit", () => swap(unlit), unswap);
     await run("plainEnd", () => {});
     results[id] = row;
-    lines.push(`${id}: ${Object.entries(row).map(([k, v]) => `${k} ${v.paced}/${v.gpuPaced}`).join(" · ")}`);
+    lines.push(`${id}: ${Object.entries(row).map(([k, v]) => ("stall" in v ? `${k} STALL` : `${k} ${v.paced}/${v.gpuPaced}`)).join(" · ")}`);
     r.setAnimationLoop(app.frame);
+    await send(true);
   }
   e.setDpr(s0.dpr);
   e.setBloom(s0.bloom);
   app.governor.enabled = true;
-  const report = { v: 2, kind: "diag", at: new Date().toISOString(), device: app.device, ua: navigator.userAgent, backend: e.backend, msaa: e.msaa, settings: s0, results, ready: (window as any).__ready ?? null, levelTimes: (window as any).__levelTimes ?? null };
-  let sent = "not sent";
-  try {
-    const res = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(report) });
-    if (res.ok) sent = "sent ✓";
-  } catch {}
-  say(`Diagnostic done · results ${sent}\nms per frame at display pace: submit to done / GPU time:\n${lines.join("\n")}`);
+  const sent = (await send(false)) ? "sent ✓" : "not sent";
+  say(`Diagnostic done · results ${sent}${stalls.length ? ` · ${stalls.length} stall(s): ${stalls.join("; ")}` : ""}\nms per frame at display pace: submit to done / GPU time:\n${lines.join("\n")}`);
 }
