@@ -3,6 +3,7 @@
 // spines, per-instance state (highlight / dim / glow / hidden) and fast picking.
 
 import * as THREE from "three/webgpu";
+import { logWork } from "../engine/worklog";
 import type { Game } from "../../shared/types";
 import { mediaFor, platformOf, type MediaKind } from "../../shared/platforms";
 import { TEMPLATES, geometryFor, coverRect, photoRect, type Template } from "./templates";
@@ -564,6 +565,7 @@ export class MediaField {
         } else if (a > la) ud.crop.set((1 - la / a) / 2, 0, la / a, 1);
         else ud.crop.set(0, (1 - a / la) * cy, 1, a / la);
         ud.tex = tex;
+        logWork("close-up cover in");
         o.mesh.visible = true;
         const t0 = performance.now();
         const step = () => {

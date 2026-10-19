@@ -12,6 +12,7 @@ import type { App } from "../app";
 import type { InputHandlers } from "../engine/input";
 import type { QualitySettings } from "../engine/quality";
 import { LEVELS } from "../levels";
+import { workLog } from "../engine/worklog";
 
 interface Seg {
   name: string;
@@ -110,6 +111,9 @@ export async function runProfile(app: App) {
         const mid = f.t - f.dt / 2;
         let d = name;
         for (const m of marks) if (m.t <= mid) d = m.doing;
+        // one-off work just before or during the frame (a texture swapped in, a canvas printed)
+        const work = workLog.filter((w) => w.t > f.t - f.dt - 40 && w.t <= f.t).map((w) => w.what);
+        if (work.length) d += ` · ${work.join(", ")}`;
         return { at: +((f.t - t0) / 1000).toFixed(2), ms: Math.round(f.dt), doing: d };
       });
     const info = app.engine.renderer.info.render;

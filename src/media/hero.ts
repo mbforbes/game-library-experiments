@@ -12,6 +12,7 @@ import type { Game } from "../../shared/types";
 import { platformOf, type Platform } from "../../shared/platforms";
 import type { ArtStore } from "../library/art";
 import { loadImage as decodeImage } from "../library/art";
+import { logWork } from "../engine/worklog";
 import { drawProceduralCover, wrap } from "../library/art";
 import { geometryFor } from "./templates";
 import { kindOf, templateOf, coverCrop, photoPad } from "./field";
@@ -152,7 +153,9 @@ export class Hero {
       const H = art.lowRes ? 512 : 1024;
       sh.spineCanvas.height = horiz ? Math.round(H * (shh / sw)) : H;
       sh.spineCanvas.width = horiz ? H : Math.max(16, Math.round(H * (sw / shh)));
+      const t0 = performance.now();
       drawSpine(sh.spineCanvas.getContext("2d")!, 0, 0, sh.spineCanvas.width, sh.spineCanvas.height, game, art, horiz);
+      logWork(`printed spine (${Math.round(performance.now() - t0)} ms)`);
       sh.spineTex.dispose(); // canvas size changed: recreate the GPU texture
       sh.spineTex.needsUpdate = true;
       sh.spine.value = sh.spineTex;
@@ -166,8 +169,10 @@ export class Hero {
       sh.backCanvas.height = Math.round((BW * h) / w);
       const bctx = sh.backCanvas.getContext("2d")!;
       const redraw = () => live() && (sh.backTex.needsUpdate = true);
+      const t0 = performance.now();
       if (isCart) drawCartBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, p);
       else drawBack(bctx, sh.backCanvas.width, sh.backCanvas.height, game, art, redraw);
+      logWork(`printed back (${Math.round(performance.now() - t0)} ms)`);
       sh.backTex.dispose();
       sh.backTex.needsUpdate = true;
       sh.back.value = sh.backTex;
@@ -208,6 +213,7 @@ export class Hero {
         if (!tex || !live()) return;
         const img = tex.image as { width: number; height: number };
         sh.front.value = tex;
+        logWork("cart photo in");
         sh.coverRect.value.set(0, 0, 1, 1);
         sh.photoPad.value.set(...photoPad(img.width / img.height, kind));
       });
@@ -226,6 +232,7 @@ export class Hero {
           cv = (1 - ch) * t.cropY;
         }
         sh.front.value = tex;
+        logWork("hi-res cover in");
         sh.coverRect.value.set(cu, cv, cw, ch);
       });
     }
@@ -237,6 +244,7 @@ export class Hero {
         if (!live() || !tex) return;
         spineScan = true;
         sh.spine.value = tex;
+        logWork("spine scan in");
       });
     if (e?.spc && !editionOf(game)) (opts.spineNow ?? true) ? spineScanNow() : later(spineScanNow);
     const realBack = isCart ? e?.kb : e?.b;
@@ -246,6 +254,7 @@ export class Hero {
           if (!live() || !tex) return;
           backScan = true;
           sh.back.value = tex;
+          logWork("back scan in");
         }),
       );
   }
