@@ -375,6 +375,28 @@ export class Hud {
       this.panel.classList.remove("open");
       return;
     }
+    this.panel.innerHTML = this.panelHtml(g);
+    // (a new game: the Archivist starts over, if it has something to say about this one)
+    this.panelVoice.clear();
+    this.panel.querySelector(".facts")!.appendChild(this.panelVoice.el);
+    this.panel.querySelectorAll<HTMLButtonElement>("button[data-a]").forEach((b) => {
+      b.onclick = () => {
+        const a = b.dataset.a;
+        if (a === "close") this.cb.onClose();
+        if (a === "flip") this.cb.onFlip();
+        if (a === "spine") this.cb.onSpine();
+        if (a === "prev") this.cb.onPrev();
+        if (a === "next") this.cb.onNext();
+        if (a === "spine" || a === "close") this.cb.onUi("tick");
+      };
+    });
+    this.panel.classList.add("open");
+    this.panel.scrollTop = 0;
+    // (phones: the first-visit controls card would sit on top of the panel)
+    if (!this.isSide) this.help.classList.remove("open");
+  }
+
+  private panelHtml(g: Game): string {
     const p = platformOf(g.platform);
     const year = this.art.year(g);
     const facts: [string, string][] = [...(this.factsHook?.(g) ?? [])];
@@ -407,7 +429,7 @@ export class Hud {
       : dis
         ? `<div class="forecast"><div class="r-label">vs the crowd</div><p>Crowd ★${dis.community.toFixed(1)}/5 · ${esc(dis.note)}</p></div>`
         : "";
-    this.panel.innerHTML = `
+    return `
       <div class="grab"></div>
       <div class="p-head">
         <div class="p-plat" style="--c:${p.neon}">${esc(p.name)}</div>
@@ -424,24 +446,21 @@ export class Hud {
         <button data-a="next" aria-label="Next">›</button>
         <button data-a="close" class="close" aria-label="Close">✕</button>
       </div>`;
-    // (a new game: the Archivist starts over, if it has something to say about this one)
-    this.panelVoice.clear();
-    this.panel.querySelector(".facts")!.appendChild(this.panelVoice.el);
-    this.panel.querySelectorAll<HTMLButtonElement>("button[data-a]").forEach((b) => {
-      b.onclick = () => {
-        const a = b.dataset.a;
-        if (a === "close") this.cb.onClose();
-        if (a === "flip") this.cb.onFlip();
-        if (a === "spine") this.cb.onSpine();
-        if (a === "prev") this.cb.onPrev();
-        if (a === "next") this.cb.onNext();
-        if (a === "spine" || a === "close") this.cb.onUi("tick");
-      };
-    });
-    this.panel.classList.add("open");
-    this.panel.scrollTop = 0;
-    // (phones: the first-visit controls card would sit on top of the panel)
-    if (!this.isSide) this.help.classList.remove("open");
+  }
+
+  /**
+   * Lay out a hidden copy of the game panel once (in idle time after loading): the first panel's
+   * styles and layout were a slow frame when the first game was opened on a phone.
+   */
+  warmPanel(g: Game) {
+    const el = this.panel.cloneNode(false) as HTMLElement;
+    el.classList.add("open");
+    el.setAttribute("aria-hidden", "true");
+    el.style.cssText += ";visibility:hidden;pointer-events:none;transition:none";
+    el.innerHTML = this.panelHtml(g);
+    this.root.appendChild(el);
+    el.getBoundingClientRect();
+    requestAnimationFrame(() => el.remove());
   }
 
   /** Desktop hover tooltip */

@@ -13,6 +13,7 @@ import { platformOf, type Platform } from "../../shared/platforms";
 import type { ArtStore } from "../library/art";
 import { loadImage as decodeImage } from "../library/art";
 import { logWork } from "../engine/worklog";
+import { swapSoon } from "../engine/swaps";
 import { drawProceduralCover, wrap } from "../library/art";
 import { geometryFor } from "./templates";
 import { kindOf, templateOf, coverCrop, photoPad } from "./field";
@@ -209,16 +210,18 @@ export class Hero {
 
     // ---- upgrade to hi-res / real scans as they arrive
     if (photo) {
-      art.tex(e!.k).then((tex) => {
-        if (!tex || !live()) return;
-        const img = tex.image as { width: number; height: number };
-        sh.front.value = tex;
-        logWork("cart photo in");
-        sh.coverRect.value.set(0, 0, 1, 1);
-        sh.photoPad.value.set(...photoPad(img.width / img.height, kind));
-      });
+      art.tex(e!.k).then((tex) =>
+        swapSoon(() => {
+          if (!tex || !live()) return;
+          const img = tex.image as { width: number; height: number };
+          sh.front.value = tex;
+          logWork("cart photo in");
+          sh.coverRect.value.set(0, 0, 1, 1);
+          sh.photoPad.value.set(...photoPad(img.width / img.height, kind));
+        }),
+      );
     } else {
-      art.hiRes(game).then((tex) => {
+      art.hiRes(game).then((tex) => swapSoon(() => {
         if (!tex || !live()) return;
         const img = tex.image as { width: number; height: number };
         const aspect = img.width / img.height;
@@ -234,28 +237,32 @@ export class Hero {
         sh.front.value = tex;
         logWork("hi-res cover in");
         sh.coverRect.value.set(cu, cv, cw, ch);
-      });
+      }));
     }
     // the real spine / back scans after the opening (~0.85 s), unless the spine is what faces you:
     // they face away while it flies out, and each is an upload + mip chain that landed in its frames
     const later = (fn: () => void) => setTimeout(() => whenIdle(fn), 900);
     const spineScanNow = () =>
-      art.tex(e!.spc!).then((tex) => {
-        if (!live() || !tex) return;
-        spineScan = true;
-        sh.spine.value = tex;
-        logWork("spine scan in");
-      });
+      art.tex(e!.spc!).then((tex) =>
+        swapSoon(() => {
+          if (!live() || !tex) return;
+          spineScan = true;
+          sh.spine.value = tex;
+          logWork("spine scan in");
+        }),
+      );
     if (e?.spc && !editionOf(game)) (opts.spineNow ?? true) ? spineScanNow() : later(spineScanNow);
     const realBack = isCart ? e?.kb : e?.b;
     if (realBack)
       later(() =>
-        art.tex(realBack).then((tex) => {
-          if (!live() || !tex) return;
-          backScan = true;
-          sh.back.value = tex;
-          logWork("back scan in");
-        }),
+        art.tex(realBack).then((tex) =>
+          swapSoon(() => {
+            if (!live() || !tex) return;
+            backScan = true;
+            sh.back.value = tex;
+            logWork("back scan in");
+          }),
+        ),
       );
   }
 

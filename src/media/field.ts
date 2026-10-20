@@ -4,6 +4,7 @@
 
 import * as THREE from "three/webgpu";
 import { logWork } from "../engine/worklog";
+import { swapSoon } from "../engine/swaps";
 import type { Game } from "../../shared/types";
 import { mediaFor, platformOf, type MediaKind } from "../../shared/platforms";
 import { TEMPLATES, geometryFor, coverRect, photoRect, type Template } from "./templates";
@@ -555,26 +556,28 @@ export class MediaField {
       this.overlays.set(c.id, o);
       const la = c.b.ts[c.i].labelAspect, cy = c.b.ts[c.i].cropY;
       const mine = () => o.id === c.id && this.overlays.get(c.id) === o;
-      (photo ? this.kit.art.tex(this.kit.art.entry(g)?.k) : this.kit.art.hiRes(g)).then((tex) => {
-        if (!tex || !mine()) return;
-        const img = tex.image as { width: number; height: number };
-        const a = img.width / img.height;
-        if (photo) {
-          const [px, py] = photoPad(a, c.b.kinds[c.i]);
-          ud.crop.set(px, py, 1 - 2 * px, 1 - 2 * py);
-        } else if (a > la) ud.crop.set((1 - la / a) / 2, 0, la / a, 1);
-        else ud.crop.set(0, (1 - a / la) * cy, 1, a / la);
-        ud.tex = tex;
-        logWork("close-up cover in");
-        o.mesh.visible = true;
-        const t0 = performance.now();
-        const step = () => {
-          if (!mine()) return;
-          ud.fade = Math.min(1, (performance.now() - t0) / 250);
-          if (ud.fade < 1) requestAnimationFrame(step);
-        };
-        step();
-      });
+      (photo ? this.kit.art.tex(this.kit.art.entry(g)?.k) : this.kit.art.hiRes(g)).then((tex) =>
+        swapSoon(() => {
+          if (!tex || !mine()) return;
+          const img = tex.image as { width: number; height: number };
+          const a = img.width / img.height;
+          if (photo) {
+            const [px, py] = photoPad(a, c.b.kinds[c.i]);
+            ud.crop.set(px, py, 1 - 2 * px, 1 - 2 * py);
+          } else if (a > la) ud.crop.set((1 - la / a) / 2, 0, la / a, 1);
+          else ud.crop.set(0, (1 - a / la) * cy, 1, a / la);
+          ud.tex = tex;
+          logWork("close-up cover in");
+          o.mesh.visible = true;
+          const t0 = performance.now();
+          const step = () => {
+            if (!mine()) return;
+            ud.fade = Math.min(1, (performance.now() - t0) / 250);
+            if (ud.fade < 1) requestAnimationFrame(step);
+          };
+          step();
+        }),
+      );
     }
   }
 

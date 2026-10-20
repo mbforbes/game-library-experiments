@@ -19,6 +19,7 @@ import { Bursts } from "./world/kit/particles";
 import { off } from "./engine/flags";
 import { detectDevice, initialSettings, Governor, frameCadence, LAYER, live, type DeviceInfo, type QualitySettings } from "./engine/quality";
 import { useMatteShading } from "./engine/lite";
+import { nextSwap } from "./engine/swaps";
 import { FpsMeter } from "./ui/fps";
 import { newGames } from "./library/store";
 import { setNewIds } from "./media/stickers";
@@ -162,6 +163,8 @@ export class App {
       console.info(`[library] ready in ${Math.round(performance.now() - t0)}ms (${this.engine.backend}, ${this.store.source})`);
       (window as any).__ready = performance.now() - t0;
       this.hud.hideLoading();
+      // (the game panel's first layout, out of the way of the first game you open)
+      idle(3000).then(() => this.store.games[0] && this.hud.warmPanel(this.store.games[0]));
       if (!off("upgrade") && this.governor.settings.hiRes) this.art.ready.then(() => setTimeout(() => this.art.upgrade(), 1000));
       if (!off("prebuild") && !this.bgOff) this.prebuilt = this.prebuildOthers();
       if (wantVault) this.openVault();
@@ -746,6 +749,7 @@ export class App {
     this.inspector.update(dt, t);
     this.bursts.update(dt);
     if (!off("audio")) this.audio.update(this.engine.camera);
+    nextSwap();
     this.engine.render();
     // timing for the governor, the FPS meter and the profiler
     const cpu = performance.now() - work0;
